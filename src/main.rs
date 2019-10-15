@@ -1,158 +1,132 @@
+#![feature(box_syntax)]
+
 use llvm_sys_wrapper::*;
 use std::ops::Deref;
 
 #[derive(Debug)]
-pub enum AstNode<'a> {
-    Call(LLVMValueRef, &'a mut [LLVMValueRef]),
-    GlobalStrPtr(&'a str),
-    Ref(LLVMTypeRef),
-    Assign(Box<AstNode<'a>>, Box<AstNode<'a>>),
-    I32Const(i32),
-    I64Const(i64),
-    U32Const(u32),
-    U64Const(u64),
-    /*Ref(String, LLVMTypeRef),
-    Assign(String, LLVMValueRef, Box<AstNode<'a>>)*/
-    Add(Box<AstNode<'a>>, Box<AstNode<'a>>),
-    Sub(Box<AstNode<'a>>, Box<AstNode<'a>>),
-    Mul(Box<AstNode<'a>>, Box<AstNode<'a>>),
-    Div(Box<AstNode<'a>>, Box<AstNode<'a>>),
-    Load(LLVMValueRef),
-    LoadRef(Box<AstNode<'a>>),
+pub enum PrimitiveType {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
 }
 
-impl<'a> AstNode<'a> {
-    pub fn emit(&mut self, builder: &Builder) -> LLVMValueRef {
-        match self {
-            Self::Call(func, args) => builder.build_call(*func, *args),
-            Self::GlobalStrPtr(val) => builder.build_global_string_ptr(val),
-            Self::Ref(val_type) => builder.build_alloca(*val_type),
-            Self::Assign(var, val) => {
-                let var_ref = var.emit(&builder);
-                builder.build_store(val.emit(&builder), var_ref);
-                var_ref
-            }
-            Self::I32Const(val) => LLVM::Const::SInt32(*val as u64),
-            Self::I64Const(val) => LLVM::Const::SInt64(*val as u64),
-            Self::U32Const(val) => LLVM::Const::UInt32(*val as u64),
-            Self::U64Const(val) => LLVM::Const::UInt64(*val as u64),
-            Self::Add(a, b) => builder.build_add(a.emit(&builder), b.emit(&builder)),
-            Self::Sub(a, b) => builder.build_sub(a.emit(&builder), b.emit(&builder)),
-            Self::Mul(a, b) => builder.build_mul(a.emit(&builder), b.emit(&builder)),
-            Self::Div(a, b) => builder.build_sdiv(a.emit(&builder), b.emit(&builder)),
-            Self::Load(val) => builder.build_load(*val),
-            Self::LoadRef(val) => builder.build_load(val.emit(&builder)),
-        }
-    }
+#[derive(Debug)]
+pub enum UnaryOp {
+    Negative,
 }
 
-struct Func {
-    function: Function,
+#[derive(Debug)]
+pub enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    Equals,
+    NotEquals,
 }
 
-impl Deref for Func {
-    type Target = Function;
-
-    fn deref(&self) -> &Function {
-        &self.function
-    }
-}
-
-impl Func {
-    fn new(module: &Module, name: String, func_type: LLVMTypeRef) -> Self {
-        Self {
-            function: module.add_function(name.as_ref(), func_type),
-        }
-    }
-
-    fn append_block(&self, name: String) -> LLVMBasicBlockRef {
-        self.append_basic_block(name.as_ref())
-    }
-
-    fn append_and_position(&self, name: String, builder: &Builder) -> LLVMBasicBlockRef {
-        let block = self.append_block(name);
-        builder.position_at_end(block);
-        block
-    }
+#[derive(Debug)]
+pub enum AstNode {
+    True,
+    False,
+    IntLiteral(PrimitiveType, u64),
+    Unary(UnaryOp, Box<AstNode>),
+    Binary(BinaryOp, Box<AstNode>, Box<AstNode>),
+    Parenthesized(Box<AstNode>),
+    If(Box<AstNode>, Box<AstNode>),
+    IfElse(Box<AstNode>, Box<AstNode>),
+    Block(Vec<Box<AstNode>>),
 }
 
 peg::parser! {
     grammar lang_parser() for str {
-        use self::AstNode;
+        use AstNode;
 
-        rule _() = quiet!{[' ' | '\n' | '\t']+}
+        rule _() = quiet!{[' ' | '\n' | '\t']*}
 
-        rule number<'a>() -> AstNode<'a>
-            = n:$(['0'..='9']+) { AstNode::I64Const(n.parse().unwrap()) }
+        rule int_primitive_type() -> PrimitiveType
+            = "u8" { PrimitiveType::U8 }
+            / "u16" { PrimitiveType::U16 }
+            / "u32" { PrimitiveType::U32 }
+            / "u64" { PrimitiveType::U64 }
+            / "u128" { PrimitiveType::U128 }
+            / "i8" { PrimitiveType::I8 }
+            / "i16" { PrimitiveType::I16 }
+            / "i32" { PrimitiveType::I32 }
+            / "i64" { PrimitiveType::I64 }
+            / "i128" { PrimitiveType::I128 }
 
-        rule ident() -> &'input str
-            = $(quiet!{['a'..='z' | 'A'..='Z']['a'..='z' | 'A'..='Z' | '0'..='9']*})
-            / expected!("identifier")
+        rule parenthesized<T>(x: rule<T>) -> T = "(" _ v:x() _ ")" { v }
+        rule curly<T>(x: rule<T>) -> T = "{" _ v:x() _ "}" { v }
+        rule boxed<T>(x: rule<T>) -> Box<T> =  v:x() { box v }
 
-        pub rule expr<'a>() -> AstNode<'a> = precedence! {
-            x:(@) _ "+" _ y:@ { AstNode::Add(Box::new(x), Box::new(y)) }
-            x:(@) _ "-" _ y:@ { AstNode::Sub(Box::new(x), Box::new(y)) }
+        rule else() -> AstNode
+            = "else" _ els:block() { els }
+
+        rule cond() -> AstNode
+            = "if" _ cond:expr() _ then:block() _ els:(else())? {
+                let if_expr = AstNode::If(box cond, box then);
+                match els {
+                    None => if_expr,
+                    Some(else_cnd) => AstNode::IfElse(box if_expr, box else_cnd)
+                }
+            }
+
+        rule int_literal() -> AstNode
+            = n:$(['0'..='9']+) ty:int_primitive_type()? { AstNode::IntLiteral(ty.unwrap_or(PrimitiveType::I32), n.parse().unwrap()) }
+        rule unary() -> AstNode
+            = "-" n:int_literal() { AstNode::Unary(UnaryOp::Negative, box n) }
+        rule atom() -> AstNode
+            = n:unary() { n }
+            / n:int_literal() { n }
+            / "true" { AstNode::True }
+            / "false" { AstNode::False }
+        rule expr() -> AstNode = precedence! {
+            e:atom() { e }
+            e:parenthesized(<expr()>) { AstNode::Parenthesized(box e) }
+            e:cond() { e }
             --
-            x:(@) _ "*" _ y:@ { AstNode::Mul(Box::new(x), Box::new(y)) }
-            x:(@) _ "/" _ y:@ { AstNode::Div(Box::new(x), Box::new(y)) }
+            x:(@) _ "+" _ y:@ { AstNode::Binary(BinaryOp::Add, box x, box y) }
+            x:(@) _ "-" _ y:@ { AstNode::Binary(BinaryOp::Subtract, box x, box y) }
             --
-            n:number() { n }
+            x:(@) _ "*" _ y:@ { AstNode::Binary(BinaryOp::Multiply, box x, box y) }
+            x:(@) _ "/" _ y:@ { AstNode::Binary(BinaryOp::Divide, box x, box y) }
+            --
+            x:(@) _ "%" _ y:@ { AstNode::Binary(BinaryOp::Modulo, box x, box y) }
+            --
+            x:(@) _ "==" _ y:@ { AstNode::Binary(BinaryOp::Equals, box x, box y) }
+            x:(@) _ "!=" _ y:@ { AstNode::Binary(BinaryOp::NotEquals, box x, box y) }
         }
 
-        pub rule assign<'a>() -> AstNode<'a>
-            = ident() _ "=" _ expr:expr() {
-                AstNode::Assign(Box::new(AstNode::Ref(LLVM::Type::Int64())), Box::new(expr))
-            }
-        pub rule file<'a>() -> AstNode<'a>
-            = expr()
-            / var:assign() {? Ok(AstNode::LoadRef(Box::new(var))) }
-            / expected!("Expected either expression or variable assignment")
+        pub rule block() -> AstNode
+            = _ blck:curly(<boxed(<expr()>)*>) _ { AstNode::Block(blck) }
+            / _ blck:expr() _ { blck }
     }
 }
 
 fn main() {
-    LLVM::initialize();
-
-    let context = Context::global_context();
-
-    let builder = context.create_builder();
-    'repl: loop {
-        use std::io::{stdin, stdout, Write};
-        print!(">>> ");
-        let mut input = String::new();
-        let _ = stdout().flush();
-        stdin().read_line(&mut input).unwrap();
-
-        match &*input.trim() {
-            ":quit" => break 'repl,
-            code => {
-                let module = context.create_module(&String::default());
-
-                let main = Func::new(&module, "main".to_string(), fn_type!(context.Int64Type()));
-                main.append_and_position("entry".to_string(), &builder);
-
-                let mut parsed = match lang_parser::file(&*code) {
-                    Ok(val) => val,
-                    Err(e) => {
-                        continue;
-                    }
-                };
-
-                builder.build_ret(parsed.emit(&builder));
-
-                // verify & dump
-                match module.verify() {
-                    Ok(_) => {
-                        let interpreter = module.create_jit_engine().unwrap();
-                        let named_function = module.named_function("main");
-                        let mut params = [];
-                        let run_result =
-                            interpreter.run_function(named_function.as_ref(), &mut params);
-                        println!("> {}", run_result.to_int());
-                    }
-                    Err(msg) => panic!("Error: {}", msg),
-                }
-            }
-        }
-    }
+    println!(
+        "###1: if true 1 + 2 else if false 2 * 8 else 100\n{:#?}\n\n###2: if (true) {{ 1 + 2 }} else if (false) {{ 2 * 8 }} else (100)\n{:#?}",
+        lang_parser::block(
+            r#"
+        if true 1 + 2 else if false 2 * 8 else 100
+    "#),
+        lang_parser::block(
+            r#"
+            if (true) {
+                1 + 2
+            } else if (false) {
+                2 * 8
+            } else (100)
+            "#
+        )
+    );
 }
