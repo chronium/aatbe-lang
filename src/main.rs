@@ -7,7 +7,7 @@ use parser::aatbe_parser;
 fn main() {
   println!(
     "{:#?}",
-    aatbe_parser::block(
+    aatbe_parser::expr(
       "
 {
     fn puts str -> i32

@@ -43,7 +43,7 @@ peg::parser! {
       / "any" { PrimitiveType::Any }
 
     rule ty() -> PrimitiveType
-      = prim:int_primitive_type() { prim }
+      = int_primitive_type()
       / "bool" { PrimitiveType::Boolean }
       / "char" { PrimitiveType::Char }
       / "str" { PrimitiveType::Str }
@@ -61,10 +61,10 @@ peg::parser! {
     rule bracketed<T>(x: rule<T>) -> T = "[" v:x() "]" { v }
 
     rule else() -> AST
-      = "else" _ els:block() { els }
+      = "else" _ els:expr() { els }
 
     rule cond() -> AST
-      = "if" _ cond:expr() _ then:block() _ els:(else())? {
+      = "if" _ cond:expr() _ then:expr() _ els:(else())? {
           let if_expr = AST::If { condition: box cond, then_block: box then };
           match els {
               None => if_expr,
@@ -91,12 +91,10 @@ peg::parser! {
       / "!" n:atom() { AST::Unary(UnaryOp::Negate, box n) }
       / "&" n:atom() { AST::AddrOf(box n) }
     rule atom() -> AST
-      = n:(
-        unary() /
-        int_literal() /
-        char_literal() /
-        string_literal()
-        ) { n }
+      = unary()
+      / int_literal()
+      / char_literal()
+      / string_literal()
       / "true" { AST::True }
       / "false" { AST::False }
       / n:ident() _ e:expr() { AST::Call { name: n, arg: box e } }
@@ -111,7 +109,8 @@ peg::parser! {
           }
         }
       }
-    rule expr() -> AST = precedence! {
+      / _ e:curly(<expr() ** _>) _ { AST::Block(e) }
+    pub rule expr() -> AST = precedence! {
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }
       e:cond() { e }
@@ -137,12 +136,5 @@ peg::parser! {
         }
       }
     }
-
-    rule line() -> AST
-      = _ line:expr() _ { line }
-
-    pub rule block() -> AST
-      = _ blck:curly(<line()*>) _ { AST::Block(blck) }
-      / _ blck:line() _ { blck }
   }
 }
