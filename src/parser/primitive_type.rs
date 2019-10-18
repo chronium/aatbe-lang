@@ -1,0 +1,30 @@
+#[derive(Debug)]
+pub enum PrimitiveType {
+  U8,
+  U16,
+  U32,
+  U64,
+  U128,
+  USize,
+  I8,
+  I16,
+  I32,
+  I64,
+  I128,
+  ISize,
+  Boolean,
+  Char,
+  Str,
+  Any,
+  NamedType {
+    name: String,
+    ty: Box<PrimitiveType>,
+  },
+  TupleType(Vec<PrimitiveType>),
+  Pointer(Box<PrimitiveType>),
+  Params(Box<Option<PrimitiveType>>),
+  FunctionType {
+    ret_type: Box<PrimitiveType>,
+    param: Box<PrimitiveType>,
+  },
+}
