@@ -88,6 +88,10 @@ pub enum AST {
         name: String,
         ty: Box<PrimitiveType>,
     },
+    Call {
+        name: String,
+        arg: Box<AST>,
+    },
 }
 
 peg::parser! {
@@ -185,6 +189,7 @@ peg::parser! {
                 ) { n }
             / "true" { AST::True }
             / "false" { AST::False }
+            / n:ident() _ e:expr() { AST::Call { name: n, arg: box e } }
             / n:ident() { AST::Ref(n) }
             / n:parenthesized(<(e:expr()? {e.unwrap_or(AST::Empty)}) ** (_ "," _)>) { AST::Tuple(n) }
             / "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
@@ -243,6 +248,9 @@ fn main() {
 
     fn swap (x: any, y: any) -> (any, any)
         = (y, x)
+
+    swap(a, b)
+    printf(\"Hello %s\n\", \"World!\")
 }
         "
         )
