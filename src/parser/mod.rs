@@ -8,7 +8,7 @@ peg::parser! {
     use self::operations::{BinaryOp, UnaryOp};
     use self::primitive_type::PrimitiveType;
 
-    rule _() = quiet!{[' ' | '\n' | '\t']*}
+    rule _() = quiet!{[' ' | '\n' | '\t' | '\r']*}
 
     rule ident_key()
       = ['a'..='z' | 'A'..='Z' | '_']['a'..='z' | 'A'..='Z' | '_' | '-' | '0'..='9']*
@@ -91,7 +91,7 @@ peg::parser! {
       / "!" n:atom() { AST::Unary(UnaryOp::Negate, box n) }
       / "&" n:atom() { AST::AddrOf(box n) }
     rule atom() -> AST
-      = unary()
+      = _ atom:(unary()
       / int_literal()
       / char_literal()
       / string_literal()
@@ -109,7 +109,7 @@ peg::parser! {
           }
         }
       }
-      / _ e:curly(<expr() ** _>) _ { AST::Block(e) }
+      / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }
     pub rule expr() -> AST = precedence! {
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }
