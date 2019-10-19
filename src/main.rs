@@ -1,7 +1,7 @@
 #![feature(box_syntax)]
 
 mod parser;
-use parser::{aatbe_parser, ast::AST, primitive_type::PrimitiveType};
+use parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType};
 
 use std::{fs::File, io, io::prelude::Read};
 
@@ -27,29 +27,57 @@ impl Codegen {
 
   pub fn prelude(&mut self) {
     self.builder = Some(self.context.create_builder());
-    let main_type = fn_type!(self.context.VoidType());
+    let main_type = fn_type!(self.context.Int32Type());
     let main_func = self.module.get_or_add_function("main", main_type);
     let entry_block = main_func.append_basic_block("entry");
     self.builder.as_ref().unwrap().position_at_end(entry_block);
   }
 
-  pub fn end(&self) {
-    self.builder.as_ref().unwrap().build_ret_void();
+  pub fn end(&self, val: LLVMValueRef) {
+    self.builder.as_ref().unwrap().build_ret(val);
   }
 
-  pub fn codegen(&self, node: AST) {
+  pub fn codegen(&self, node: &AST) -> LLVMValueRef {
     let builder: &Builder = self.builder.as_ref().unwrap();
 
     match node {
-      AST::IntLiteral(ty, val) => self.codegen_const_int(ty, val),
+      AST::IntLiteral(ty, val) => self.codegen_const_int(ty, *val),
       AST::StringLiteral(string) => builder.build_global_string_ptr(string.as_str()),
+      AST::Binary(op, x, y) => {
+        let x = self.codegen(&x);
+        let y = self.codegen(&y);
+
+        self.codegen_binary_op(op, x, y)
+      }
       _ => panic!("No codegen for {:?}", node),
-    };
+    }
   }
 
-  pub fn codegen_const_int(&self, ty: PrimitiveType, val: u64) -> LLVMValueRef {
+  pub fn codegen_binary_op(&self, op: &BinaryOp, x: LLVMValueRef, y: LLVMValueRef) -> LLVMValueRef {
+    let builder: &Builder = self.builder.as_ref().unwrap();
+
+    match op {
+      BinaryOp::Add => builder.build_add(x, y),
+      BinaryOp::Subtract => builder.build_sub(x, y),
+      BinaryOp::Multiply => builder.build_mul(x, y),
+      BinaryOp::Divide => builder.build_sdiv(x, y),
+      BinaryOp::Modulo => builder.build_srem(x, y),
+      _ => panic!("Cannot binary op {:?}", op),
+    }
+  }
+
+  pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
     match ty {
+      PrimitiveType::I8 => self.context.SInt8(val),
+      PrimitiveType::I16 => self.context.SInt16(val),
       PrimitiveType::I32 => self.context.SInt32(val),
+      PrimitiveType::I64 => self.context.SInt64(val),
+      PrimitiveType::I128 => self.context.SInt128(val),
+      PrimitiveType::U8 => self.context.UInt8(val),
+      PrimitiveType::U16 => self.context.UInt16(val),
+      PrimitiveType::U32 => self.context.UInt32(val),
+      PrimitiveType::U64 => self.context.UInt64(val),
+      PrimitiveType::U128 => self.context.UInt128(val),
       _ => panic!("Cannot const int {:?}", ty),
     }
   }
@@ -73,8 +101,8 @@ fn main() -> io::Result<()> {
   let mut codegen = Codegen::new("test_module".to_owned());
 
   codegen.prelude();
-  codegen.codegen(parsed);
-  codegen.end();
+  let ret = codegen.codegen(&parsed);
+  codegen.end(ret);
 
   match codegen.module.verify() {
     Ok(_) => {
