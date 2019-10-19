@@ -1,1 +1,1 @@
-1 + 2
+fn puts str -> i32

@@ -27,14 +27,14 @@ impl Codegen {
 
   pub fn prelude(&mut self) {
     self.builder = Some(self.context.create_builder());
-    let main_type = fn_type!(self.context.Int32Type());
+    let main_type = fn_type!(self.context.VoidType());
     let main_func = self.module.get_or_add_function("main", main_type);
     let entry_block = main_func.append_basic_block("entry");
     self.builder.as_ref().unwrap().position_at_end(entry_block);
   }
 
   pub fn end(&self, val: LLVMValueRef) {
-    self.builder.as_ref().unwrap().build_ret(val);
+    self.builder.as_ref().unwrap().build_ret_void();
   }
 
   pub fn codegen(&self, node: &AST) -> LLVMValueRef {
@@ -49,6 +49,10 @@ impl Codegen {
 
         self.codegen_binary_op(op, x, y)
       }
+      AST::Function { name, ty } => self
+        .module
+        .get_or_add_function(name, self.prim_into_llvm_typeref(ty.as_ref()))
+        .as_ref(),
       _ => panic!("No codegen for {:?}", node),
     }
   }
@@ -79,6 +83,25 @@ impl Codegen {
       PrimitiveType::U64 => self.context.UInt64(val),
       PrimitiveType::U128 => self.context.UInt128(val),
       _ => panic!("Cannot const int {:?}", ty),
+    }
+  }
+
+  fn prim_into_llvm_typeref(&self, ty: &PrimitiveType) -> LLVMTypeRef {
+    match ty {
+      PrimitiveType::I8 | PrimitiveType::U8 => self.context.Int8Type(),
+      PrimitiveType::I16 | PrimitiveType::U16 => self.context.Int16Type(),
+      PrimitiveType::I32 | PrimitiveType::U32 => self.context.Int32Type(),
+      PrimitiveType::I64 | PrimitiveType::U64 => self.context.Int64Type(),
+      PrimitiveType::I128 | PrimitiveType::U128 => self.context.Int128Type(),
+      PrimitiveType::Str => self.context.CharPointerType(),
+      PrimitiveType::FunctionType { ret_type, param } => fn_type!(
+        self.prim_into_llvm_typeref(ret_type.as_ref()),
+        self.prim_into_llvm_typeref(param.as_ref())
+      ),
+      _ => panic!(
+        "PrimitiveType into LLVMTypeRef not implemented for {:?}",
+        ty
+      ),
     }
   }
 }
