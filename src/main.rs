@@ -1,51 +1,53 @@
-#![feature(box_syntax)]
+#![feature(box_syntax, box_patterns, type_ascription)]
 
 mod parser;
 use parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType};
 
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
-use llvm_sys_wrapper::{Builder, Context, Module, LLVM, *};
+use llvm_sys_wrapper::{Builder, Context, Function, Module, LLVM, *};
+
+enum CodegenUnit {
+  Function(Function),
+}
 
 struct Codegen {
   context: Context,
   module: Module,
-  builder: Option<Builder>,
-  refs: HashMap<String, LLVMValueRef>,
+  builder: Builder,
+  refs: HashMap<String, CodegenUnit>,
 }
 
 impl Codegen {
   fn new(module_name: String) -> Self {
     let context = Context::new();
     let module = context.create_module(module_name.as_str());
+    let builder = context.create_builder();
 
     Self {
       context,
       module,
-      builder: None,
+      builder,
       refs: HashMap::new(),
     }
   }
 
-  pub fn prelude(&mut self) {
-    self.builder = Some(self.context.create_builder());
-    let main_type = fn_type!(self.context.VoidType());
-    let main_func = self.module.get_or_add_function("main", main_type);
-    let entry_block = main_func.append_basic_block("entry");
-    self.builder.as_ref().unwrap().position_at_end(entry_block);
+  pub fn get_func_ref(&self, name: &String) -> LLVMValueRef {
+    match self.refs.get(name).unwrap() {
+      CodegenUnit::Function(func) => func.as_ref(),
+    }
   }
 
-  pub fn end(&self, val: LLVMValueRef) {
-    self.builder.as_ref().unwrap().build_ret_void();
+  pub fn get_func(&self, name: &String) -> &Function {
+    match self.refs.get(name).unwrap() {
+      CodegenUnit::Function(func) => func,
+    }
   }
 
   pub fn codegen(&mut self, node: &AST) -> LLVMValueRef {
     match node {
       AST::IntLiteral(ty, val) => self.codegen_const_int(ty, *val),
-      AST::StringLiteral(string) => {
-        let builder: &Builder = self.builder.as_ref().unwrap();
-        builder.build_global_string_ptr(string.as_str())
-      }
+      AST::StringLiteral(string) => self.builder.build_global_string_ptr(string.as_str()),
       AST::Binary(op, x, y) => {
         let x = self.codegen(&x);
         let y = self.codegen(&y);
@@ -53,22 +55,35 @@ impl Codegen {
         self.codegen_binary_op(op, x, y)
       }
       AST::Function { name, ty } => {
-        self.refs.insert(
-          name.clone(),
-          self
-            .module
-            .get_or_add_function(name, self.prim_into_llvm_typeref(ty.as_ref()))
-            .as_ref(),
-        );
+        let func = self
+          .module
+          .get_or_add_function(name, self.prim_into_llvm_typeref(*&ty.as_ref()));
 
-        self.refs[name]
+        self.refs.insert(name.clone(), CodegenUnit::Function(func));
+
+        self.get_func_ref(name)
       }
       AST::Call { name, arg } => {
         let arg_ref = self.codegen(arg);
         let mut args = [arg_ref];
-        let builder: &Builder = self.builder.as_ref().unwrap();
-        builder.build_call(*self.refs.get(name).unwrap(), &mut args)
+        self.builder.build_call(self.get_func_ref(name), &mut args)
       }
+      AST::Decorated { dec, expr } => match expr {
+        box AST::Function { name, ty } => {
+          let func = self.codegen(expr);
+
+          match dec.to_lowercase().as_ref() {
+            "entry" => {
+              let f = self.get_func(name);
+              self.builder.position_at_end(f.append_basic_block("entry"))
+            }
+            _ => panic!("Cannot decorate function with {}", name),
+          };
+
+          func
+        }
+        _ => panic!("Cannot decorate {:?}", expr),
+      },
       AST::Block(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen(n)))
@@ -78,14 +93,12 @@ impl Codegen {
   }
 
   pub fn codegen_binary_op(&self, op: &BinaryOp, x: LLVMValueRef, y: LLVMValueRef) -> LLVMValueRef {
-    let builder: &Builder = self.builder.as_ref().unwrap();
-
     match op {
-      BinaryOp::Add => builder.build_add(x, y),
-      BinaryOp::Subtract => builder.build_sub(x, y),
-      BinaryOp::Multiply => builder.build_mul(x, y),
-      BinaryOp::Divide => builder.build_sdiv(x, y),
-      BinaryOp::Modulo => builder.build_srem(x, y),
+      BinaryOp::Add => self.builder.build_add(x, y),
+      BinaryOp::Subtract => self.builder.build_sub(x, y),
+      BinaryOp::Multiply => self.builder.build_mul(x, y),
+      BinaryOp::Divide => self.builder.build_sdiv(x, y),
+      BinaryOp::Modulo => self.builder.build_srem(x, y),
       _ => panic!("Cannot binary op {:?}", op),
     }
   }
@@ -118,10 +131,15 @@ impl Codegen {
         ret_type,
         param,
         ext: _,
-      } => fn_type!(
-        self.prim_into_llvm_typeref(ret_type.as_ref()),
-        self.prim_into_llvm_typeref(param.as_ref())
-      ),
+      } => {
+        let params = self.prim_into_llvm_typeref(param.as_ref());
+        if params == self.context.VoidType() {
+          fn_type!(self.prim_into_llvm_typeref(ret_type.as_ref()),)
+        } else {
+          fn_type!(self.prim_into_llvm_typeref(ret_type.as_ref()), params)
+        }
+      }
+      PrimitiveType::TupleType(types) => self.context.VoidType(),
       _ => panic!(
         "PrimitiveType into LLVMTypeRef not implemented for {:?}",
         ty
@@ -147,9 +165,8 @@ fn main() -> io::Result<()> {
 
   let mut codegen = Codegen::new("test_module".to_owned());
 
-  codegen.prelude();
-  let ret = codegen.codegen(&parsed);
-  codegen.end(ret);
+  codegen.codegen(&parsed);
+  codegen.builder.build_ret_void();
 
   match codegen.module.verify() {
     Ok(_) => {

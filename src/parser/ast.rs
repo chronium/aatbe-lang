@@ -45,4 +45,8 @@ pub enum AST {
     name: String,
     arg: Box<AST>,
   },
+  Decorated {
+    dec: String,
+    expr: Box<AST>,
+  },
 }

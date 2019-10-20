@@ -100,7 +100,7 @@ peg::parser! {
       / n:ident() _ e:expr() { AST::Call { name: n, arg: box e } }
       / n:ident() { AST::Ref(n) }
       / n:parenthesized(<(e:expr()? {e.unwrap_or(AST::Empty)}) ** (_ "," _)>) { AST::Tuple(n) }
-      / ext:"extern"? _  "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
+      / ext:"extern"? _ "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
         AST::Function {
           name: n,
           ty: box PrimitiveType::FunctionType {
@@ -108,6 +108,12 @@ peg::parser! {
             param: box param,
             ext: ext.is_some(),
           }
+        }
+      }
+      / "@" _ dec:ident() _ e:expr() {
+        AST::Decorated {
+          dec: dec,
+          expr: box e
         }
       }
       / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }

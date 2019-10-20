@@ -1,5 +1,2 @@
-{
-  extern fn puts str -> i32
-
-  puts "Hello World!"
-}
+@entry
+fn main () -> ()
