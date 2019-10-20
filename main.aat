@@ -1,1 +1,5 @@
-fn puts str -> i32
+{
+  extern fn puts str -> i32
+
+  puts "Hello World!"
+}

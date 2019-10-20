@@ -21,7 +21,7 @@ peg::parser! {
       / "bool" / "char" / "str" / "any"
       / "true" / "false"
       / "val" / "var" / "const"
-      / "fn"
+      / "fn" / "extern"
 
     rule ident() -> String
       = id:$(quiet!{!keywords() ident_key()}) { id.to_string() }
@@ -100,12 +100,13 @@ peg::parser! {
       / n:ident() _ e:expr() { AST::Call { name: n, arg: box e } }
       / n:ident() { AST::Ref(n) }
       / n:parenthesized(<(e:expr()? {e.unwrap_or(AST::Empty)}) ** (_ "," _)>) { AST::Tuple(n) }
-      / "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
+      / ext:"extern"? _  "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
         AST::Function {
           name: n,
           ty: box PrimitiveType::FunctionType {
             ret_type: box ret,
             param: box param,
+            ext: ext.is_some(),
           }
         }
       }

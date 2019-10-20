@@ -26,5 +26,6 @@ pub enum PrimitiveType {
   FunctionType {
     ret_type: Box<PrimitiveType>,
     param: Box<PrimitiveType>,
+    ext: bool,
   },
 }

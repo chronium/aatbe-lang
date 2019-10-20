@@ -3,7 +3,7 @@
 mod parser;
 use parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType};
 
-use std::{fs::File, io, io::prelude::Read};
+use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use llvm_sys_wrapper::{Builder, Context, Module, LLVM, *};
 
@@ -11,6 +11,7 @@ struct Codegen {
   context: Context,
   module: Module,
   builder: Option<Builder>,
+  refs: HashMap<String, LLVMValueRef>,
 }
 
 impl Codegen {
@@ -22,6 +23,7 @@ impl Codegen {
       context,
       module,
       builder: None,
+      refs: HashMap::new(),
     }
   }
 
@@ -37,22 +39,40 @@ impl Codegen {
     self.builder.as_ref().unwrap().build_ret_void();
   }
 
-  pub fn codegen(&self, node: &AST) -> LLVMValueRef {
-    let builder: &Builder = self.builder.as_ref().unwrap();
-
+  pub fn codegen(&mut self, node: &AST) -> LLVMValueRef {
     match node {
       AST::IntLiteral(ty, val) => self.codegen_const_int(ty, *val),
-      AST::StringLiteral(string) => builder.build_global_string_ptr(string.as_str()),
+      AST::StringLiteral(string) => {
+        let builder: &Builder = self.builder.as_ref().unwrap();
+        builder.build_global_string_ptr(string.as_str())
+      }
       AST::Binary(op, x, y) => {
         let x = self.codegen(&x);
         let y = self.codegen(&y);
 
         self.codegen_binary_op(op, x, y)
       }
-      AST::Function { name, ty } => self
-        .module
-        .get_or_add_function(name, self.prim_into_llvm_typeref(ty.as_ref()))
-        .as_ref(),
+      AST::Function { name, ty } => {
+        self.refs.insert(
+          name.clone(),
+          self
+            .module
+            .get_or_add_function(name, self.prim_into_llvm_typeref(ty.as_ref()))
+            .as_ref(),
+        );
+
+        self.refs[name]
+      }
+      AST::Call { name, arg } => {
+        let arg_ref = self.codegen(arg);
+        let mut args = [arg_ref];
+        let builder: &Builder = self.builder.as_ref().unwrap();
+        builder.build_call(*self.refs.get(name).unwrap(), &mut args)
+      }
+      AST::Block(nodes) => nodes
+        .iter()
+        .fold(None, |_, n| Some(self.codegen(n)))
+        .unwrap(),
       _ => panic!("No codegen for {:?}", node),
     }
   }
@@ -94,7 +114,11 @@ impl Codegen {
       PrimitiveType::I64 | PrimitiveType::U64 => self.context.Int64Type(),
       PrimitiveType::I128 | PrimitiveType::U128 => self.context.Int128Type(),
       PrimitiveType::Str => self.context.CharPointerType(),
-      PrimitiveType::FunctionType { ret_type, param } => fn_type!(
+      PrimitiveType::FunctionType {
+        ret_type,
+        param,
+        ext: _,
+      } => fn_type!(
         self.prim_into_llvm_typeref(ret_type.as_ref()),
         self.prim_into_llvm_typeref(param.as_ref())
       ),
@@ -130,6 +154,11 @@ fn main() -> io::Result<()> {
   match codegen.module.verify() {
     Ok(_) => {
       codegen.module.dump();
+
+      let interpreter = codegen.module.create_jit_engine().unwrap();
+      let named_function = codegen.module.named_function("main");
+      let mut params = [];
+      let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
       Ok(())
     }
     Err(err) => panic!(err),
