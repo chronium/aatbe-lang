@@ -82,6 +82,29 @@ impl Codegen {
 
           func
         }
+        box AST::Assign(decl, expr) => match decl {
+          box AST::Function { name, ty } => {
+            let func = self.codegen(decl);
+
+            match dec.to_lowercase().as_ref() {
+              "entry" => {
+                let f = self.get_func(name);
+                self.builder.position_at_end(f.append_basic_block("entry"))
+              }
+              _ => panic!("Cannot decorate function with {}", name),
+            };
+
+            self.codegen(expr);
+
+            match has_return_type(ty) {
+              true => panic!("Functions that return not implemented"),
+              false => self.builder.build_ret_void(),
+            };
+
+            func
+          }
+          _ => panic!("Cannot decorate and assign to {:?}", decl),
+        },
         _ => panic!("Cannot decorate {:?}", expr),
       },
       AST::Block(nodes) => nodes
@@ -139,12 +162,26 @@ impl Codegen {
           fn_type!(self.prim_into_llvm_typeref(ret_type.as_ref()), params)
         }
       }
-      PrimitiveType::TupleType(types) => self.context.VoidType(),
+      PrimitiveType::TupleType(types) if types.len() == 0 => self.context.VoidType(),
       _ => panic!(
         "PrimitiveType into LLVMTypeRef not implemented for {:?}",
         ty
       ),
     }
+  }
+}
+
+fn has_return_type(ty: &PrimitiveType) -> bool {
+  match ty {
+    PrimitiveType::FunctionType {
+      ret_type,
+      param,
+      ext,
+    } => match ret_type {
+      box PrimitiveType::TupleType(t) if t.len() == 0 => false,
+      _ => panic!("Return type {:?} not handled", ret_type),
+    },
+    _ => panic!("Not a function type"),
   }
 }
 
@@ -154,7 +191,7 @@ fn main() -> io::Result<()> {
 
   f.read_to_string(&mut code)?;
 
-  let parsed = match aatbe_parser::expr(code.as_str()) {
+  let parsed = match aatbe_parser::file(code.as_str()) {
     Ok(ast) => ast,
     Err(err) => panic!(err),
   };
@@ -165,8 +202,9 @@ fn main() -> io::Result<()> {
 
   let mut codegen = Codegen::new("test_module".to_owned());
 
-  codegen.codegen(&parsed);
-  codegen.builder.build_ret_void();
+  for node in &parsed {
+    codegen.codegen(&node);
+  }
 
   match codegen.module.verify() {
     Ok(_) => {

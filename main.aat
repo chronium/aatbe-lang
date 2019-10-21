@@ -1,2 +1,5 @@
+extern fn puts str -> i32
+
 @entry
 fn main () -> ()
+  = puts "Hello World!"

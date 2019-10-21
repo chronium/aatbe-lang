@@ -117,7 +117,7 @@ peg::parser! {
         }
       }
       / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }
-    pub rule expr() -> AST = precedence! {
+    rule expr() -> AST = precedence! {
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }
       e:cond() { e }
@@ -143,5 +143,8 @@ peg::parser! {
         }
       }
     }
+
+    pub rule file() -> Vec<AST>
+      = expr() ** _
   }
 }
