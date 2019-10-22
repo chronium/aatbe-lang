@@ -56,10 +56,23 @@ impl Codegen {
 
         self.codegen_binary_op(op, x, y)
       }
-      AST::Function { name, ty } => {
+      AST::Function {
+        name,
+        ty,
+        attributes,
+      } => {
         let func = self
           .module
           .get_or_add_function(name, ty.as_ref().llvm_type_in_context(&self.context));
+
+        for attr in attributes {
+          match attr.to_lowercase().as_ref() {
+            "entry" => self
+              .builder
+              .position_at_end(func.append_basic_block("entry")),
+            _ => panic!("Cannot decorate function with {}", name),
+          };
+        }
 
         self.refs.insert(name.clone(), CodegenUnit::Function(func));
 
@@ -70,44 +83,24 @@ impl Codegen {
         let mut args = [arg_ref];
         self.builder.build_call(self.get_func_ref(name), &mut args)
       }
-      AST::Decorated { dec, expr } => match expr {
-        box AST::Function { name, ty } => {
-          let func = self.codegen(expr);
+      AST::Assign(decl, expr) => match decl {
+        box AST::Function {
+          name,
+          ty,
+          attributes,
+        } => {
+          let func = self.codegen(decl);
 
-          match dec.to_lowercase().as_ref() {
-            "entry" => {
-              let f = self.get_func(name);
-              self.builder.position_at_end(f.append_basic_block("entry"))
-            }
-            _ => panic!("Cannot decorate function with {}", name),
+          self.codegen(expr);
+
+          match has_return_type(ty) {
+            true => panic!("Functions that return not implemented"),
+            false => self.builder.build_ret_void(),
           };
 
           func
         }
-        box AST::Assign(decl, expr) => match decl {
-          box AST::Function { name, ty } => {
-            let func = self.codegen(decl);
-
-            match dec.to_lowercase().as_ref() {
-              "entry" => {
-                let f = self.get_func(name);
-                self.builder.position_at_end(f.append_basic_block("entry"))
-              }
-              _ => panic!("Cannot decorate function with {}", name),
-            };
-
-            self.codegen(expr);
-
-            match has_return_type(ty) {
-              true => panic!("Functions that return not implemented"),
-              false => self.builder.build_ret_void(),
-            };
-
-            func
-          }
-          _ => panic!("Cannot decorate and assign to {:?}", decl),
-        },
-        _ => panic!("Cannot decorate {:?}", expr),
+        _ => panic!("Cannot assign to {:?}", decl),
       },
       AST::Block(nodes) | AST::File(nodes) => nodes
         .iter()

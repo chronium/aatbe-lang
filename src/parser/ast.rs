@@ -40,14 +40,11 @@ pub enum AST {
   Function {
     name: String,
     ty: Box<PrimitiveType>,
+    attributes: Vec<String>,
   },
   Call {
     name: String,
     arg: Box<AST>,
-  },
-  Decorated {
-    dec: String,
-    expr: Box<AST>,
   },
   File(Vec<AST>),
 }

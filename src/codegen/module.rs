@@ -22,7 +22,11 @@ impl AatbeModule {
 
   pub fn decl_pass(&mut self, ast: &AST) {
     match ast {
-      AST::Function { name, ty } => {}
+      AST::Function {
+        name,
+        ty,
+        attributes,
+      } => {}
       _ => {}
     }
   }
