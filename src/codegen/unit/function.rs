@@ -3,7 +3,7 @@ use crate::{
   AST,
 };
 
-pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
+pub fn declare_function(module: &mut AatbeModule, function: &AST) {
   match function {
     AST::Function {
       name,

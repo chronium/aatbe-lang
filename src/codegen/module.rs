@@ -2,7 +2,7 @@ use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module};
 use std::collections::HashMap;
 
 use crate::{
-  codegen::{unit::codegen_function, CodegenUnit},
+  codegen::{unit::declare_function, CodegenUnit},
   AST,
 };
 
@@ -32,13 +32,13 @@ impl AatbeModule {
         name: _,
         ty: _,
         attributes: _,
-      } => codegen_function(self, ast),
+      } => declare_function(self, ast),
       AST::Assign(decl, _expr) => match decl {
         box AST::Function {
           name: _,
           ty: _,
           attributes: _,
-        } => codegen_function(self, decl),
+        } => declare_function(self, decl),
         _ => {}
       },
       AST::Block(nodes) | AST::File(nodes) => nodes

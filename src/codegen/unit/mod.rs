@@ -2,7 +2,7 @@ use llvm_sys_wrapper::{Function, LLVMValueRef};
 
 pub mod function;
 
-pub use function::codegen_function;
+pub use function::declare_function;
 
 pub enum CodegenUnit {
   Function(Function),
