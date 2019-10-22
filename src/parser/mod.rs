@@ -144,7 +144,7 @@ peg::parser! {
       }
     }
 
-    pub rule file() -> Vec<AST>
-      = expr() ** _
+    pub rule file() -> AST
+      = f:(expr() ** _) { AST::File(f) }
   }
 }

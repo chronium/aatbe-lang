@@ -49,4 +49,5 @@ pub enum AST {
     dec: String,
     expr: Box<AST>,
   },
+  File(Vec<AST>),
 }

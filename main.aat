@@ -2,4 +2,8 @@ extern fn puts str -> i32
 
 @entry
 fn main () -> ()
-  = puts "Hello World!"
+  = {
+    puts "Hello World!"
+    puts "I shall test a block"
+    puts "I feel like this works!"
+  }

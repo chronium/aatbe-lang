@@ -1,6 +1,8 @@
 #![feature(box_syntax, box_patterns, type_ascription)]
 
+mod codegen;
 mod parser;
+
 use parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType};
 
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
@@ -57,7 +59,7 @@ impl Codegen {
       AST::Function { name, ty } => {
         let func = self
           .module
-          .get_or_add_function(name, self.prim_into_llvm_typeref(*&ty.as_ref()));
+          .get_or_add_function(name, ty.as_ref().llvm_type_in_context(&self.context));
 
         self.refs.insert(name.clone(), CodegenUnit::Function(func));
 
@@ -107,7 +109,7 @@ impl Codegen {
         },
         _ => panic!("Cannot decorate {:?}", expr),
       },
-      AST::Block(nodes) => nodes
+      AST::Block(nodes) | AST::File(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen(n)))
         .unwrap(),
@@ -139,34 +141,6 @@ impl Codegen {
       PrimitiveType::U64 => self.context.UInt64(val),
       PrimitiveType::U128 => self.context.UInt128(val),
       _ => panic!("Cannot const int {:?}", ty),
-    }
-  }
-
-  fn prim_into_llvm_typeref(&self, ty: &PrimitiveType) -> LLVMTypeRef {
-    match ty {
-      PrimitiveType::I8 | PrimitiveType::U8 => self.context.Int8Type(),
-      PrimitiveType::I16 | PrimitiveType::U16 => self.context.Int16Type(),
-      PrimitiveType::I32 | PrimitiveType::U32 => self.context.Int32Type(),
-      PrimitiveType::I64 | PrimitiveType::U64 => self.context.Int64Type(),
-      PrimitiveType::I128 | PrimitiveType::U128 => self.context.Int128Type(),
-      PrimitiveType::Str => self.context.CharPointerType(),
-      PrimitiveType::FunctionType {
-        ret_type,
-        param,
-        ext: _,
-      } => {
-        let params = self.prim_into_llvm_typeref(param.as_ref());
-        if params == self.context.VoidType() {
-          fn_type!(self.prim_into_llvm_typeref(ret_type.as_ref()),)
-        } else {
-          fn_type!(self.prim_into_llvm_typeref(ret_type.as_ref()), params)
-        }
-      }
-      PrimitiveType::TupleType(types) if types.len() == 0 => self.context.VoidType(),
-      _ => panic!(
-        "PrimitiveType into LLVMTypeRef not implemented for {:?}",
-        ty
-      ),
     }
   }
 }
@@ -202,9 +176,7 @@ fn main() -> io::Result<()> {
 
   let mut codegen = Codegen::new("test_module".to_owned());
 
-  for node in &parsed {
-    codegen.codegen(&node);
-  }
+  codegen.codegen(&parsed);
 
   match codegen.module.verify() {
     Ok(_) => {
