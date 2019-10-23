@@ -58,18 +58,30 @@ impl AatbeModule {
 
   pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
     match ast {
+      AST::StringLiteral(string) => {
+        Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
+      }
+      AST::Call { name, arg } => {
+        let arg_ref = self.codegen_pass(arg);
+        let mut args = [arg_ref.unwrap()];
+        match self.get_func(name) {
+          Some(func) => Some(self.llvm_builder.build_call(func.into(), &mut args)),
+          None => panic!("Cannot find function {:?}", name),
+        }
+      }
       AST::Function {
         name: _,
         ty: _,
         attributes: _,
       } => None,
-      AST::Assign(decl, _expr) => match decl {
+      AST::Assign(decl, expr) => match decl {
         box AST::Function {
           name: _,
           ty,
           attributes: _,
         } => {
           codegen_function(self, decl);
+          self.codegen_pass(expr);
 
           match has_return_type(ty) {
             true => panic!("Functions that return not implemented"),

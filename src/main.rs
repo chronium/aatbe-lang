@@ -50,22 +50,12 @@ impl Codegen {
   pub fn codegen(&mut self, node: &AST) -> LLVMValueRef {
     match node {
       AST::IntLiteral(ty, val) => self.codegen_const_int(ty, *val),
-      AST::StringLiteral(string) => self.builder.build_global_string_ptr(string.as_str()),
       AST::Binary(op, x, y) => {
         let x = self.codegen(&x);
         let y = self.codegen(&y);
 
         self.codegen_binary_op(op, x, y)
       }
-      AST::Call { name, arg } => {
-        let arg_ref = self.codegen(arg);
-        let mut args = [arg_ref];
-        self.builder.build_call(self.get_func_ref(name), &mut args)
-      }
-      AST::Block(nodes) | AST::File(nodes) => nodes
-        .iter()
-        .fold(None, |_, n| Some(self.codegen(n)))
-        .unwrap(),
       _ => panic!("No codegen for {:?}", node),
     }
   }
@@ -125,16 +115,23 @@ fn main() -> io::Result<()> {
 
   LLVM::initialize();
 
-  println!("{:#?}", parsed);
+  println!("Parser output:\n------------\n{:#?}\n", parsed);
 
   let mut module = AatbeModule::new("main".to_string());
   module.decl_pass(&parsed);
   module.codegen_pass(&parsed);
 
+  println!("LLVM output:\n------------");
   match module.llvm_module_ref().verify() {
     Ok(_) => {
       module.llvm_module_ref().dump();
 
+      println!("\nExecution:\n------------");
+
+      let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
+      let named_function = module.llvm_module_ref().named_function("main");
+      let mut params = [];
+      let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
       Ok(())
     }
     Err(err) => panic!(err),
