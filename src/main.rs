@@ -3,6 +3,7 @@
 mod codegen;
 mod parser;
 
+use codegen::AatbeModule;
 use parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType};
 
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
@@ -56,52 +57,11 @@ impl Codegen {
 
         self.codegen_binary_op(op, x, y)
       }
-      AST::Function {
-        name,
-        ty,
-        attributes,
-      } => {
-        let func = self
-          .module
-          .get_or_add_function(name, ty.as_ref().llvm_type_in_context(&self.context));
-
-        for attr in attributes {
-          match attr.to_lowercase().as_ref() {
-            "entry" => self
-              .builder
-              .position_at_end(func.append_basic_block("entry")),
-            _ => panic!("Cannot decorate function with {}", name),
-          };
-        }
-
-        self.refs.insert(name.clone(), CodegenUnit::Function(func));
-
-        self.get_func_ref(name)
-      }
       AST::Call { name, arg } => {
         let arg_ref = self.codegen(arg);
         let mut args = [arg_ref];
         self.builder.build_call(self.get_func_ref(name), &mut args)
       }
-      AST::Assign(decl, expr) => match decl {
-        box AST::Function {
-          name,
-          ty,
-          attributes,
-        } => {
-          let func = self.codegen(decl);
-
-          self.codegen(expr);
-
-          match has_return_type(ty) {
-            true => panic!("Functions that return not implemented"),
-            false => self.builder.build_ret_void(),
-          };
-
-          func
-        }
-        _ => panic!("Cannot assign to {:?}", decl),
-      },
       AST::Block(nodes) | AST::File(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen(n)))
@@ -167,18 +127,14 @@ fn main() -> io::Result<()> {
 
   println!("{:#?}", parsed);
 
-  let mut codegen = Codegen::new("test_module".to_owned());
+  let mut module = AatbeModule::new("main".to_string());
+  module.decl_pass(&parsed);
+  module.codegen_pass(&parsed);
 
-  codegen.codegen(&parsed);
-
-  match codegen.module.verify() {
+  match module.llvm_module_ref().verify() {
     Ok(_) => {
-      codegen.module.dump();
+      module.llvm_module_ref().dump();
 
-      let interpreter = codegen.module.create_jit_engine().unwrap();
-      let named_function = codegen.module.named_function("main");
-      let mut params = [];
-      let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
       Ok(())
     }
     Err(err) => panic!(err),
