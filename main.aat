@@ -1,4 +1,7 @@
 extern fn puts str -> i32
+extern fn printf (str, ...) -> i32
+
+fn decl_multi_param (str, i32, char) -> ()
 
 @entry
 fn main () -> ()
