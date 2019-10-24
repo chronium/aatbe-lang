@@ -3,7 +3,7 @@ extern fn printf (str, ...) -> i32
 
 fn decl_multi_param (str, i32, char) -> ()
 
-fn call_printf () -> () = printf "This is inside call_printf\n"
+fn call_printf () -> () = printf ("This is inside %s\n", "call_printf")
 
 @entry
 fn main () -> ()

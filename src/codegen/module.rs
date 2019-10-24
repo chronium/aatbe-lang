@@ -61,13 +61,19 @@ impl AatbeModule {
       AST::StringLiteral(string) => {
         Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
       }
-      AST::Tuple(vals) if vals.len() == 1 && vals[0] == AST::Empty => None,
       AST::Call { name, arg } => {
-        let arg_ref = self.codegen_pass(arg);
         let mut args = Vec::new();
-        if arg_ref.is_some() {
-          args.push(arg_ref.unwrap());
-        }
+        match arg {
+          box AST::Tuple(vals) => {
+            for arg in vals {
+              let arg_ref = self.codegen_pass(arg);
+              if arg_ref.is_some() {
+                args.push(arg_ref.unwrap());
+              }
+            }
+          }
+          _ => args.push(self.codegen_pass(arg).unwrap()),
+        };
         match self.get_func(name) {
           Some(func) => Some(self.llvm_builder.build_call(func.into(), &mut args)),
           None => panic!("Cannot find function {:?}", name),
@@ -96,6 +102,7 @@ impl AatbeModule {
         }
         _ => panic!("Cannot assign to {:?}", decl),
       },
+      AST::Empty => None,
       AST::Block(nodes) | AST::File(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen_pass(n)))
