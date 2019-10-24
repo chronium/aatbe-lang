@@ -1,14 +1,14 @@
 use super::operations::{BinaryOp, UnaryOp};
 use super::primitive_type::PrimitiveType;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum VarType {
   Const,
   Mutable,
   Immutable,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum AST {
   True,
   False,

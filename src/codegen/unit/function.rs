@@ -42,7 +42,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
       } else {
         module
           .llvm_builder_ref()
-          .position_at_end(func.append_basic_block("entry".to_string()));
+          .position_at_end(func.append_basic_block(String::default()));
       }
     }
     _ => unreachable!(),

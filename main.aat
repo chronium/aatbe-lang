@@ -3,10 +3,13 @@ extern fn printf (str, ...) -> i32
 
 fn decl_multi_param (str, i32, char) -> ()
 
+fn call_printf () -> () = printf "This is inside call_printf\n"
+
 @entry
 fn main () -> ()
   = {
     puts "Hello World!"
     puts "I shall test a block"
     puts "I feel like this works!"
+    call_printf ()
   }

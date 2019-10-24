@@ -79,8 +79,12 @@ peg::parser! {
       / "val" _ id:ident() _ ":" _ ty:ty() _ val:assign()? { AST::Decl(VarType::Immutable, ty, id, box val) }
       / "const" _ id:ident() _ ":" _ ty:ty() _ val:assign()? { AST::Decl(VarType::Const, ty, id, box val) }
 
+    rule string_char() -> char
+      = !("\"" / "\\") c:$[_] { c.chars().next().unwrap() }
+      / "\\n" { '\n' }
+
     rule string_literal() -> AST
-      = "\"" s:$((!"\"" [_])*) "\"" { AST::StringLiteral(s.to_string()) }
+      = "\"" s:string_char()* "\"" { AST::StringLiteral(s.into_iter().collect()) }
 
     rule attribute() -> String
       = "@" _ attr:$(ident()) { attr.to_string() }

@@ -64,21 +64,12 @@ impl PrimitiveType {
             .collect::<Vec<LLVMTypeRef>>();
 
           unsafe {
-            if !varargs {
-              LLVMFunctionType(
-                ret_ty,
-                param_types.as_mut_ptr(),
-                param_types.len() as u32,
-                0,
-              )
-            } else {
-              LLVMFunctionType(
-                ret_ty,
-                param_types.as_mut_ptr(),
-                param_types.len() as u32,
-                1,
-              )
-            }
+            LLVMFunctionType(
+              ret_ty,
+              param_types.as_mut_ptr(),
+              param_types.len() as u32,
+              varargs as i32,
+            )
           }
         }
         _ => fn_type!(
