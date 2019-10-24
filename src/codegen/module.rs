@@ -1,12 +1,12 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module};
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
   codegen::{
     unit::{codegen_function, declare_function},
     CodegenUnit,
   },
-  parser::primitive_type::PrimitiveType,
+  parser::{aatbe_parser, primitive_type::PrimitiveType},
   AST,
 };
 
@@ -16,6 +16,7 @@ pub struct AatbeModule {
   llvm_builder: Builder,
   name: String,
   refs: HashMap<String, CodegenUnit>,
+  imported: HashMap<String, AST>,
 }
 
 impl AatbeModule {
@@ -29,8 +30,23 @@ impl AatbeModule {
       llvm_module,
       llvm_builder,
       name,
+      imported: HashMap::new(),
       refs: HashMap::new(),
     }
+  }
+
+  pub fn parse_import(&mut self, module: &String) -> io::Result<AST> {
+    let mut f = File::open(format!("{}.aat", module))?;
+    let mut code = String::new();
+
+    f.read_to_string(&mut code)?;
+
+    let parsed = match aatbe_parser::file(code.as_str()) {
+      Ok(ast) => ast,
+      Err(_) => panic!("Cannot find module {}", module),
+    };
+
+    Ok(parsed)
   }
 
   pub fn decl_pass(&mut self, ast: &AST) {
@@ -52,6 +68,16 @@ impl AatbeModule {
         .iter()
         .fold(None, |_, n| Some(self.decl_pass(n)))
         .unwrap(),
+      AST::Import(module) => {
+        let ast = self
+          .parse_import(module)
+          .expect("Something is completely broken");
+        self.decl_pass(&ast);
+        self
+          .imported
+          .insert(module.clone(), ast)
+          .expect_none(format!("Module {} already imported", module).as_ref());
+      }
       _ => panic!("cannot decl {:?}", ast),
     }
   }
@@ -107,6 +133,14 @@ impl AatbeModule {
         .iter()
         .fold(None, |_, n| Some(self.codegen_pass(n)))
         .unwrap(),
+      AST::Import(module) => {
+        let ast = self
+          .get_imported_ast(module)
+          .expect("Cannot find already declared imported module? wat")
+          .clone();
+        self.codegen_pass(&ast);
+        None
+      }
       _ => panic!("cannot codegen {:?}", ast),
     }
   }
@@ -117,6 +151,10 @@ impl AatbeModule {
 
   pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
     self.refs.get(name)
+  }
+
+  pub fn get_imported_ast(&self, name: &String) -> Option<&AST> {
+    self.imported.get(name)
   }
 
   pub fn llvm_builder_ref(&self) -> &Builder {

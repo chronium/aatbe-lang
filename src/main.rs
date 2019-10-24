@@ -1,4 +1,10 @@
-#![feature(box_syntax, box_patterns, type_ascription, vec_remove_item)]
+#![feature(
+  box_syntax,
+  box_patterns,
+  type_ascription,
+  vec_remove_item,
+  option_expect_none
+)]
 
 mod codegen;
 mod parser;

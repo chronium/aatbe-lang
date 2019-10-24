@@ -1,10 +1,10 @@
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum UnaryOp {
   Negative,
   Negate,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BinaryOp {
   Add,
   Subtract,

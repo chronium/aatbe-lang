@@ -1,0 +1,2 @@
+extern fn puts str -> i32
+extern fn printf (str, ...) -> i32

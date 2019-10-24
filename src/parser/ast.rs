@@ -1,14 +1,14 @@
 use super::operations::{BinaryOp, UnaryOp};
 use super::primitive_type::PrimitiveType;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum VarType {
   Const,
   Mutable,
   Immutable,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AST {
   True,
   False,
@@ -47,4 +47,5 @@ pub enum AST {
     arg: Box<AST>,
   },
   File(Vec<AST>),
+  Import(String),
 }

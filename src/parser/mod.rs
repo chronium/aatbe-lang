@@ -21,7 +21,7 @@ peg::parser! {
       / "bool" / "char" / "str" / "any"
       / "true" / "false"
       / "val" / "var" / "const"
-      / "fn" / "extern"
+      / "fn" / "extern" / "use"
 
     rule ident() -> String
       = id:$(quiet!{!keywords() ident_key()}) { id.to_string() }
@@ -119,6 +119,7 @@ peg::parser! {
         }
       }
       / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }
+      / "use" _ n:ident() { AST::Import(n) }
     rule expr() -> AST = precedence! {
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }
