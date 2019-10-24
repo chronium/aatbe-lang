@@ -25,7 +25,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
   match function {
     AST::Function {
       name,
-      ty,
+      ty: _,
       attributes,
     } => {
       let func = module.get_func(name).unwrap();

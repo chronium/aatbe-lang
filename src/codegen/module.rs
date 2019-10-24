@@ -1,4 +1,4 @@
-use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module};
+use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
@@ -6,10 +6,11 @@ use crate::{
     unit::{codegen_function, declare_function},
     CodegenUnit,
   },
-  parser::{aatbe_parser, primitive_type::PrimitiveType},
+  parser::{aatbe_parser, operations::BinaryOp, primitive_type::PrimitiveType},
   AST,
 };
 
+#[allow(dead_code)]
 pub struct AatbeModule {
   llvm_context: Context,
   llvm_module: Module,
@@ -21,6 +22,8 @@ pub struct AatbeModule {
 
 impl AatbeModule {
   pub fn new(name: String) -> Self {
+    LLVM::initialize();
+
     let llvm_context = Context::new();
     let llvm_module = llvm_context.create_module(name.as_ref());
     let llvm_builder = llvm_context.create_builder();
@@ -87,6 +90,16 @@ impl AatbeModule {
       AST::StringLiteral(string) => {
         Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
       }
+      AST::IntLiteral(ty, val) => Some(self.codegen_const_int(ty, *val)),
+      AST::Binary(op, lhs, rhs) => {
+        let lh = self
+          .codegen_pass(lhs)
+          .expect("Binary op lhs must contain a value");
+        let rh = self
+          .codegen_pass(rhs)
+          .expect("Binary op rhs must contain a value");
+        Some(self.codegen_binary_op(op, lh, rh))
+      }
       AST::Call { name, arg } => {
         let mut args = Vec::new();
         match arg {
@@ -117,10 +130,13 @@ impl AatbeModule {
           attributes: _,
         } => {
           codegen_function(self, decl);
-          self.codegen_pass(expr);
+          let ret = self.codegen_pass(expr);
 
+          // TODO: Typechecks
           match has_return_type(ty) {
-            true => panic!("Functions that return not implemented"),
+            true => self.llvm_builder.build_ret(
+              ret.expect("Compiler broke, function returns broke. Everything's on fire"),
+            ),
             false => self.llvm_builder.build_ret_void(),
           };
 
@@ -142,6 +158,33 @@ impl AatbeModule {
         None
       }
       _ => panic!("cannot codegen {:?}", ast),
+    }
+  }
+
+  pub fn codegen_binary_op(&self, op: &BinaryOp, x: LLVMValueRef, y: LLVMValueRef) -> LLVMValueRef {
+    match op {
+      BinaryOp::Add => self.llvm_builder.build_add(x, y),
+      BinaryOp::Subtract => self.llvm_builder.build_sub(x, y),
+      BinaryOp::Multiply => self.llvm_builder.build_mul(x, y),
+      BinaryOp::Divide => self.llvm_builder.build_sdiv(x, y),
+      BinaryOp::Modulo => self.llvm_builder.build_srem(x, y),
+      _ => panic!("Cannot binary op {:?}", op),
+    }
+  }
+
+  pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
+    match ty {
+      PrimitiveType::I8 => self.llvm_context.SInt8(val),
+      PrimitiveType::I16 => self.llvm_context.SInt16(val),
+      PrimitiveType::I32 => self.llvm_context.SInt32(val),
+      PrimitiveType::I64 => self.llvm_context.SInt64(val),
+      PrimitiveType::I128 => self.llvm_context.SInt128(val),
+      PrimitiveType::U8 => self.llvm_context.UInt8(val),
+      PrimitiveType::U16 => self.llvm_context.UInt16(val),
+      PrimitiveType::U32 => self.llvm_context.UInt32(val),
+      PrimitiveType::U64 => self.llvm_context.UInt64(val),
+      PrimitiveType::U128 => self.llvm_context.UInt128(val),
+      _ => panic!("Cannot const int {:?}", ty),
     }
   }
 
@@ -178,7 +221,7 @@ fn has_return_type(ty: &PrimitiveType) -> bool {
       ext: _,
     } => match ret_type {
       box PrimitiveType::TupleType(t) if t.len() == 0 => false,
-      _ => panic!("Return type {:?} not handled", ret_type),
+      _ => true,
     },
     _ => panic!("Not a function type"),
   }

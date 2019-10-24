@@ -137,7 +137,7 @@ peg::parser! {
       x:(@) _ "==" _ y:@ { AST::Binary(BinaryOp::Equals, box x, box y) }
       x:(@) _ "!=" _ y:@ { AST::Binary(BinaryOp::NotEquals, box x, box y) }
       --
-      x:(@) _ "=" _ y:@ { AST::Assign(box x, box y) }
+      x:(@) _ "=" _ y:expr() { AST::Assign(box x, box y) }
       --
       x:(@) _ "[" _ y:expr() _ "]" {
         AST::Index {

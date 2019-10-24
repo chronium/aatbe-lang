@@ -1,0 +1,11 @@
+use libc
+
+fn ret_test() -> i32 = 1024 * 16
+fn ret_str() -> str = "Hello %s!\n"
+
+@entry
+fn main () -> ()
+  = {
+    printf ("This is a return test: %d\n", ret_test ())
+    printf (ret_str(), "world")
+  }
