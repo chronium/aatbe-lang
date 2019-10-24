@@ -1,8 +1,11 @@
 use libc
 
+// Return i32 from expression
 fn ret_test() -> i32 = 1024 * 16
+// Return str (*u8)
 fn ret_str() -> str = "Hello %s!\n"
 
+/* Entry Point */
 @entry
 fn main () -> ()
   = {

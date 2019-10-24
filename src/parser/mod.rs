@@ -8,7 +8,11 @@ peg::parser! {
     use self::operations::{BinaryOp, UnaryOp};
     use self::primitive_type::PrimitiveType;
 
-    rule _() = quiet!{[' ' | '\n' | '\t' | '\r']*}
+    rule _() = quiet!{
+      "//" (!"\n" [_])* _
+      / "/*" (!("\n" / "*/") [_])* "*/" _
+      / [' ' | '\n' | '\t' | '\r']*
+      }
 
     rule ident_key()
       = ['a'..='z' | 'A'..='Z' | '_']['a'..='z' | 'A'..='Z' | '_' | '-' | '0'..='9']*
@@ -148,6 +152,6 @@ peg::parser! {
     }
 
     pub rule file() -> AST
-      = f:(expr() ** _) { AST::File(f) }
+      = _ f:(expr() ** _) _ { AST::File(f) }
   }
 }
