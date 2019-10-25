@@ -6,8 +6,7 @@ use crate::{
     unit::{codegen_function, declare_function},
     CodegenUnit,
   },
-  parser::{aatbe_parser, operations::BinaryOp, primitive_type::PrimitiveType},
-  AST,
+  parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType},
 };
 
 #[allow(dead_code)]

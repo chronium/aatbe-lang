@@ -1,6 +1,6 @@
 use crate::{
   codegen::{AatbeModule, CodegenUnit},
-  AST,
+  parser::ast::AST,
 };
 
 pub fn declare_function(module: &mut AatbeModule, function: &AST) {

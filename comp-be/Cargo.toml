@@ -1,0 +1,14 @@
+[package]
+name = "comp-be"
+version = "0.0.1"
+authors = ["chronium"]
+edition = "2018"
+license = "MIT"
+
+[lib]
+name = "comp_be"
+path = "src/lib.rs"
+
+[dependencies]
+llvm-sys-wrapper="0.6.1"
+peg="*"

@@ -1,20 +1,12 @@
-#![feature(
-  box_syntax,
-  box_patterns,
-  type_ascription,
-  vec_remove_item,
-  option_expect_none
-)]
+use comp_be::{codegen::AatbeModule, parser::aatbe_parser};
 
-mod codegen;
-mod parser;
-
-use codegen::AatbeModule;
-use parser::{aatbe_parser, ast::AST};
-
-use std::{fs::File, io, io::prelude::Read};
+use std::{env, fs::File, io, io::prelude::Read};
 
 fn main() -> io::Result<()> {
+  if env::args().len() < 2 {
+    panic!("Please provide a file to compile");
+  }
+
   let mut f = File::open("return-test.aat")?;
   let mut code = String::new();
 

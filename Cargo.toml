@@ -1,10 +1,6 @@
-[package]
-name = "aatbe-lang"
-version = "0.1.0"
-authors = ["chronium"]
-edition = "2018"
-license = "MIT"
+[workspace]
 
-[dependencies]
-llvm-sys-wrapper="0.6.1"
-peg="*"
+members = [
+  "aatboot",
+  "comp-be"
+]
