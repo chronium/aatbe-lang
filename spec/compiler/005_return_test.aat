@@ -1,4 +1,4 @@
-// spector:name Test function returns
+// spector:name Define a function that returns
 
 extern fn puts str -> i32
 
