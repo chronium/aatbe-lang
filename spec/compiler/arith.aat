@@ -1,0 +1,9 @@
+// spector:name Arithmetic expressions
+
+@entry
+fn main () -> () = {
+    1 + 1
+    1 * 1
+    1 - 1
+    1 / 1
+}
