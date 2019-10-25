@@ -1,0 +1,12 @@
+// spector:name Define and call empty functions
+
+fn foo () -> () = {}
+
+fn bar () -> () = {
+  foo()
+}
+
+@entry
+fn main () -> () = {
+  bar()
+}
