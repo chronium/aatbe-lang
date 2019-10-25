@@ -1,0 +1,10 @@
+// spector:name Test function returns
+
+extern fn puts str -> i32
+
+fn should_return () -> str = "test"
+
+@entry
+fn main () -> () = {
+  puts should_return()
+}
