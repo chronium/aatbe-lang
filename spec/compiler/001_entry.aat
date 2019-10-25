@@ -1,0 +1,4 @@
+// spector:name Entry point
+
+@entry
+fn main () -> () = {}
