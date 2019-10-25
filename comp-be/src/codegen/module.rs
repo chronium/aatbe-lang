@@ -144,6 +144,7 @@ impl AatbeModule {
         _ => panic!("Cannot assign to {:?}", decl),
       },
       AST::Empty => None,
+      AST::Block(nodes) if nodes.len() == 0 => None,
       AST::Block(nodes) | AST::File(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen_pass(n)))

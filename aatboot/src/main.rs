@@ -7,7 +7,7 @@ fn main() -> io::Result<()> {
     panic!("Please provide a file to compile");
   }
 
-  let mut f = File::open("return-test.aat")?;
+  let mut f = File::open(env::args().last().unwrap())?;
   let mut code = String::new();
 
   f.read_to_string(&mut code)?;
