@@ -2,6 +2,8 @@ pub mod ast;
 pub mod operations;
 pub mod primitive_type;
 
+pub use primitive_type::PrimitiveType;
+
 peg::parser! {
   pub grammar aatbe_parser() for str {
     use self::ast::{AST, VarType};

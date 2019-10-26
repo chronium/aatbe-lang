@@ -1,0 +1,9 @@
+// spector:name Declare variable with value
+
+extern fn puts str -> i32
+
+@entry
+fn main () -> () = {
+  val test: str = "Hello"
+  puts test
+}

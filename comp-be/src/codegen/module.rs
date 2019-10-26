@@ -3,10 +3,10 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
   codegen::{
-    unit::{codegen_function, declare_function},
+    unit::{alloc_variable, codegen_function, declare_function},
     CodegenUnit,
   },
-  parser::{aatbe_parser, ast::AST, operations::BinaryOp, primitive_type::PrimitiveType},
+  parser::{aatbe_parser, ast::AST, operations::BinaryOp, PrimitiveType},
 };
 
 #[allow(dead_code)]
@@ -86,6 +86,14 @@ impl AatbeModule {
 
   pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
     match ast {
+      AST::Ref(name) => {
+        let var_ref = self.get_var(name);
+
+        match var_ref {
+          None => panic!("Cannot find variable {}", name),
+          Some(var) => Some(var.load_var(self.llvm_builder_ref())),
+        }
+      }
       AST::StringLiteral(string) => {
         Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
       }
@@ -143,6 +151,11 @@ impl AatbeModule {
         }
         _ => panic!("Cannot assign to {:?}", decl),
       },
+      AST::Decl(_, _, name, _) => {
+        alloc_variable(self, ast);
+
+        Some(self.get_var(name).expect("Compiler crapped out.").into())
+      }
       AST::Empty => None,
       AST::Block(nodes) if nodes.len() == 0 => None,
       AST::Block(nodes) | AST::File(nodes) => nodes
@@ -193,7 +206,24 @@ impl AatbeModule {
   }
 
   pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
-    self.refs.get(name)
+    let val_ref = self.refs.get(name);
+    match val_ref {
+      Some(CodegenUnit::Function(_)) => val_ref,
+      _ => None,
+    }
+  }
+
+  pub fn get_var(&self, name: &String) -> Option<&CodegenUnit> {
+    let val_ref = self.refs.get(name);
+    match val_ref {
+      Some(CodegenUnit::Variable {
+        mutable: _,
+        name: _,
+        ty: _,
+        value: _,
+      }) => val_ref,
+      _ => None,
+    }
   }
 
   pub fn get_imported_ast(&self, name: &String) -> Option<&AST> {
