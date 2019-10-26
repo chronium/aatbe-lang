@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
   codegen::{
-    unit::{alloc_variable, codegen_function, declare_function},
+    unit::{alloc_variable, codegen_function, declare_function, store_value},
     CodegenUnit,
   },
   parser::{aatbe_parser, ast::AST, operations::BinaryOp, PrimitiveType},
@@ -149,6 +149,7 @@ impl AatbeModule {
 
           None
         }
+        box AST::Ref(name) => Some(store_value(self, name, expr)),
         _ => panic!("Cannot assign to {:?}", decl),
       },
       AST::Decl(_, _, name, _) => {

@@ -1,4 +1,6 @@
-use libc
+// spector:name Declare variable, and reassign
+
+extern fn puts str -> i32
 
 @entry
 fn main () -> ()

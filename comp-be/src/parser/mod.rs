@@ -110,8 +110,7 @@ peg::parser! {
       / string_literal()
       / "true" { AST::True }
       / "false" { AST::False }
-      / n:ident() _ e:expr() { AST::Call { name: n, arg: box e } }
-      / n:ident() { AST::Ref(n) }
+      / n:ident() _ { AST::Ref(n) }
       / n:parenthesized(<(e:expr()? {e.unwrap_or(AST::Empty)}) ** (_ "," _)>) { AST::Tuple(n) }
       / attr:attribute()* ext:"extern"? _ "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
         AST::Function {
@@ -126,7 +125,15 @@ peg::parser! {
       }
       / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }
       / "use" _ n:ident() { AST::Import(n) }
+
+    rule call() -> AST
+      = n:ident() _
+          e:(atom() / expr())
+            { AST::Call { name: n, arg: box e } }
+
     rule expr() -> AST = precedence! {
+      e:call() { e }
+      --
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }
       e:cond() { e }
