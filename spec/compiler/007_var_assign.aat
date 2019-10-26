@@ -3,10 +3,9 @@
 extern fn puts str -> i32
 
 @entry
-fn main () -> ()
-  = {
-    var test: str = "Hello"
-    puts test
-    test = "World"
-    puts test
-  }
+fn main () -> () = {
+  var test: str = "Hello"
+  puts test
+  test = "World"
+  puts test
+}
