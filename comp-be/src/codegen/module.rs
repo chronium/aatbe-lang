@@ -4,7 +4,7 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 use crate::{
   codegen::{
     unit::{alloc_variable, codegen_function, declare_function, store_value},
-    CodegenUnit,
+    CodegenUnit, Scope,
   },
   parser::{aatbe_parser, ast::AST, operations::BinaryOp, PrimitiveType},
 };
@@ -15,7 +15,7 @@ pub struct AatbeModule {
   llvm_module: Module,
   llvm_builder: Builder,
   name: String,
-  refs: HashMap<String, CodegenUnit>,
+  scope_stack: Vec<Scope>,
   imported: HashMap<String, AST>,
 }
 
@@ -33,7 +33,7 @@ impl AatbeModule {
       llvm_builder,
       name,
       imported: HashMap::new(),
-      refs: HashMap::new(),
+      scope_stack: Vec::new(),
     }
   }
 
@@ -52,6 +52,7 @@ impl AatbeModule {
   }
 
   pub fn decl_pass(&mut self, ast: &AST) {
+    self.start_scope();
     match ast {
       AST::Function {
         name: _,
@@ -132,11 +133,12 @@ impl AatbeModule {
       } => None,
       AST::Assign(decl, expr) => match decl {
         box AST::Function {
-          name: _,
+          name,
           ty,
           attributes: _,
         } => {
           codegen_function(self, decl);
+          self.start_scope_with_name(name);
           let ret = self.codegen_pass(expr);
 
           // TODO: Typechecks
@@ -146,6 +148,8 @@ impl AatbeModule {
             ),
             false => self.llvm_builder.build_ret_void(),
           };
+
+          self.exit_scope();
 
           None
         }
@@ -159,7 +163,19 @@ impl AatbeModule {
       }
       AST::Empty => None,
       AST::Block(nodes) if nodes.len() == 0 => None,
-      AST::Block(nodes) | AST::File(nodes) => nodes
+      AST::Block(nodes) => {
+        self.start_scope();
+
+        let ret = nodes
+          .iter()
+          .fold(None, |_, n| Some(self.codegen_pass(n)))
+          .unwrap();
+
+        self.exit_scope();
+
+        ret
+      }
+      AST::File(nodes) => nodes
         .iter()
         .fold(None, |_, n| Some(self.codegen_pass(n)))
         .unwrap(),
@@ -202,12 +218,38 @@ impl AatbeModule {
     }
   }
 
-  pub fn add_ref(&mut self, name: &String, unit: CodegenUnit) {
-    self.refs.insert(name.clone(), unit);
+  pub fn start_scope(&mut self) {
+    self.scope_stack.push(Scope::new());
+  }
+
+  pub fn start_scope_with_name(&mut self, name: &String) {
+    self.scope_stack.push(Scope::new_with_name(name));
+  }
+
+  pub fn exit_scope(&mut self) {
+    self.scope_stack.pop();
+  }
+
+  pub fn get_in_scope(&self, name: &String) -> Option<&CodegenUnit> {
+    for scope in self.scope_stack.iter().rev() {
+      if let Some(sym) = scope.find_symbol(name) {
+        return Some(sym);
+      }
+    }
+
+    None
+  }
+
+  pub fn push_ref_in_scope(&mut self, name: &String, unit: CodegenUnit) {
+    self
+      .scope_stack
+      .first_mut()
+      .expect("Compiler broke. Scope stack is corrupted.")
+      .add_symbol(name, unit);
   }
 
   pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
-    let val_ref = self.refs.get(name);
+    let val_ref = self.get_in_scope(name);
     match val_ref {
       Some(CodegenUnit::Function(_)) => val_ref,
       _ => None,
@@ -215,7 +257,7 @@ impl AatbeModule {
   }
 
   pub fn get_var(&self, name: &String) -> Option<&CodegenUnit> {
-    let val_ref = self.refs.get(name);
+    let val_ref = self.get_in_scope(name);
     match val_ref {
       Some(CodegenUnit::Variable {
         mutable: _,

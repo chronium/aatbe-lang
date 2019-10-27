@@ -15,7 +15,7 @@ pub fn declare_function(module: &mut AatbeModule, function: &AST) {
         ty.as_ref().llvm_type_in_context(module.llvm_context_ref()),
       );
 
-      module.add_ref(name, CodegenUnit::Function(func));
+      module.push_ref_in_scope(name, CodegenUnit::Function(func));
     }
     _ => unreachable!(),
   }

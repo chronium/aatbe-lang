@@ -20,7 +20,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &AST) {
         module.llvm_builder_ref().build_store(val, var_ref);
       }
 
-      module.add_ref(
+      module.push_ref_in_scope(
         name,
         CodegenUnit::Variable {
           mutable: Mutability::from(_mut),
@@ -40,6 +40,7 @@ pub fn store_value(module: &mut AatbeModule, name: &String, value: &AST) -> LLVM
     None => panic!("Cannot find variable {}", name),
     Some(var) => var.into(),
   };
+  // TODO: Check mutability
 
   let val = module
     .codegen_pass(value)
