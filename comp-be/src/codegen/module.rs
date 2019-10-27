@@ -3,7 +3,9 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
   codegen::{
-    unit::{alloc_variable, codegen_function, declare_function, store_value},
+    unit::{
+      alloc_variable, codegen_function, declare_function, inject_function_in_scope, store_value,
+    },
     CodegenUnit, Scope,
   },
   parser::{aatbe_parser, ast::AST, operations::BinaryOp, PrimitiveType},
@@ -139,6 +141,7 @@ impl AatbeModule {
         } => {
           codegen_function(self, decl);
           self.start_scope_with_name(name);
+          inject_function_in_scope(self, decl);
           let ret = self.codegen_pass(expr);
 
           // TODO: Typechecks
@@ -265,6 +268,7 @@ impl AatbeModule {
         ty: _,
         value: _,
       }) => val_ref,
+      Some(CodegenUnit::FunctionArgument(_arg)) => val_ref,
       _ => None,
     }
   }

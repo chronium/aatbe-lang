@@ -3,7 +3,7 @@ use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 use crate::parser::{ast::VarType, PrimitiveType};
 
 pub mod function;
-pub use function::{codegen_function, declare_function};
+pub use function::{codegen_function, declare_function, inject_function_in_scope};
 
 pub mod variable;
 pub use variable::{alloc_variable, store_value};
@@ -27,6 +27,7 @@ impl From<&VarType> for Mutability {
 #[derive(Debug)]
 pub enum CodegenUnit {
   Function(Function),
+  FunctionArgument(LLVMValueRef),
   Variable {
     mutable: Mutability,
     name: String,
@@ -39,6 +40,7 @@ impl Into<LLVMValueRef> for &CodegenUnit {
   fn into(self) -> LLVMValueRef {
     match self {
       CodegenUnit::Function(func) => func.as_ref(),
+      CodegenUnit::FunctionArgument(arg) => *arg,
       CodegenUnit::Variable {
         mutable: _,
         name: _,
@@ -56,6 +58,12 @@ impl CodegenUnit {
       _ => panic!("Cannot append basic block on {:?}", self),
     }
   }
+  fn get_param(&self, index: u32) -> LLVMValueRef {
+    match self {
+      CodegenUnit::Function(func) => func.get_param(index),
+      _ => panic!("Cannot get parameter from {:?}", self),
+    }
+  }
 
   pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
     match self {
@@ -65,6 +73,7 @@ impl CodegenUnit {
         ty: _,
         value: _,
       } => builder.build_load(self.into()),
+      CodegenUnit::FunctionArgument(_arg) => self.into(),
       _ => panic!("Cannot load non-variable"),
     }
   }

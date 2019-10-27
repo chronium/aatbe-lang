@@ -112,27 +112,31 @@ peg::parser! {
       / "false" { AST::False }
       / n:ident() _ { AST::Ref(n) }
       / n:parenthesized(<(e:expr()? {e.unwrap_or(AST::Empty)}) ** (_ "," _)>) { AST::Tuple(n) }
-      / attr:attribute()* ext:"extern"? _ "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
-        AST::Function {
-          name: n,
-          ty: box PrimitiveType::FunctionType {
-            ret_type: box ret,
-            param: box param,
-            ext: ext.is_some(),
-          },
-          attributes: attr,
-        }
-      }
       / e:curly(<expr() ** _>) { AST::Block(e) }) _ { atom }
       / "use" _ n:ident() { AST::Import(n) }
 
-    rule call() -> AST
-      = n:ident() _
-          e:(atom() / expr())
-            { AST::Call { name: n, arg: box e } }
+    rule call() -> AST = precedence! {
+      n:ident() _ e:expr() !_ { AST::Call { name: n, arg: box e } }
+      --
+      n:ident() _ e:atom() { AST::Call { name: n, arg: box e } }
+    }
+
+    rule fundef() -> AST
+      = attr:attribute()* ext:"extern"? _ "fn" _ n:ident() _ param:ty() _ "->" _ ret:ty() {
+          AST::Function {
+            name: n,
+            ty: box PrimitiveType::FunctionType {
+              ret_type: box ret,
+              param: box param,
+              ext: ext.is_some(),
+            },
+            attributes: attr,
+          }
+        }
 
     rule expr() -> AST = precedence! {
       e:call() { e }
+      e:fundef() { e }
       --
       e:atom() { e }
       e:parenthesized(<expr()>) { AST::Parenthesized(box e) }

@@ -1,6 +1,7 @@
 use crate::{
   codegen::{AatbeModule, CodegenUnit},
   parser::ast::AST,
+  parser::PrimitiveType,
 };
 
 pub fn declare_function(module: &mut AatbeModule, function: &AST) {
@@ -44,6 +45,38 @@ pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
           .llvm_builder_ref()
           .position_at_end(func.append_basic_block(String::default()));
       }
+    }
+    _ => unreachable!(),
+  }
+}
+
+pub fn inject_function_in_scope(module: &mut AatbeModule, function: &AST) {
+  match function {
+    AST::Function {
+      name,
+      ty,
+      attributes: _,
+    } => {
+      match ty {
+        box PrimitiveType::FunctionType {
+          ret_type: _,
+          param,
+          ext: false,
+        } => {
+          let func = module
+            .get_func(name)
+            .expect("Compiler borked. Functions borked");
+          match param {
+            box PrimitiveType::NamedType { name, ty: _ } => {
+              let param = func.get_param(0);
+              module.push_ref_in_scope(name, CodegenUnit::FunctionArgument(param));
+            }
+            box PrimitiveType::TupleType(types) if types.len() == 0 => {}
+            _ => panic!("Unimplemented function arguments of type {:?}", param),
+          };
+        }
+        _ => unreachable!(),
+      };
     }
     _ => unreachable!(),
   }

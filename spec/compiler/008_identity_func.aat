@@ -1,0 +1,10 @@
+// spector:name Declare and call identity function
+
+extern fn puts str -> i32
+
+fn ident s: str -> str = s
+
+@entry
+fn main () -> () = {
+  puts (ident "Hello")
+}

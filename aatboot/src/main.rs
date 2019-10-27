@@ -24,10 +24,9 @@ fn main() -> io::Result<()> {
   module.codegen_pass(&parsed);
 
   println!("LLVM output:\n------------");
+  module.llvm_module_ref().dump();
   match module.llvm_module_ref().verify() {
     Ok(_) => {
-      module.llvm_module_ref().dump();
-
       println!("\nExecution:\n------------");
 
       let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();

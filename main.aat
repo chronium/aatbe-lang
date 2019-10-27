@@ -1,10 +1,8 @@
 use libc
 
+fn ident x: str -> str = x
+
 @entry
-fn main () -> ()
-  = {
-    var test: str = "Hello"
-    puts test
-    test = "World"
-    puts test
-  }
+fn main () -> () = {
+  puts (ident "Hello")
+}

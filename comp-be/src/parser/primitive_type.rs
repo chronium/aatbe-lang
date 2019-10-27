@@ -41,6 +41,7 @@ impl PrimitiveType {
       PrimitiveType::I64 | PrimitiveType::U64 => ctx.Int64Type(),
       PrimitiveType::I128 | PrimitiveType::U128 => ctx.Int128Type(),
       PrimitiveType::Str => ctx.CharPointerType(),
+      PrimitiveType::NamedType { name: _, ty } => ty.llvm_type_in_context(ctx),
       PrimitiveType::FunctionType {
         ret_type,
         param,
