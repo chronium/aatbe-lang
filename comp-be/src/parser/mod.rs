@@ -153,6 +153,10 @@ peg::parser! {
       --
       x:(@) _ "==" _ y:@ { AST::Binary(BinaryOp::Equals, box x, box y) }
       x:(@) _ "!=" _ y:@ { AST::Binary(BinaryOp::NotEquals, box x, box y) }
+      x:(@) _ "<" _ y:@ { AST::Binary(BinaryOp::Less, box x, box y) }
+      x:(@) _ ">" _ y:@ { AST::Binary(BinaryOp::Greater, box x, box y) }
+      x:(@) _ "<=" _ y:@ { AST::Binary(BinaryOp::LessEquals, box x, box y) }
+      x:(@) _ ">=" _ y:@ { AST::Binary(BinaryOp::GreaterEquals, box x, box y) }
       --
       x:(@) _ "=" _ y:expr() { AST::Assign(box x, box y) }
       --

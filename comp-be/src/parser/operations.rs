@@ -13,4 +13,8 @@ pub enum BinaryOp {
   Modulo,
   Equals,
   NotEquals,
+  Less,
+  Greater,
+  LessEquals,
+  GreaterEquals,
 }

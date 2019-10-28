@@ -52,7 +52,7 @@ impl Into<LLVMValueRef> for &CodegenUnit {
 }
 
 impl CodegenUnit {
-  fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
+  pub fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
     match self {
       CodegenUnit::Function(func) => func.append_basic_block(name.as_ref()),
       _ => panic!("Cannot append basic block on {:?}", self),

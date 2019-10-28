@@ -19,6 +19,7 @@ pub struct AatbeModule {
   name: String,
   scope_stack: Vec<Scope>,
   imported: HashMap<String, AST>,
+  current_function: Option<String>,
 }
 
 impl AatbeModule {
@@ -36,6 +37,7 @@ impl AatbeModule {
       name,
       imported: HashMap::new(),
       scope_stack: Vec::new(),
+      current_function: None,
     }
   }
 
@@ -97,6 +99,8 @@ impl AatbeModule {
           Some(var) => Some(var.load_var(self.llvm_builder_ref())),
         }
       }
+      AST::True => Some(self.llvm_context.SInt1(1)),
+      AST::False => Some(self.llvm_context.SInt1(0)),
       AST::StringLiteral(string) => {
         Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
       }
@@ -109,6 +113,30 @@ impl AatbeModule {
           .codegen_pass(rhs)
           .expect("Binary op rhs must contain a value");
         Some(self.codegen_binary_op(op, lh, rh))
+      }
+      AST::If {
+        condition,
+        then_block,
+      } => {
+        let func = self
+          .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
+          .expect("Must be in a function for if statement");
+
+        let then_bb = func.append_basic_block(String::default());
+        let end_bb = func.append_basic_block(String::default());
+
+        let cond = self.codegen_pass(condition);
+
+        self
+          .llvm_builder
+          .build_cond_br(cond.unwrap(), then_bb, end_bb);
+
+        self.llvm_builder.position_at_end(then_bb);
+        self.codegen_pass(then_block);
+        self.llvm_builder.build_br(end_bb);
+        self.llvm_builder.position_at_end(end_bb);
+
+        None
       }
       AST::Call { name, arg } => {
         let mut args = Vec::new();
@@ -140,6 +168,7 @@ impl AatbeModule {
           attributes: _,
         } => {
           codegen_function(self, decl);
+          self.current_function = Some(name.clone());
           self.start_scope_with_name(name);
           inject_function_in_scope(self, decl);
           let ret = self.codegen_pass(expr);
@@ -201,6 +230,12 @@ impl AatbeModule {
       BinaryOp::Multiply => self.llvm_builder.build_mul(x, y),
       BinaryOp::Divide => self.llvm_builder.build_sdiv(x, y),
       BinaryOp::Modulo => self.llvm_builder.build_srem(x, y),
+      BinaryOp::Equals => self.llvm_builder.build_icmp_eq(x, y),
+      BinaryOp::NotEquals => self.llvm_builder.build_icmp_ne(x, y),
+      BinaryOp::Less => self.llvm_builder.build_icmp_slt(x, y),
+      BinaryOp::Greater => self.llvm_builder.build_icmp_sgt(x, y),
+      BinaryOp::LessEquals => self.llvm_builder.build_icmp_sle(x, y),
+      BinaryOp::GreaterEquals => self.llvm_builder.build_icmp_sge(x, y),
       _ => panic!("Cannot binary op {:?}", op),
     }
   }

@@ -1,4 +1,6 @@
-use libc
+// spector:name Simple if statement conditions
+
+extern fn puts str -> i32
 
 @entry
 fn main () -> () = {
