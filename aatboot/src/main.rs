@@ -1,13 +1,39 @@
 use comp_be::{codegen::AatbeModule, parser::aatbe_parser};
 
-use std::{env, fs::File, io, io::prelude::Read};
+use clap::{clap_app, crate_authors, crate_description, crate_version};
+use std::{
+  fs::{File, OpenOptions},
+  io,
+  io::{Read, Write},
+  path::Path,
+};
+
+use log::{debug, error, info, warn};
+use simplelog::*;
 
 fn main() -> io::Result<()> {
-  if env::args().len() < 2 {
-    panic!("Please provide a file to compile");
+  let matches = clap_app!(aatboot => 
+    (version: crate_version!())
+    (author: crate_authors!())
+    (about: crate_description!())
+    (@arg INPUT: +required "The file to compile")
+    (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
+    (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
+    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode"))
+  .get_matches();
+
+  if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
+    SimpleLogger::init(LevelFilter::Warn, Config::default())
+      .expect("No logger should be already set")
   }
 
-  let mut f = File::open(env::args().last().unwrap())?;
+  if matches.is_present("bitcode") {
+    warn!("LLVM Bitcode output not yet implemented")
+  }
+
+  let input_path = Path::new(matches.value_of_os("INPUT").unwrap());
+
+  let mut f = File::open(input_path.clone())?;
   let mut code = String::new();
 
   f.read_to_string(&mut code)?;
@@ -17,18 +43,39 @@ fn main() -> io::Result<()> {
     Err(err) => panic!(err),
   };
 
-  println!("Parser output:\n------------\n{:#?}\n", parsed);
+  if let Some(parse_out) = matches.value_of("PARSE_OUT") {
+    let mut file = OpenOptions::new()
+      .read(true)
+      .write(true)
+      .create(true)
+      .open(Path::new(parse_out).with_extension("txt"))
+      .unwrap();
 
-  let mut module = AatbeModule::new("main".to_string());
+    if let Err(e) = writeln!(file, "{:#?}", parsed) {
+      error!("Could not write to file: {}", e);
+    }
+  }
+
+  let mut module = AatbeModule::new(
+    input_path
+      .file_stem()
+      .unwrap()
+      .to_str()
+      .unwrap()
+      .to_string(),
+  );
   module.decl_pass(&parsed);
   module.codegen_pass(&parsed);
 
-  println!("LLVM output:\n------------");
-  module.llvm_module_ref().dump();
+  if let Some(llvm_out) = matches.value_of("LLVM_OUT") {
+    module
+      .llvm_module_ref()
+      .print_module_to_file(Path::new(llvm_out).with_extension("lli").to_str().unwrap())
+      .ok();
+  }
+
   match module.llvm_module_ref().verify() {
     Ok(_) => {
-      println!("\nExecution:\n------------");
-
       let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
       let named_function = module.llvm_module_ref().named_function("main");
       let mut params = [];
