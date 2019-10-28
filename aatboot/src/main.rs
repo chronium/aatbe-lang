@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
 
   let parsed = match aatbe_parser::file(code.as_str()) {
     Ok(ast) => ast,
-    Err(err) => panic!(err),
+    Err(err) => panic!(format!("{:#?}", err)),
   };
 
   println!("Parser output:\n------------\n{:#?}\n", parsed);
