@@ -1,0 +1,58 @@
+File(
+    [
+        Import(
+            "libc",
+        ),
+        Assign(
+            Function {
+                name: "ident",
+                ty: FunctionType {
+                    ret_type: Str,
+                    param: NamedType {
+                        name: "x",
+                        ty: Str,
+                    },
+                    ext: false,
+                },
+                attributes: [],
+            },
+            Ref(
+                "x",
+            ),
+        ),
+        Assign(
+            Function {
+                name: "main",
+                ty: FunctionType {
+                    ret_type: TupleType(
+                        [],
+                    ),
+                    param: TupleType(
+                        [],
+                    ),
+                    ext: false,
+                },
+                attributes: [
+                    "entry",
+                ],
+            },
+            Block(
+                [
+                    Call {
+                        name: "puts",
+                        arg: Tuple(
+                            [
+                                Call {
+                                    name: "ident",
+                                    arg: StringLiteral(
+                                        "Hello",
+                                    ),
+                                },
+                            ],
+                        ),
+                    },
+                ],
+            ),
+        ),
+    ],
+)
