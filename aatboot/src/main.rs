@@ -48,8 +48,7 @@ fn main() -> io::Result<()> {
       .read(true)
       .write(true)
       .create(true)
-      .open(Path::new(parse_out).with_extension("txt"))
-      .unwrap();
+      .open(Path::new(parse_out).with_extension("txt"))?;
 
     if let Err(e) = writeln!(file, "{:#?}", parsed) {
       error!("Could not write to file: {}", e);
@@ -59,10 +58,9 @@ fn main() -> io::Result<()> {
   let mut module = AatbeModule::new(
     input_path
       .file_stem()
-      .unwrap()
-      .to_str()
-      .unwrap()
-      .to_string(),
+      .and_then(|stem| stem.to_str())
+      .map(|stem_str| stem_str.to_string())
+      .expect("Could not get spice name from path"),
   );
   module.decl_pass(&parsed);
   module.codegen_pass(&parsed);
@@ -70,8 +68,13 @@ fn main() -> io::Result<()> {
   if let Some(llvm_out) = matches.value_of("LLVM_OUT") {
     module
       .llvm_module_ref()
-      .print_module_to_file(Path::new(llvm_out).with_extension("lli").to_str().unwrap())
-      .ok();
+      .print_module_to_file(
+        Path::new(llvm_out)
+          .with_extension("lli")
+          .to_str()
+          .expect("Could not create .lli file path"),
+      )
+      .expect("Could not write .lli file");
   }
 
   match module.llvm_module_ref().verify() {
