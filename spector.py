@@ -86,8 +86,8 @@ def runTest(file):
 
     # Try building the test case
     proc = Popen(
-        ["cargo", "run", "--", test.path],
-        stdout=DEVNULL,
+        ["cargo", "run", "--quiet", "--", test.path],
+        stdout=PIPE,
         stderr=PIPE
     )
 
@@ -122,7 +122,8 @@ def runTest(file):
             name = test.name,
             code = exitCode
         ))
-        print(err)
+        print(str(err).replace("\\n", "\n"))
+        # print(str(output).replace("\\n", "\n"))
 
     # Build test statistics
     return TestStatistics(test.name, exitCode == 0, diffMs)
