@@ -12,7 +12,7 @@ SYM_TICK = '\033[32m✓\033[0m'
 SYM_FAIL = '\033[31m✗\033[0m'
 
 # Type Definitions
-TestCase = namedtuple('TestCase', 'name suite path src')
+TestCase = namedtuple('TestCase', 'options suite path src')
 TestStatistics = namedtuple('TestStatistics', 'name status time')
 
 def buildCompiler():
@@ -67,16 +67,27 @@ def parseTest(file):
     # Extract properties from spector comments
     for line in list(filter(isSpectorComment, content.splitlines())):
         values = line.split('spector:', 1)[1].split(' ', 1)
-        if len(values) != 2: continue
-        key, val = values
-        props[key] = val
+        if len(values) == 1:
+            props[values[0]] = ''
+        else:
+            key, val = values
+            props[key] = val
 
     # Get relevant properties
     name = props.get('name', os.path.basename(file))
+    shouldfail = 'shouldfail' in props
+
+    # Build final options
+    opts = {
+        'name': name,
+        'shouldfail': shouldfail,
+    }
+
+    # Determine test suite
     suite = os.path.dirname(file).split('spec/', 1)[1]
 
     # Build the structured test case
-    return TestCase(name, suite, file, content)
+    return TestCase(opts, suite, file, content)
 
 def runTest(file):
     """Run a single test"""
@@ -86,8 +97,8 @@ def runTest(file):
 
     # Try building the test case
     proc = Popen(
-        ["cargo", "run", "--", test.path],
-        stdout=DEVNULL,
+        ["cargo", "run", "--quiet", "--", test.path],
+        stdout=PIPE,
         stderr=PIPE
     )
 
@@ -106,26 +117,30 @@ def runTest(file):
     diffMs = diff.seconds * 1000 + diff.microseconds / 1000
     diffStr = "{}ms".format(str(int(diffMs))).ljust(6)
 
+    # Determine success
+    success = exitCode == 0 or (test.options['shouldfail'] and exitCode != 0)
+
     # Print results
-    if exitCode == 0:
+    if success:
         print("[{suite}] {symbol} {time} {name}".format(
             suite = test.suite,
             symbol = SYM_TICK,
             time = diffStr,
-            name = test.name
+            name = test.options['name']
         ))
     else:
         print("[{suite}] {symbol} {time} {name} (code {code})".format(
             suite = test.suite,
             symbol = SYM_FAIL,
             time = diffStr,
-            name = test.name,
+            name = test.options['name'],
             code = exitCode
         ))
-        print(err)
+        print(str(err).replace("\\n", "\n"))
+        # print(str(output).replace("\\n", "\n"))
 
     # Build test statistics
-    return TestStatistics(test.name, exitCode == 0, diffMs)
+    return TestStatistics(test.options['name'], success, diffMs)
 
 def runTestCases(files):
     """Run tests and print a summary"""

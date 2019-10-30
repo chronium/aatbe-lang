@@ -1,0 +1,8 @@
+// spector:name Link to runtime and exit with code 0
+
+extern fn exit i32 -> ()
+
+@entry
+fn main () -> () = {
+  exit 0
+}
