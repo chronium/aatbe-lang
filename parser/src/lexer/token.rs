@@ -12,6 +12,7 @@ pub enum TokenKind {
   LParen,
   RParen,
   Comment(String),
+  NumberLiteral(u64),
 }
 
 impl Token {
