@@ -96,6 +96,8 @@ impl<'c> Lexer<'c> {
             while let Some(c) = self.chars.peek() {
               if c.is_digit(16) {
                 buf.push(self.read().expect("Lexer died @hex"));
+              } else if *c == '_' {
+                self.advance();
               } else {
                 break;
               }
@@ -209,6 +211,17 @@ mod tests {
   #[test]
   fn single_number_literal_hex() {
     let mut lexer = Lexer::new("0xdeadbeef");
+    lexer.lex();
+    let mut tokens = lexer.into_iter();
+    assert_eq!(
+      tokens.next().unwrap().kind,
+      TokenKind::NumberLiteral(0xdeadbeef),
+    )
+  }
+
+  #[test]
+  fn single_number_literal_hex_separator() {
+    let mut lexer = Lexer::new("0xdead_beef");
     lexer.lex();
     let mut tokens = lexer.into_iter();
     assert_eq!(
