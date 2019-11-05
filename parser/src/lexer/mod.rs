@@ -63,8 +63,7 @@ impl<'c> Lexer<'c> {
 
   fn eat_whitespace(&mut self) {
     loop {
-      let c = self.chars.peek().unwrap_or(&'_');
-      if c.is_whitespace() {
+      if self.chars.peek().map(|c| c.is_whitespace()).unwrap_or(false) {
         self.advance();
       } else {
         break;
@@ -175,6 +174,18 @@ mod tests {
   #[test]
   fn single_line_comment() {
     let mut lexer = Lexer::new("//Test");
+    lexer.lex();
+    let mut tokens = lexer.into_iter();
+
+    assert_eq!(
+      tokens.next().unwrap().kind,
+      TokenKind::Comment(String::from("Test"))
+    );
+  }
+
+  #[test]
+  fn single_line_comment_with_whitespace() {
+    let mut lexer = Lexer::new("                 //Test");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
