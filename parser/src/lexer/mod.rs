@@ -36,12 +36,13 @@ impl<'c> Lexer<'c> {
   }
 
   fn is_next_insensitive(&mut self, peek: char) -> bool {
-    let result = self.chars.peek().map(|c| c.to_lowercase().to_string())
-      == Some(peek.to_lowercase().to_string());
-    if result {
+    if self.chars.peek()
+      .map(|c| c.to_lowercase())
+      .map(|s| peek.to_lowercase().eq(s))
+      .unwrap_or(false) {
       self.advance();
-    }
-    result
+      true
+    } else { false }
   }
 
   fn read_eol(&mut self) -> String {
