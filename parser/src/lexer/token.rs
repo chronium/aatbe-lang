@@ -45,8 +45,7 @@ impl FromStr for Keyword {
   type Err = ();
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    let sl = s;
-    match sl {
+    match s {
       "fn" => Ok(Self::Fn),
       _ => Err(()),
     }
