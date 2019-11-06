@@ -2,7 +2,7 @@ use std::{iter::Peekable, str::Chars};
 
 pub mod token;
 
-use token::{Position, Token, TokenKind};
+use token::{Keyword, Position, Token, TokenKind};
 
 pub struct Lexer<'c> {
   tokens: Vec<Token>,
@@ -36,13 +36,18 @@ impl<'c> Lexer<'c> {
   }
 
   fn is_next_insensitive(&mut self, peek: char) -> bool {
-    if self.chars.peek()
+    if self
+      .chars
+      .peek()
       .map(|c| c.to_lowercase())
       .map(|s| peek.to_lowercase().eq(s))
-      .unwrap_or(false) {
+      .unwrap_or(false)
+    {
       self.advance();
       true
-    } else { false }
+    } else {
+      false
+    }
   }
 
   fn read_eol(&mut self) -> String {
@@ -64,7 +69,12 @@ impl<'c> Lexer<'c> {
 
   fn eat_whitespace(&mut self) {
     loop {
-      if self.chars.peek().map(|c| c.is_whitespace()).unwrap_or(false) {
+      if self
+        .chars
+        .peek()
+        .map(|c| c.is_whitespace())
+        .unwrap_or(false)
+      {
         self.advance();
       } else {
         break;
@@ -76,21 +86,63 @@ impl<'c> Lexer<'c> {
     loop {
       self.eat_whitespace();
       let pos = (self.col, self.row);
-      match self.read() {
-        Some('(') => {
+
+      let c = match self.read() {
+        Some(c) => c,
+        None => {
+          self.push_token(TokenKind::EOF, pos);
+          break;
+        }
+      };
+
+      match c {
+        '(' => {
           self.push_token(TokenKind::LParen, pos);
         }
-        Some(')') => {
+        ')' => {
           self.push_token(TokenKind::RParen, pos);
         }
-        Some('/') => match self.read() {
+        '{' => {
+          self.push_token(TokenKind::LCurly, pos);
+        }
+        '}' => {
+          self.push_token(TokenKind::RCurly, pos);
+        }
+        '-' => match self.chars.peek() {
+          Some('>') => {
+            self.advance();
+            self.push_token(TokenKind::Arrow, pos)
+          }
+          _ => {}
+        },
+        '@' => {
+          self.push_token(TokenKind::At, pos);
+        }
+        '/' => match self.read() {
           Some('/') => {
             let comm = self.read_eol();
             self.push_token(TokenKind::Comment(comm), pos);
           }
           _ => panic!("Expected /, *, ="),
         },
-        Some('0') => {
+        'a'..='z' | 'A'..='Z' | '_' => {
+          let mut buf = c.to_string();
+          while let Some(c) = self.chars.peek() {
+            match c {
+              'a'..='z' | 'A'..='Z' | '_' | '-' | '0'..='9' => {
+                buf.push(*c);
+                self.advance();
+              }
+              _ => break,
+            }
+          }
+
+          self.push_token(
+            Token::keyword(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
+            pos,
+          );
+        }
+        '0' => {
           let mut buf = String::new();
           let num = if self.is_next_insensitive('x') {
             while let Some(c) = self.chars.peek() {
@@ -115,7 +167,7 @@ impl<'c> Lexer<'c> {
           };
           self.push_token(TokenKind::NumberLiteral(num), pos);
         }
-        Some(c) if c.is_digit(10) => {
+        c if c.is_digit(10) => {
           let mut buf = c.to_string();
           while let Some(ch) = self.chars.peek() {
             match ch {
@@ -132,10 +184,7 @@ impl<'c> Lexer<'c> {
             pos,
           );
         }
-        _ => {
-          self.push_token(TokenKind::EOF, pos);
-          break;
-        }
+        _ => panic!("Unhandled token"),
       };
     }
   }
@@ -163,13 +212,17 @@ mod tests {
   }
 
   #[test]
-  fn parentheses() {
-    let mut lexer = Lexer::new("()");
+  fn symbols() {
+    let mut lexer = Lexer::new("@()->{}");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
+    assert_eq!(tokens.next().unwrap().kind, TokenKind::At);
     assert_eq!(tokens.next().unwrap().kind, TokenKind::LParen);
     assert_eq!(tokens.next().unwrap().kind, TokenKind::RParen);
+    assert_eq!(tokens.next().unwrap().kind, TokenKind::Arrow);
+    assert_eq!(tokens.next().unwrap().kind, TokenKind::LCurly);
+    assert_eq!(tokens.next().unwrap().kind, TokenKind::RCurly);
   }
 
   #[test]
@@ -225,6 +278,7 @@ mod tests {
     let mut lexer = Lexer::new("0xdeadbeef");
     lexer.lex();
     let mut tokens = lexer.into_iter();
+
     assert_eq!(
       tokens.next().unwrap().kind,
       TokenKind::NumberLiteral(0xdeadbeef),
@@ -236,9 +290,26 @@ mod tests {
     let mut lexer = Lexer::new("0xdead_beef");
     lexer.lex();
     let mut tokens = lexer.into_iter();
+
     assert_eq!(
       tokens.next().unwrap().kind,
       TokenKind::NumberLiteral(0xdeadbeef),
     )
+  }
+
+  #[test]
+  fn keyword_identifier() {
+    let mut lexer = Lexer::new("fn main");
+    lexer.lex();
+    let mut tokens = lexer.into_iter();
+
+    assert_eq!(
+      tokens.next().unwrap().kind,
+      TokenKind::Keyword(crate::lexer::Keyword::Fn),
+    );
+    assert_eq!(
+      tokens.next().unwrap().kind,
+      TokenKind::Identifier(String::from("main")),
+    );
   }
 }
