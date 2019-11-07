@@ -2,7 +2,7 @@ use std::{iter::Peekable, str::Chars};
 
 pub mod token;
 
-use token::{Keyword, Position, Token, TokenKind};
+use token::{Keyword, Position, Symbol, Token, TokenKind};
 
 pub struct Lexer<'c> {
   tokens: Vec<Token>,
@@ -67,6 +67,10 @@ impl<'c> Lexer<'c> {
     self.tokens.push(Token::new(token, pos));
   }
 
+  fn push_symbol(&mut self, sym: Symbol, pos: Position) {
+    self.tokens.push(Token::new(TokenKind::Symbol(sym), pos));
+  }
+
   fn eat_whitespace(&mut self) {
     loop {
       if self
@@ -97,26 +101,26 @@ impl<'c> Lexer<'c> {
 
       match c {
         '(' => {
-          self.push_token(TokenKind::LParen, pos);
+          self.push_symbol(Symbol::LParen, pos);
         }
         ')' => {
-          self.push_token(TokenKind::RParen, pos);
+          self.push_symbol(Symbol::RParen, pos);
         }
         '{' => {
-          self.push_token(TokenKind::LCurly, pos);
+          self.push_symbol(Symbol::LCurly, pos);
         }
         '}' => {
-          self.push_token(TokenKind::RCurly, pos);
+          self.push_symbol(Symbol::RCurly, pos);
         }
         '-' => match self.chars.peek() {
           Some('>') => {
             self.advance();
-            self.push_token(TokenKind::Arrow, pos)
+            self.push_symbol(Symbol::Arrow, pos)
           }
           _ => {}
         },
         '@' => {
-          self.push_token(TokenKind::At, pos);
+          self.push_symbol(Symbol::At, pos);
         }
         '/' => match self.read() {
           Some('/') => {
@@ -201,7 +205,7 @@ impl IntoIterator for Lexer<'_> {
 
 #[cfg(test)]
 mod tests {
-  use super::{Lexer, TokenKind};
+  use super::{Keyword, Lexer, Symbol, TokenKind};
   #[test]
   fn end_of_file() {
     let mut lexer = Lexer::new("");
@@ -217,12 +221,12 @@ mod tests {
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::At);
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::LParen);
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::RParen);
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::Arrow);
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::LCurly);
-    assert_eq!(tokens.next().unwrap().kind, TokenKind::RCurly);
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::At));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::LParen));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::RParen));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Arrow));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::LCurly));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::RCurly));
   }
 
   #[test]
@@ -303,10 +307,7 @@ mod tests {
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
-    assert_eq!(
-      tokens.next().unwrap().kind,
-      TokenKind::Keyword(crate::lexer::Keyword::Fn),
-    );
+    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
     assert_eq!(
       tokens.next().unwrap().kind,
       TokenKind::Identifier(String::from("main")),

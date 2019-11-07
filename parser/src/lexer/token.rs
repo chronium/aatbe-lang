@@ -11,19 +11,24 @@ pub type Position = (usize, usize);
 #[derive(Debug, Eq, PartialEq)]
 pub enum TokenKind {
   EOF,
-  LParen,
-  RParen,
-  Arrow,
-  LCurly,
-  RCurly,
-  At,
+  Symbol(Symbol),
   Comment(String),
   NumberLiteral(u64),
   Identifier(String),
   Keyword(Keyword),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum Symbol {
+  LParen,
+  RParen,
+  Arrow,
+  LCurly,
+  RCurly,
+  At,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Keyword {
   Fn,
 }
@@ -37,6 +42,20 @@ impl Token {
     match Keyword::from_str(kw) {
       Ok(k) => Some(TokenKind::Keyword(k)),
       Err(_) => None,
+    }
+  }
+
+  pub fn kw(&self) -> Option<Keyword> {
+    match self.kind {
+      TokenKind::Keyword(kw) => Some(kw),
+      _ => None,
+    }
+  }
+
+  pub fn sym(&self) -> Option<Symbol> {
+    match self.kind {
+      TokenKind::Symbol(sym) => Some(sym),
+      _ => None,
     }
   }
 }
