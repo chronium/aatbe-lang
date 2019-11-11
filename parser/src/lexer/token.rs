@@ -31,6 +31,8 @@ pub enum Symbol {
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Keyword {
   Fn,
+  True,
+  False,
 }
 
 impl Token {
@@ -66,6 +68,8 @@ impl FromStr for Keyword {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
       "fn" => Ok(Self::Fn),
+      "true" => Ok(Self::True),
+      "false" => Ok(Self::False),
       _ => Err(()),
     }
   }

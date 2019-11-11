@@ -204,7 +204,7 @@ impl IntoIterator for Lexer<'_> {
 }
 
 #[cfg(test)]
-mod tests {
+mod lexer_tests {
   use super::{Keyword, Lexer, Symbol, TokenKind};
   #[test]
   fn end_of_file() {
@@ -303,11 +303,13 @@ mod tests {
 
   #[test]
   fn keyword_identifier() {
-    let mut lexer = Lexer::new("fn main");
+    let mut lexer = Lexer::new("fn true false main");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
     assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
+    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::True));
+    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::False));
     assert_eq!(
       tokens.next().unwrap().kind,
       TokenKind::Identifier(String::from("main")),
