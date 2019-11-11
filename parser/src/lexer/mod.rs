@@ -16,14 +16,14 @@ impl<'c> Lexer<'c> {
     Self {
       tokens: Vec::new(),
       chars: code.chars().peekable(),
-      col: 0,
+      col: 1,
       row: 1,
     }
   }
 
   fn read(&mut self) -> Option<char> {
     if let Some('\n') = self.chars.peek() {
-      self.col = 0;
+      self.col = 1;
       self.row += 1;
     }
 

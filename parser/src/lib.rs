@@ -4,28 +4,29 @@ mod ast;
 mod lexer;
 
 use ast::AST;
-use lexer::token::{Token, TokenKind};
+use lexer::token::{Keyword, Token, TokenKind};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
   InvalidEOF,
+  UnexpectedToken(Token),
 }
 
 type ParseResult = Result<(), ParseError>;
 
-pub struct Parser<Iter>
+pub struct Parser<Tokens>
 where
-  Iter: Iterator<Item = Token>,
+  Tokens: Iterator<Item = Token>,
 {
-  tt: Peekable<Iter>,
+  tt: Peekable<Tokens>,
   pt: Option<AST>,
 }
 
-impl<Iter> Parser<Iter>
+impl<Tokens> Parser<Tokens>
 where
-  Iter: Iterator<Item = Token>,
+  Tokens: Iterator<Item = Token>,
 {
-  fn new(tt: Iter) -> Self {
+  fn new(tt: Tokens) -> Self {
     Self {
       tt: tt.peekable(),
       pt: None,
@@ -37,19 +38,30 @@ where
   }
 
   fn parse(&mut self) -> ParseResult {
-    loop {
+    let mut res = Vec::new();
+    let err = loop {
       let t = match self.tt.next() {
         Some(tok) if tok.kind == TokenKind::EOF => break Ok(()),
         Some(tok) => tok,
         None => break Err(ParseError::InvalidEOF),
       };
-    }
+
+      match t.kind {
+        TokenKind::Keyword(Keyword::True) => res.push(AST::True),
+        TokenKind::Keyword(Keyword::False) => res.push(AST::False),
+        _ => break Err(ParseError::UnexpectedToken(t)),
+      }
+    };
+
+    self.pt = Some(AST::File(res));
+
+    err
   }
 }
 
 #[cfg(test)]
 mod parser_tests {
-  use super::{lexer::Lexer, ParseError, Parser};
+  use super::{lexer::Lexer, ParseError, Parser, AST};
 
   fn tt(code: &'static str) -> Lexer<'static> {
     let mut lexer = Lexer::new(code);
@@ -74,5 +86,16 @@ mod parser_tests {
     let res = parser.parse();
 
     assert_eq!(res, Ok(()))
+  }
+
+  #[test]
+  fn true_false() {
+    let mut parser = Parser::new(tt("true false").into_iter());
+    let res = parser.parse();
+    let pt = parser.pt().as_ref().expect("TF Test Failed");
+
+    assert_eq!(res, Ok(()));
+
+    assert_eq!(pt, &AST::File(vec![AST::True, AST::False]));
   }
 }
