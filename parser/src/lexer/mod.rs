@@ -2,7 +2,7 @@ use std::{iter::Peekable, str::Chars};
 
 pub mod token;
 
-use token::{Keyword, Position, Symbol, Token, TokenKind};
+use token::{Boolean, Keyword, Position, Symbol, Token, TokenKind};
 
 pub struct Lexer<'c> {
   tokens: Vec<Token>,
@@ -19,6 +19,10 @@ impl<'c> Lexer<'c> {
       col: 1,
       row: 1,
     }
+  }
+
+  pub fn tt(&self) -> Vec<Token> {
+    self.tokens.clone()
   }
 
   fn read(&mut self) -> Option<char> {
@@ -100,9 +104,13 @@ impl<'c> Lexer<'c> {
       };
 
       match c {
-        '(' => {
-          self.push_symbol(Symbol::LParen, pos);
-        }
+        '(' => match self.chars.peek() {
+          Some(')') => {
+            self.advance();
+            self.push_symbol(Symbol::Unit, pos)
+          }
+          _ => self.push_symbol(Symbol::LParen, pos),
+        },
         ')' => {
           self.push_symbol(Symbol::RParen, pos);
         }
@@ -142,7 +150,8 @@ impl<'c> Lexer<'c> {
           }
 
           self.push_token(
-            Token::keyword(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
+            Token::keyword(buf.as_ref())
+              .unwrap_or(Token::boolean(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf))),
             pos,
           );
         }
@@ -205,7 +214,7 @@ impl IntoIterator for Lexer<'_> {
 
 #[cfg(test)]
 mod lexer_tests {
-  use super::{Keyword, Lexer, Symbol, TokenKind};
+  use super::{Boolean, Keyword, Lexer, Symbol, TokenKind};
   #[test]
   fn end_of_file() {
     let mut lexer = Lexer::new("");
@@ -217,7 +226,7 @@ mod lexer_tests {
 
   #[test]
   fn symbols() {
-    let mut lexer = Lexer::new("@()->{}");
+    let mut lexer = Lexer::new("@( )->{}()");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
@@ -227,6 +236,7 @@ mod lexer_tests {
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Arrow));
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::LCurly));
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::RCurly));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Unit));
   }
 
   #[test]
@@ -308,8 +318,8 @@ mod lexer_tests {
     let mut tokens = lexer.into_iter();
 
     assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
-    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::True));
-    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::False));
+    assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::True));
+    assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::False));
     assert_eq!(
       tokens.next().unwrap().kind,
       TokenKind::Identifier(String::from("main")),

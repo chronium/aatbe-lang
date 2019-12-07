@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Token {
   pub kind: TokenKind,
   pub position: Position,
@@ -8,12 +8,13 @@ pub struct Token {
 
 pub type Position = (usize, usize);
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum TokenKind {
   EOF,
   Symbol(Symbol),
   Comment(String),
   NumberLiteral(u64),
+  BooleanLitral(Boolean),
   Identifier(String),
   Keyword(Keyword),
 }
@@ -26,13 +27,18 @@ pub enum Symbol {
   LCurly,
   RCurly,
   At,
+  Unit,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum Boolean {
+  True,
+  False,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Keyword {
   Fn,
-  True,
-  False,
 }
 
 impl Token {
@@ -43,6 +49,13 @@ impl Token {
   pub fn keyword(kw: &str) -> Option<TokenKind> {
     match Keyword::from_str(kw) {
       Ok(k) => Some(TokenKind::Keyword(k)),
+      Err(_) => None,
+    }
+  }
+
+  pub fn boolean(boolean: &str) -> Option<TokenKind> {
+    match Boolean::from_str(boolean) {
+      Ok(b) => Some(TokenKind::BooleanLitral(b)),
       Err(_) => None,
     }
   }
@@ -60,6 +73,13 @@ impl Token {
       _ => None,
     }
   }
+
+  pub fn bl(&self) -> Option<Boolean> {
+    match self.kind {
+      TokenKind::BooleanLitral(b) => Some(b),
+      _ => None,
+    }
+  }
 }
 
 impl FromStr for Keyword {
@@ -68,6 +88,16 @@ impl FromStr for Keyword {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
       "fn" => Ok(Self::Fn),
+      _ => Err(()),
+    }
+  }
+}
+
+impl FromStr for Boolean {
+  type Err = ();
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s {
       "true" => Ok(Self::True),
       "false" => Ok(Self::False),
       _ => Err(()),
