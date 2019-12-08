@@ -87,6 +87,13 @@ impl Token {
       _ => None,
     }
   }
+
+  pub fn ident(&self) -> Option<String> {
+    match &self.kind {
+      TokenKind::Identifier(id) => Some(id.clone()),
+      _ => None,
+    }
+  }
 }
 
 impl FromStr for Keyword {

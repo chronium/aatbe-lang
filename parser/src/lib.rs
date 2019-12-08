@@ -43,13 +43,52 @@ macro_rules! capture {
   }};
 }
 
+macro_rules! expect_kw {
+  ($self:ident, $kw:ident) => {{
+    let token = $self.next();
+    if let Some(tok) = token {
+      match tok.kw() {
+        Some(kw) if kw == Keyword::$kw => {}
+        _ => return Err(ParseError::UnexpectedToken(deref_opt!(token))),
+      }
+    }
+  }};
+}
+
+macro_rules! expect_ident {
+  ($self:ident) => {{
+    let token = $self.next();
+    if let Some(tok) = token {
+      match tok.ident() {
+        Some(id) => id,
+        _ => return Err(ParseError::ExpectedIdent),
+      }
+    } else {
+      return Err(ParseError::ExpectedIdent);
+    }
+  }};
+}
+
+macro_rules! expect_sym {
+  ($self:ident, $sym:ident) => {{
+    let token = $self.next();
+    if let Some(tok) = token {
+      match tok.sym() {
+        Some(kw) if kw == Symbol::$sym => {}
+        _ => return Err(ParseError::UnexpectedToken(deref_opt!(token))),
+      }
+    }
+  }};
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
   InvalidEOF,
-  UnexpectedToken(Token),
+  UnexpectedToken(Option<Token>),
   ExpectedType(Option<Token>),
   ExpectedBoolean(Option<Token>),
   ExpectedAtom,
+  ExpectedIdent,
 }
 
 type ParseResult<T> = Result<T, ParseError>;
@@ -141,6 +180,17 @@ impl Parser {
     }
   }
 
+  fn parse_function(&mut self) -> ParseResult<AST> {
+    expect_kw!(self, Fn);
+    let name = expect_ident!(self);
+
+    expect_sym!(self, Unit);
+    expect_sym!(self, Arrow);
+    expect_sym!(self, Unit);
+
+    Ok(AST::Function { name })
+  }
+
   fn parse(&mut self) -> ParseResult<()> {
     let mut res = Vec::new();
     let err = loop {
@@ -150,9 +200,14 @@ impl Parser {
         None => break Err(ParseError::InvalidEOF),
       };
 
-      res.push(self.parse_atom().unwrap_or_else(|r| {
-        panic!(r);
-      }));
+      res.push(
+        self
+          .parse_atom()
+          .or_else(|_| self.parse_function())
+          .unwrap_or_else(|r| {
+            panic!(r);
+          }),
+      );
     };
 
     self.pt = Some(AST::File(res));
@@ -232,6 +287,25 @@ mod parser_tests {
     assert_eq!(
       pt,
       &AST::File(vec![AST::Atom(AtomKind::Integer(0xdeadbeef)),])
+    );
+  }
+
+  #[test]
+  fn parse_unit_function() {
+    let mut parser = Parser::new(tt("fn test () -> ()"));
+    let res = parser.parse();
+    let pt = parser
+      .pt()
+      .as_ref()
+      .expect("Parse Unit Function Test Failed");
+
+    assert_eq!(res, Ok(()));
+
+    assert_eq!(
+      pt,
+      &AST::File(vec![AST::Function {
+        name: "test".to_string()
+      },])
     );
   }
 }

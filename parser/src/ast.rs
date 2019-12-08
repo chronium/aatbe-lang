@@ -4,6 +4,7 @@ pub enum AST {
   Type(PrimitiveType),
   Error,
   Atom(AtomKind),
+  Function { name: String },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
