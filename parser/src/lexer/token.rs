@@ -13,7 +13,7 @@ pub enum TokenKind {
   EOF,
   Symbol(Symbol),
   Comment(String),
-  NumberLiteral(u64),
+  IntLiteral(u64),
   BooleanLitral(Boolean),
   Identifier(String),
   Keyword(Keyword),
@@ -77,6 +77,13 @@ impl Token {
   pub fn bl(&self) -> Option<Boolean> {
     match self.kind {
       TokenKind::BooleanLitral(b) => Some(b),
+      _ => None,
+    }
+  }
+
+  pub fn int(&self) -> Option<u64> {
+    match self.kind {
+      TokenKind::IntLiteral(int) => Some(int),
       _ => None,
     }
   }

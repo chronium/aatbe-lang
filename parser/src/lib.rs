@@ -1,8 +1,11 @@
 mod ast;
 mod lexer;
 
-use ast::{PrimitiveType, AST};
-use lexer::token::{Boolean, Keyword, Symbol, Token, TokenKind};
+use ast::{AtomKind, Boolean, PrimitiveType, AST};
+use lexer::{
+  token,
+  token::{Keyword, Symbol, Token, TokenKind},
+};
 
 macro_rules! peek {
   ($tt: expr, $ind: expr) => {
@@ -32,12 +35,11 @@ macro_rules! capture {
       capt => capt,
     }
   }};
-  ($self:ident, $opt:ident, $($opts:ident),+) => {{
+  ($self:ident, $opt:ident, $($opts:ident),*) => {{
     match capture!($self, $opt) {
-      None => capture!($self, $($opts),+),
+      None => capture!($self, $($opts),*),
       Some(ast) => Some(ast),
     }
-    .unwrap_or(AST::Error)
   }};
 }
 
@@ -47,6 +49,7 @@ pub enum ParseError {
   UnexpectedToken(Token),
   ExpectedType(Option<Token>),
   ExpectedBoolean(Option<Token>),
+  ExpectedAtom,
 }
 
 type ParseResult<T> = Result<T, ParseError>;
@@ -95,17 +98,46 @@ impl Parser {
     None
   }
 
-  fn parse_boolean(&mut self) -> Option<AST> {
+  fn parse_boolean(&mut self) -> Option<AtomKind> {
     let token = self.next();
 
     if let Some(tok) = token {
       match tok.bl() {
-        Some(Boolean::True) => Some(AST::True),
-        Some(Boolean::False) => Some(AST::False),
+        Some(token::Boolean::True) => Some(AtomKind::Bool(Boolean::True)),
+        Some(token::Boolean::False) => Some(AtomKind::Bool(Boolean::False)),
         _ => None,
       }
     } else {
       None
+    }
+  }
+
+  fn parse_number(&mut self) -> Option<AtomKind> {
+    let token = self.next();
+    if let Some(tok) = token {
+      if let Some(val) = tok.int() {
+        return Some(AtomKind::Integer(val));
+      }
+    }
+
+    None
+  }
+
+  fn parse_unit(&mut self) -> Option<AtomKind> {
+    let token = self.next();
+    if let Some(tok) = token {
+      if let Some(Symbol::Unit) = tok.sym() {
+        return Some(AtomKind::Unit);
+      }
+    }
+
+    None
+  }
+
+  fn parse_atom(&mut self) -> ParseResult<AST> {
+    match capture!(self, parse_boolean, parse_number, parse_unit) {
+      None => Err(ParseError::ExpectedAtom),
+      Some(at) => Ok(AST::Atom(at)),
     }
   }
 
@@ -118,7 +150,9 @@ impl Parser {
         None => break Err(ParseError::InvalidEOF),
       };
 
-      res.push(capture!(self, parse_type, parse_boolean));
+      res.push(self.parse_atom().unwrap_or_else(|r| {
+        panic!(r);
+      }));
     };
 
     self.pt = Some(AST::File(res));
@@ -131,7 +165,7 @@ impl Parser {
 mod parser_tests {
   use super::{
     lexer::{token::Token, Lexer},
-    ParseError, Parser, PrimitiveType, AST,
+    AtomKind, Boolean, ParseError, Parser, PrimitiveType, AST,
   };
 
   fn tt(code: &'static str) -> Vec<Token> {
@@ -167,17 +201,37 @@ mod parser_tests {
 
     assert_eq!(res, Ok(()));
 
-    assert_eq!(pt, &AST::File(vec![AST::True, AST::False]));
+    assert_eq!(
+      pt,
+      &AST::File(vec![
+        AST::Atom(AtomKind::Bool(Boolean::True)),
+        AST::Atom(AtomKind::Bool(Boolean::False))
+      ])
+    );
   }
 
   #[test]
-  fn unit_type() {
+  fn unit() {
     let mut parser = Parser::new(tt("()"));
     let res = parser.parse();
-    let pt = parser.pt().as_ref().expect("unit_type Test Failed");
+    let pt = parser.pt().as_ref().expect("unit Test Failed");
 
     assert_eq!(res, Ok(()));
 
-    assert_eq!(pt, &AST::File(vec![AST::Type(PrimitiveType::Unit)]));
+    assert_eq!(pt, &AST::File(vec![AST::Atom(AtomKind::Unit)]));
+  }
+
+  #[test]
+  fn parse_int() {
+    let mut parser = Parser::new(tt("0xdeadbeef"));
+    let res = parser.parse();
+    let pt = parser.pt().as_ref().expect("DeadBeef Test Failed");
+
+    assert_eq!(res, Ok(()));
+
+    assert_eq!(
+      pt,
+      &AST::File(vec![AST::Atom(AtomKind::Integer(0xdeadbeef)),])
+    );
   }
 }

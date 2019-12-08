@@ -178,7 +178,7 @@ impl<'c> Lexer<'c> {
             }
             u64::from_str_radix(&buf, 10).expect("Lexer died @hex -> u64")
           };
-          self.push_token(TokenKind::NumberLiteral(num), pos);
+          self.push_token(TokenKind::IntLiteral(num), pos);
         }
         c if c.is_digit(10) => {
           let mut buf = c.to_string();
@@ -191,7 +191,7 @@ impl<'c> Lexer<'c> {
           }
 
           self.push_token(
-            TokenKind::NumberLiteral(
+            TokenKind::IntLiteral(
               u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
             ),
             pos,
@@ -271,7 +271,7 @@ mod lexer_tests {
 
     assert_eq!(
       tokens.next().unwrap().kind,
-      TokenKind::NumberLiteral(18_446_744_073_709_551_614u64),
+      TokenKind::IntLiteral(18_446_744_073_709_551_614u64),
     )
   }
 
@@ -283,7 +283,7 @@ mod lexer_tests {
 
     assert_eq!(
       tokens.next().unwrap().kind,
-      TokenKind::NumberLiteral(0123456789),
+      TokenKind::IntLiteral(0123456789),
     )
   }
 
@@ -295,7 +295,7 @@ mod lexer_tests {
 
     assert_eq!(
       tokens.next().unwrap().kind,
-      TokenKind::NumberLiteral(0xdeadbeef),
+      TokenKind::IntLiteral(0xdeadbeef),
     )
   }
 
@@ -307,7 +307,7 @@ mod lexer_tests {
 
     assert_eq!(
       tokens.next().unwrap().kind,
-      TokenKind::NumberLiteral(0xdeadbeef),
+      TokenKind::IntLiteral(0xdeadbeef),
     )
   }
 
