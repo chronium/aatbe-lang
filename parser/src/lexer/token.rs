@@ -39,6 +39,7 @@ pub enum Boolean {
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Keyword {
   Fn,
+  Extern,
 }
 
 impl Token {
@@ -102,6 +103,7 @@ impl FromStr for Keyword {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     match s {
       "fn" => Ok(Self::Fn),
+      "extern" => Ok(Self::Extern),
       _ => Err(()),
     }
   }

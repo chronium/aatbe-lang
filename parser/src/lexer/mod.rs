@@ -313,11 +313,12 @@ mod lexer_tests {
 
   #[test]
   fn keyword_identifier() {
-    let mut lexer = Lexer::new("fn true false main");
+    let mut lexer = Lexer::new("fn extern true false main");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
     assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
+    assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Extern));
     assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::True));
     assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::False));
     assert_eq!(

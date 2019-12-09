@@ -4,12 +4,20 @@ pub enum AST {
   Type(PrimitiveType),
   Error,
   Atom(AtomKind),
-  Function { name: String },
+  Function {
+    name: String,
+    ty: PrimitiveType,
+    attributes: Vec<String>,
+  },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum PrimitiveType {
   Unit,
+  Function {
+    ext: bool,
+    ret_ty: Box<PrimitiveType>,
+  },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
