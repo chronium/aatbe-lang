@@ -28,6 +28,7 @@ pub enum Symbol {
   RCurly,
   At,
   Unit,
+  Assign,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]

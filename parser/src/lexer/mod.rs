@@ -120,6 +120,9 @@ impl<'c> Lexer<'c> {
         '}' => {
           self.push_symbol(Symbol::RCurly, pos);
         }
+        '=' => {
+          self.push_symbol(Symbol::Assign, pos);
+        }
         '-' => match self.chars.peek() {
           Some('>') => {
             self.advance();
@@ -226,7 +229,7 @@ mod lexer_tests {
 
   #[test]
   fn symbols() {
-    let mut lexer = Lexer::new("@( )->{}()");
+    let mut lexer = Lexer::new("@( )->{}()=");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 

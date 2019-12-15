@@ -3,10 +3,16 @@ pub enum AST {
   File(Vec<AST>),
   Type(PrimitiveType),
   Error,
+  Expr(Expression),
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Expression {
   Atom(AtomKind),
   Function {
     name: String,
     ty: PrimitiveType,
+    body: Option<Box<Expression>>,
     attributes: Vec<String>,
   },
 }

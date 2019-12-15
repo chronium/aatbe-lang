@@ -1,9 +1,10 @@
 #![feature(box_syntax)]
+#![allow(dead_code)]
 
 mod ast;
 mod lexer;
 
-use ast::{AtomKind, Boolean, PrimitiveType, AST};
+use ast::{AtomKind, Boolean, Expression, PrimitiveType, AST};
 use lexer::{
   token,
   token::{Keyword, Symbol, Token, TokenKind},
@@ -43,16 +44,22 @@ macro_rules! capture {
       Some(ast) => Some(ast),
     }
   }};
-  (expect $self:ident, $opt:ident, $err:ident) => {{
+  (expect $opt:ident, err $err:ident, $self:ident) => {{
     match capture!($self, $opt) {
       None => return Err(ParseError::$err),
       Some(res) => res,
     }
   }};
+  (box $opt:ident, err $err:ident, $self:ident) => {{
+    match capture!($self, $opt) {
+      None => return Err(ParseError::$err),
+      Some(res) => Some(box res),
+    }
+  }};
 }
 
 macro_rules! kw {
-  ($self:ident, $kw:ident) => {{
+  ($kw:ident, $self:ident) => {{
     let token = $self.next();
     if let Some(tok) = token {
       match tok.kw() {
@@ -61,7 +68,7 @@ macro_rules! kw {
       }
     }
   }};
-  (bool $self:ident, $kw:ident) => {{
+  (bool $kw:ident, $self:ident) => {{
     let prev_ind = $self.index;
     let token = $self.next();
     if let Some(tok) = token {
@@ -79,7 +86,7 @@ macro_rules! kw {
 }
 
 macro_rules! ident {
-  ($self:ident) => {{
+  (required $self:ident) => {{
     let token = $self.next();
     if let Some(tok) = token {
       match tok.ident() {
@@ -90,7 +97,7 @@ macro_rules! ident {
       return Err(ParseError::ExpectedIdent);
     }
   }};
-  (silent $self:ident) => {{
+  ($self:ident) => {{
     let token = $self.next();
     if let Some(tok) = token {
       tok.ident()
@@ -101,7 +108,7 @@ macro_rules! ident {
 }
 
 macro_rules! sym {
-  ($self:ident, $sym:ident) => {{
+  (required $sym:ident, $self:ident) => {{
     let token = $self.next();
     if let Some(tok) = token {
       match tok.sym() {
@@ -110,13 +117,28 @@ macro_rules! sym {
       }
     }
   }};
-  (silent $self:ident, $sym:ident) => {{
+  ($sym:ident, $self:ident) => {{
     let token = $self.next();
     if let Some(tok) = token {
       match tok.sym() {
         Some(kw) if kw == Symbol::$sym => {}
         _ => return None,
       }
+    }
+  }};
+  (bool $sym:ident, $self:ident) => {{
+    let prev_ind = $self.index;
+    let token = $self.next();
+    if let Some(tok) = token {
+      match tok.sym() {
+        Some(sym) if sym == Symbol::$sym => true,
+        _ => {
+          $self.index = prev_ind;
+          false
+        }
+      }
+    } else {
+      false
     }
   }};
 }
@@ -128,6 +150,7 @@ pub enum ParseError {
   ExpectedType,
   ExpectedAtom,
   ExpectedIdent,
+  ExpectedExpression,
 }
 
 type ParseResult<T> = Result<T, ParseError>;
@@ -212,16 +235,16 @@ impl Parser {
     None
   }
 
-  fn parse_atom(&mut self) -> ParseResult<AST> {
+  fn parse_expression(&mut self) -> Option<Expression> {
     match capture!(self, parse_boolean, parse_number, parse_unit) {
-      None => Err(ParseError::ExpectedAtom),
-      Some(at) => Ok(AST::Atom(at)),
+      None => None,
+      Some(at) => Some(Expression::Atom(at)),
     }
   }
 
   fn parse_attribute(&mut self) -> Option<String> {
-    sym!(silent self, At);
-    ident!(silent self)
+    sym!(At, self);
+    ident!(self)
   }
 
   fn parse_function(&mut self) -> ParseResult<AST> {
@@ -234,23 +257,29 @@ impl Parser {
       }
     }
 
-    let ext = kw!(bool self, Extern);
-    kw!(self, Fn);
-    let name = ident!(self);
+    let ext = kw!(bool Extern, self);
+    kw!(Fn, self);
+    let name = ident!(required self);
 
-    sym!(self, Unit);
-    sym!(self, Arrow);
+    sym!(required Unit, self);
+    sym!(required Arrow, self);
 
-    let ret_ty = capture!(expect self, parse_type, ExpectedType);
+    let ret_ty = capture!(expect parse_type, err ExpectedType, self);
 
-    Ok(AST::Function {
+    let mut body = None;
+    if sym!(bool Assign, self) {
+      body = capture!(box parse_expression, err ExpectedExpression, self);
+    }
+
+    Ok(AST::Expr(Expression::Function {
       name,
       attributes,
+      body,
       ty: PrimitiveType::Function {
         ext,
         ret_ty: box ret_ty,
       },
-    })
+    }))
   }
 
   fn parse(&mut self) -> ParseResult<()> {
@@ -262,14 +291,9 @@ impl Parser {
         None => break Err(ParseError::InvalidEOF),
       };
 
-      res.push(
-        self
-          .parse_atom()
-          .or_else(|_| self.parse_function())
-          .unwrap_or_else(|r| {
-            panic!(r);
-          }),
-      );
+      res.push(self.parse_function().unwrap_or_else(|r| {
+        panic!(r);
+      }));
     };
 
     self.pt = Some(AST::File(res));
@@ -282,7 +306,7 @@ impl Parser {
 mod parser_tests {
   use super::{
     lexer::{token::Token, Lexer},
-    AtomKind, Boolean, ParseError, Parser, PrimitiveType, AST,
+    AtomKind, Boolean, Expression, ParseError, Parser, PrimitiveType, AST,
   };
 
   fn tt(code: &'static str) -> Vec<Token> {
@@ -327,49 +351,20 @@ mod parser_tests {
   }
 
   #[test]
-  fn true_false() {
-    let pt = parse_test!("true false", "TF");
-
-    assert_eq!(
-      pt,
-      AST::File(vec![
-        AST::Atom(AtomKind::Bool(Boolean::True)),
-        AST::Atom(AtomKind::Bool(Boolean::False))
-      ])
-    );
-  }
-
-  #[test]
-  fn unit() {
-    let pt = parse_test!("()", "Unit value");
-
-    assert_eq!(pt, AST::File(vec![AST::Atom(AtomKind::Unit)]));
-  }
-
-  #[test]
-  fn int() {
-    let pt = parse_test!("0xdeadbeef", "DeadBeef");
-
-    assert_eq!(
-      pt,
-      AST::File(vec![AST::Atom(AtomKind::Integer(0xdeadbeef)),])
-    );
-  }
-
-  #[test]
   fn unit_function() {
     let pt = parse_test!("fn test () -> ()", "Unit Function");
 
     assert_eq!(
       pt,
-      AST::File(vec![AST::Function {
+      AST::File(vec![AST::Expr(Expression::Function {
         name: "test".to_string(),
         attributes: Vec::new(),
+        body: None,
         ty: PrimitiveType::Function {
           ext: false,
           ret_ty: box PrimitiveType::Unit
         }
-      },])
+      }),])
     );
   }
 
@@ -379,14 +374,15 @@ mod parser_tests {
 
     assert_eq!(
       pt,
-      AST::File(vec![AST::Function {
+      AST::File(vec![AST::Expr(Expression::Function {
         name: "test".to_string(),
         attributes: Vec::new(),
+        body: None,
         ty: PrimitiveType::Function {
           ext: true,
           ret_ty: box PrimitiveType::Unit
         }
-      },])
+      }),])
     );
   }
 
@@ -402,14 +398,39 @@ fn main () -> ()
 
     assert_eq!(
       pt,
-      AST::File(vec![AST::Function {
+      AST::File(vec![AST::Expr(Expression::Function {
         name: "main".to_string(),
         attributes: attr(vec!["entry"]),
+        body: None,
         ty: PrimitiveType::Function {
           ext: false,
           ret_ty: box PrimitiveType::Unit
         }
-      },])
+      }),])
+    );
+  }
+
+  #[test]
+  fn expr_function() {
+    let pt = parse_test!(
+      "
+@entry
+fn main () -> () = ()
+",
+      "Entry Function"
+    );
+
+    assert_eq!(
+      pt,
+      AST::File(vec![AST::Expr(Expression::Function {
+        name: "main".to_string(),
+        attributes: attr(vec!["entry"]),
+        body: Some(box Expression::Atom(AtomKind::Unit)),
+        ty: PrimitiveType::Function {
+          ext: false,
+          ret_ty: box PrimitiveType::Unit
+        }
+      }),])
     );
   }
 }
