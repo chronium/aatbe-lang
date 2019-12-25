@@ -9,6 +9,7 @@ pub enum AST {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
   Atom(AtomKind),
+  Binary(Box<Expression>, String, Box<Expression>),
   Function {
     name: String,
     ty: PrimitiveType,

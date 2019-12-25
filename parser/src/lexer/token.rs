@@ -19,7 +19,7 @@ pub enum TokenKind {
   Keyword(Keyword),
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub enum Symbol {
   LParen,
   RParen,
@@ -29,6 +29,23 @@ pub enum Symbol {
   At,
   Unit,
   Assign,
+  Plus,
+  Minus,
+  Star,
+  Slash,
+  Ampersand,
+}
+
+impl From<Symbol> for String {
+  fn from(sym: Symbol) -> String {
+    match sym {
+      Symbol::Plus => String::from("+"),
+      Symbol::Minus => String::from("-"),
+      Symbol::Star => String::from("*"),
+      Symbol::Slash => String::from("/"),
+      _ => panic!("Symbol to str {:?}", sym),
+    }
+  }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -74,6 +91,17 @@ impl Token {
       TokenKind::Symbol(sym) => Some(sym),
       _ => None,
     }
+  }
+
+  pub fn op(&self) -> Option<Symbol> {
+    if let TokenKind::Symbol(sym) = self.kind {
+      return match sym {
+        Symbol::Plus | Symbol::Minus | Symbol::Star | Symbol::Slash => Some(sym),
+        _ => None,
+      };
+    }
+
+    None
   }
 
   pub fn bl(&self) -> Option<Boolean> {

@@ -10,6 +10,17 @@ use lexer::{
   token::{Keyword, Symbol, Token, TokenKind},
 };
 
+fn prec(sym: Symbol) -> u32 {
+  match sym {
+    Symbol::Plus => 10,
+    Symbol::Minus => 10,
+    Symbol::Star => 20,
+    Symbol::Slash => 20,
+    Symbol::LCurly => 0,
+    _ => panic!("No precedence on {:?}", sym),
+  }
+}
+
 macro_rules! peek {
   ($tt: expr, $ind: expr) => {
     if ($ind) >= $tt.len() {
@@ -54,6 +65,18 @@ macro_rules! capture {
     match capture!($self, $opt) {
       None => return Err(ParseError::$err),
       Some(res) => Some(box res),
+    }
+  }};
+  (result $opt:ident, err $err:ident, $self:ident) => {{
+    match capture!($self, $opt) {
+      None => Err(ParseError::$err),
+      Some(res) => Ok(box res),
+    }
+  }};
+  (required $opt:ident, $self:ident) => {{
+    match capture!($self, $opt) {
+      None => return None,
+      Some(res) => res,
     }
   }};
 }
@@ -118,12 +141,32 @@ macro_rules! sym {
     }
   }};
   ($sym:ident, $self:ident) => {{
+    let prev_ind = $self.index;
     let token = $self.next();
     if let Some(tok) = token {
       match tok.sym() {
         Some(kw) if kw == Symbol::$sym => {}
-        _ => return None,
+        _ => {
+          $self.index = prev_ind;
+          return None;
+        }
       }
+    }
+  }};
+  (op $self:ident) => {{
+    let prev_ind = $self.index;
+    let token = $self.next();
+    if let Some(tok) = token {
+      match tok.op() {
+        Some(kw) => Some(kw),
+        _ => {
+          $self.index = prev_ind;
+          None
+        }
+      }
+    } else {
+      $self.index = prev_ind;
+      None
     }
   }};
   (bool $sym:ident, $self:ident) => {{
@@ -138,6 +181,7 @@ macro_rules! sym {
         }
       }
     } else {
+      $self.index = prev_ind;
       false
     }
   }};
@@ -151,6 +195,7 @@ pub enum ParseError {
   ExpectedAtom,
   ExpectedIdent,
   ExpectedExpression,
+  ExpectedOperator,
 }
 
 type ParseResult<T> = Result<T, ParseError>;
@@ -235,11 +280,42 @@ impl Parser {
     None
   }
 
-  fn parse_expression(&mut self) -> Option<Expression> {
+  fn parse_atom(&mut self) -> ParseResult<AtomKind> {
     match capture!(self, parse_boolean, parse_number, parse_unit) {
-      None => None,
-      Some(at) => Some(Expression::Atom(at)),
+      None => Err(ParseError::ExpectedAtom),
+      Some(atom) => Ok(atom),
     }
+  }
+
+  fn parse_rhs(&mut self, lhs: Expression) -> ParseResult<Expression> {
+    let op = sym!(op self);
+    match op {
+      None => Err(ParseError::ExpectedOperator),
+      Some(op) => {
+        let rhs = self.parse_expr(prec(op))?;
+        Ok(Expression::Binary(box lhs, op.into(), box rhs))
+      }
+    }
+  }
+
+  fn binds_tighter(&self, left: Option<&Token>, right: u32) -> bool {
+    left
+      .map_or(None, |op| op.op())
+      .map_or(false, |op| prec(op) > right)
+  }
+
+  fn parse_expr(&mut self, rbp: u32) -> ParseResult<Expression> {
+    let mut left = Expression::Atom(self.parse_atom()?);
+
+    while self.binds_tighter(self.peek(), rbp) {
+      left = self.parse_rhs(left)?;
+    }
+
+    Ok(left)
+  }
+
+  fn parse_expression(&mut self) -> Option<Expression> {
+    self.parse_expr(0).ok()
   }
 
   fn parse_attribute(&mut self) -> Option<String> {
@@ -292,7 +368,7 @@ impl Parser {
       };
 
       res.push(self.parse_function().unwrap_or_else(|r| {
-        panic!(r);
+        panic!("{:?}", r);
       }));
     };
 
@@ -417,7 +493,7 @@ fn main () -> ()
 @entry
 fn main () -> () = ()
 ",
-      "Entry Function"
+      "Unit Expr Function"
     );
 
     assert_eq!(
@@ -426,6 +502,42 @@ fn main () -> () = ()
         name: "main".to_string(),
         attributes: attr(vec!["entry"]),
         body: Some(box Expression::Atom(AtomKind::Unit)),
+        ty: PrimitiveType::Function {
+          ext: false,
+          ret_ty: box PrimitiveType::Unit
+        }
+      }),])
+    );
+  }
+
+  #[test]
+  fn binary_function() {
+    let pt = parse_test!(
+      "
+@entry
+fn main () -> () = 1 * 2 + 3 * 4
+",
+      "Binary Function"
+    );
+
+    assert_eq!(
+      pt,
+      AST::File(vec![AST::Expr(Expression::Function {
+        name: "main".to_string(),
+        attributes: attr(vec!["entry"]),
+        body: Some(box Expression::Binary(
+          box Expression::Binary(
+            box Expression::Atom(AtomKind::Integer(1)),
+            String::from("*"),
+            box Expression::Atom(AtomKind::Integer(2))
+          ),
+          String::from("+"),
+          box Expression::Binary(
+            box Expression::Atom(AtomKind::Integer(3)),
+            String::from("*"),
+            box Expression::Atom(AtomKind::Integer(4))
+          )
+        )),
         ty: PrimitiveType::Function {
           ext: false,
           ret_ty: box PrimitiveType::Unit

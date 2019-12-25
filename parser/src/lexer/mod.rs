@@ -123,22 +123,32 @@ impl<'c> Lexer<'c> {
         '=' => {
           self.push_symbol(Symbol::Assign, pos);
         }
+        '+' => {
+          self.push_symbol(Symbol::Plus, pos);
+        }
+        '*' => {
+          self.push_symbol(Symbol::Star, pos);
+        }
+        '&' => {
+          self.push_symbol(Symbol::Ampersand, pos);
+        }
         '-' => match self.chars.peek() {
           Some('>') => {
             self.advance();
-            self.push_symbol(Symbol::Arrow, pos)
+            self.push_symbol(Symbol::Arrow, pos);
           }
-          _ => {}
+          _ => self.push_symbol(Symbol::Minus, pos),
         },
         '@' => {
           self.push_symbol(Symbol::At, pos);
         }
-        '/' => match self.read() {
+        '/' => match self.chars.peek() {
           Some('/') => {
+            self.advance();
             let comm = self.read_eol();
             self.push_token(TokenKind::Comment(comm), pos);
           }
-          _ => panic!("Expected /, *, ="),
+          _ => self.push_symbol(Symbol::Slash, pos),
         },
         'a'..='z' | 'A'..='Z' | '_' => {
           let mut buf = c.to_string();
@@ -229,7 +239,7 @@ mod lexer_tests {
 
   #[test]
   fn symbols() {
-    let mut lexer = Lexer::new("@( )->{}()=");
+    let mut lexer = Lexer::new("@( )->{}()=+-*/&");
     lexer.lex();
     let mut tokens = lexer.into_iter();
 
@@ -240,6 +250,12 @@ mod lexer_tests {
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::LCurly));
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::RCurly));
     assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Unit));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Assign));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Plus));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Minus));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Star));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Slash));
+    assert_eq!(tokens.next().unwrap().sym(), Some(Symbol::Ampersand));
   }
 
   #[test]
