@@ -14,9 +14,10 @@ pub enum TokenKind {
     Symbol(Symbol),
     Comment(String),
     IntLiteral(u64),
-    BooleanLitral(Boolean),
+    BooleanLiteral(Boolean),
     Identifier(String),
     Keyword(Keyword),
+    Type(Type),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -60,38 +61,41 @@ pub enum Keyword {
     Extern,
 }
 
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+pub enum Type {
+    Str,
+}
+
+macro_rules! to_tok {
+    ($name:ident, $kind:ident, $ty:ident) => {
+        pub fn $name(val: &str) -> Option<TokenKind> {
+            match $ty::from_str(val) {
+                Ok(k) => Some(TokenKind::$kind(k)),
+                Err(_) => None,
+            }
+        }
+    };
+}
+
+macro_rules! from_tok {
+    ($name:ident, $kind:ident, $res:ident) => {
+        pub fn $name(&self) -> Option<$res> {
+            match &self.kind {
+                TokenKind::$kind(res) => Some(res.clone()),
+                _ => None,
+            }
+        }
+    }
+}
+
 impl Token {
     pub fn new(kind: TokenKind, position: Position) -> Self {
         Self { kind, position }
     }
 
-    pub fn keyword(kw: &str) -> Option<TokenKind> {
-        match Keyword::from_str(kw) {
-            Ok(k) => Some(TokenKind::Keyword(k)),
-            Err(_) => None,
-        }
-    }
-
-    pub fn boolean(boolean: &str) -> Option<TokenKind> {
-        match Boolean::from_str(boolean) {
-            Ok(b) => Some(TokenKind::BooleanLitral(b)),
-            Err(_) => None,
-        }
-    }
-
-    pub fn kw(&self) -> Option<Keyword> {
-        match self.kind {
-            TokenKind::Keyword(kw) => Some(kw),
-            _ => None,
-        }
-    }
-
-    pub fn sym(&self) -> Option<Symbol> {
-        match self.kind {
-            TokenKind::Symbol(sym) => Some(sym),
-            _ => None,
-        }
-    }
+    to_tok!(keyword, Keyword, Keyword);
+    to_tok!(boolean, BooleanLiteral, Boolean);
+    to_tok!(r#type, Type, Type);
 
     pub fn op(&self) -> Option<Symbol> {
         if let TokenKind::Symbol(sym) = self.kind {
@@ -104,24 +108,21 @@ impl Token {
         None
     }
 
-    pub fn bl(&self) -> Option<Boolean> {
-        match self.kind {
-            TokenKind::BooleanLitral(b) => Some(b),
-            _ => None,
-        }
-    }
+    from_tok!(kw, Keyword, Keyword);
+    from_tok!(bl, BooleanLiteral, Boolean);
+    from_tok!(sym, Symbol, Symbol);
+    from_tok!(int, IntLiteral, u64);
+    from_tok!(ident, Identifier, String);
+    from_tok!(ty, Type, Type);
+}
 
-    pub fn int(&self) -> Option<u64> {
-        match self.kind {
-            TokenKind::IntLiteral(int) => Some(int),
-            _ => None,
-        }
-    }
+impl FromStr for Type {
+    type Err = ();
 
-    pub fn ident(&self) -> Option<String> {
-        match &self.kind {
-            TokenKind::Identifier(id) => Some(id.clone()),
-            _ => None,
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "str" => Ok(Self::Str),
+            _ => Err(()),
         }
     }
 }

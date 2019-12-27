@@ -4,7 +4,7 @@ pub mod expression;
 
 use crate::{
     ast::AST,
-    token::{Token, TokenKind},
+    token::{Symbol, Token, TokenKind},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -51,6 +51,12 @@ impl Parser {
 
     pub fn peek(&self) -> Option<&Token> {
         peek!(self.tt, self.index)
+    }
+
+    pub fn peek_symbol(&self, symbol: Symbol) -> Option<bool> {
+        peek!(self.tt, self.index)
+            .map_or(None, |t| t.sym())
+            .map_or(Some(false), |t| Some(t == symbol))
     }
 
     pub fn parse(&mut self) -> ParseResult<()> {

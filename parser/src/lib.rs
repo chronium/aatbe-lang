@@ -234,4 +234,54 @@ fn main () -> () = 1 * 2 + 3 * 4
             }),])
         );
     }
+
+    #[test]
+    fn empty_block_function() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () -> () = {}
+",
+            "Empty Block Function"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                body: Some(box Expression::Block(vec![])),
+                ty: PrimitiveType::Function {
+                    ext: false,
+                    ret_ty: box PrimitiveType::Unit
+                }
+            }),])
+        );
+    }
+
+    #[test]
+    fn block_function() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () -> () = { () }
+",
+            "Block Function"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                body: Some(box Expression::Block(vec![Expression::Atom(
+                    AtomKind::Unit
+                )])),
+                ty: PrimitiveType::Function {
+                    ext: false,
+                    ret_ty: box PrimitiveType::Unit
+                }
+            }),])
+        );
+    }
 }

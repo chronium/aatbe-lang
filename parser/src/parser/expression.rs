@@ -87,6 +87,27 @@ impl Parser {
     }
 
     pub fn parse_expression(&mut self) -> Option<Expression> {
-        self.parse_expr(0).ok()
+        match self.peek_symbol(Symbol::LCurly) {
+            Some(false) => self.parse_expr(0).ok(),
+            Some(true) => {
+                self.next();
+                let mut block = vec![];
+                loop {
+                    match self.peek_symbol(Symbol::RCurly) {
+                        Some(true) => {
+                            self.next();
+                            break;
+                        }
+                        Some(false) => match self.parse_expression() {
+                            Some(expr) => block.push(expr),
+                            None => panic!("Broken Expression"),
+                        },
+                        None => panic!("Expected RCurly"),
+                    }
+                }
+                Some(Expression::Block(block))
+            }
+            None => panic!("Unexpected EOF"),
+        }
     }
 }

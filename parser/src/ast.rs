@@ -10,6 +10,7 @@ pub enum AST {
 pub enum Expression {
     Atom(AtomKind),
     Binary(Box<Expression>, String, Box<Expression>),
+    Block(Vec<Expression>),
     Function {
         name: String,
         ty: PrimitiveType,

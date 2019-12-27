@@ -164,7 +164,9 @@ impl<'c> Lexer<'c> {
 
                     self.push_token(
                         Token::keyword(buf.as_ref()).unwrap_or(
-                            Token::boolean(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
+                            Token::boolean(buf.as_ref()).unwrap_or(
+                                Token::r#type(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
+                            ),
                         ),
                         pos,
                     );
@@ -233,7 +235,7 @@ impl IntoIterator for Lexer<'_> {
 #[cfg(test)]
 mod lexer_tests {
     use super::{
-        token::{Boolean, Keyword},
+        token::{Boolean, Keyword, Type},
         Lexer, Symbol, TokenKind,
     };
     #[test]
@@ -360,5 +362,14 @@ mod lexer_tests {
             tokens.next().unwrap().kind,
             TokenKind::Identifier(String::from("main")),
         );
+    }
+
+    #[test]
+    fn type_tests() {
+        let mut lexer = Lexer::new("str");
+        lexer.lex();
+        let mut tokens = lexer.into_iter();
+
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::Str));
     }
 }

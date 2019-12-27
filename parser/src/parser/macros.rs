@@ -1,12 +1,12 @@
 #[macro_export]
 macro_rules! peek {
-    ($tt: expr, $ind: expr) => {
+    ($tt: expr, $ind: expr) => {{
         if ($ind) >= $tt.len() {
             None
         } else {
             Some(&$tt[$ind])
         }
-    };
+    }};
 }
 
 // Used to clone a token reference for an Option for parser errors. May not be needed.
