@@ -55,7 +55,7 @@ impl Parser {
 
     pub fn peek_symbol(&self, symbol: Symbol) -> Option<bool> {
         peek!(self.tt, self.index)
-            .map_or(None, |t| t.sym())
+            .and_then(|t| t.sym())
             .map_or(Some(false), |t| Some(t == symbol))
     }
 
