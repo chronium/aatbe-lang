@@ -11,6 +11,10 @@ pub enum Expression {
     Atom(AtomKind),
     Binary(Box<Expression>, String, Box<Expression>),
     Block(Vec<Expression>),
+    Call {
+        name: String,
+        args: Vec<AtomKind>,
+    },
     Function {
         name: String,
         ty: PrimitiveType,
@@ -32,6 +36,7 @@ pub enum PrimitiveType {
 pub enum AtomKind {
     Bool(Boolean),
     Integer(u64),
+    StringLiteral(String),
     Unit,
 }
 

@@ -18,6 +18,7 @@ pub enum TokenKind {
     Identifier(String),
     Keyword(Keyword),
     Type(Type),
+    StringLiteral(String),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -114,6 +115,7 @@ impl Token {
     from_tok!(int, IntLiteral, u64);
     from_tok!(ident, Identifier, String);
     from_tok!(ty, Type, Type);
+    from_tok!(st, StringLiteral, String);
 }
 
 impl FromStr for Type {

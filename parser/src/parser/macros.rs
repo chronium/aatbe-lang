@@ -29,6 +29,16 @@ macro_rules! capture {
         capt => capt,
       }
     }};
+    (res $opt:ident, $self:ident) => {{
+      let prev_ind = $self.index;
+      match $self.$opt() {
+        Err(e) => {
+          $self.index = prev_ind;
+          Err(e)
+        }
+        capt => capt,
+      }
+    }};
     ($self:ident, $opt:ident, $($opts:ident),*) => {{
       match capture!($self, $opt) {
         None => capture!($self, $($opts),*),

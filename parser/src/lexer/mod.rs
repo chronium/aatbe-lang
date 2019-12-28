@@ -150,6 +150,23 @@ impl<'c> Lexer<'c> {
                     }
                     _ => self.push_symbol(Symbol::Slash, pos),
                 },
+                '"' => {
+                    let mut buf = String::default();
+                    loop {
+                        match self.chars.peek() {
+                            Some('"') => {
+                                self.advance();
+                                break;
+                            }
+                            Some(c) => {
+                                buf.push(*c);
+                                self.advance();
+                            }
+                            None => panic!("Unexpected EOF at {:?}", pos),
+                        }
+                    }
+                    self.push_token(TokenKind::StringLiteral(buf), pos);
+                }
                 'a'..='z' | 'A'..='Z' | '_' => {
                     let mut buf = c.to_string();
                     while let Some(c) = self.chars.peek() {
@@ -217,7 +234,7 @@ impl<'c> Lexer<'c> {
                         pos,
                     );
                 }
-                _ => panic!("Unhandled token"),
+                t => panic!("Unhandled token {}", t),
             };
         }
     }
@@ -345,6 +362,18 @@ mod lexer_tests {
         assert_eq!(
             tokens.next().unwrap().kind,
             TokenKind::IntLiteral(0xdeadbeef),
+        )
+    }
+
+    #[test]
+    fn string_literal_no_escape() {
+        let mut lexer = Lexer::new("\"Hello World\"");
+        lexer.lex();
+        let mut tokens = lexer.into_iter();
+
+        assert_eq!(
+            tokens.next().unwrap().kind,
+            TokenKind::StringLiteral(String::from("Hello World")),
         )
     }
 

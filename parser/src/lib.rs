@@ -284,4 +284,53 @@ fn main () -> () = { () }
             }),])
         );
     }
+
+    #[test]
+    fn funcall() {
+        let pt = parse_test!(
+            "
+extern fn puts () -> ()
+
+@entry
+fn main () -> () = {
+    puts \"Hello World\"
+    puts \"Hallo\"
+}
+",
+            "Block Function"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Expr(Expression::Function {
+                    name: "puts".to_string(),
+                    attributes: vec![],
+                    body: None,
+                    ty: PrimitiveType::Function {
+                        ext: true,
+                        ret_ty: box PrimitiveType::Unit,
+                    }
+                }),
+                AST::Expr(Expression::Function {
+                    name: "main".to_string(),
+                    attributes: attr(vec!["entry"]),
+                    body: Some(box Expression::Block(vec![
+                        Expression::Call {
+                            name: "puts".to_string(),
+                            args: vec![AtomKind::StringLiteral("Hello World".to_string())],
+                        },
+                        Expression::Call {
+                            name: "puts".to_string(),
+                            args: vec![AtomKind::StringLiteral("Hallo".to_string())],
+                        }
+                    ])),
+                    ty: PrimitiveType::Function {
+                        ext: false,
+                        ret_ty: box PrimitiveType::Unit
+                    }
+                }),
+            ])
+        );
+    }
 }

@@ -47,6 +47,16 @@ impl Parser {
         None
     }
 
+    fn parse_string_lit(&mut self) -> Option<AtomKind> {
+        let token = self.next();
+        if let Some(tok) = token {
+            if let Some(val) = tok.st() {
+                return Some(AtomKind::StringLiteral(val));
+            }
+        }
+        None
+    }
+
     fn parse_unit(&mut self) -> Option<AtomKind> {
         let token = self.next();
         if let Some(tok) = token {
@@ -59,7 +69,13 @@ impl Parser {
     }
 
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
-        match capture!(self, parse_boolean, parse_number, parse_unit) {
+        match capture!(
+            self,
+            parse_boolean,
+            parse_number,
+            parse_unit,
+            parse_string_lit
+        ) {
             None => Err(ParseError::ExpectedAtom),
             Some(atom) => Ok(atom),
         }
@@ -86,9 +102,31 @@ impl Parser {
         Ok(left)
     }
 
+    fn parse_funcall(&mut self) -> ParseResult<Expression> {
+        let name = self.peek_ident().ok_or(ParseError::ExpectedIdent)?;
+        self.next();
+        let mut args = vec![];
+
+        loop {
+            match capture!(res parse_atom, self) {
+                Ok(expr) => args.push(expr),
+                Err(_) => break,
+            }
+        }
+
+        if args.len() < 1 {
+            Err(ParseError::NotEnoughArguments(name))
+        } else {
+            Ok(Expression::Call { name, args })
+        }
+    }
+
     pub fn parse_expression(&mut self) -> Option<Expression> {
         match self.peek_symbol(Symbol::LCurly) {
-            Some(false) => self.parse_expr(0).ok(),
+            Some(false) => self
+                .parse_expr(0)
+                .or(capture!(res parse_funcall, self))
+                .ok(),
             Some(true) => {
                 self.next();
                 let mut block = vec![];
@@ -98,7 +136,7 @@ impl Parser {
                             self.next();
                             break;
                         }
-                        Some(false) => match self.parse_expression() {
+                        Some(false) => match capture!(self, parse_expression) {
                             Some(expr) => block.push(expr),
                             None => panic!("Broken Expression"),
                         },

@@ -16,6 +16,7 @@ pub enum ParseError {
     ExpectedIdent,
     ExpectedExpression,
     ExpectedOperator,
+    NotEnoughArguments(String),
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -51,6 +52,10 @@ impl Parser {
 
     pub fn peek(&self) -> Option<&Token> {
         peek!(self.tt, self.index)
+    }
+
+    pub fn peek_ident(&self) -> Option<String> {
+        peek!(self.tt, self.index).and_then(|t| t.ident())
     }
 
     pub fn peek_symbol(&self, symbol: Symbol) -> Option<bool> {
