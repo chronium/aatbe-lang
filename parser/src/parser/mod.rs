@@ -17,6 +17,7 @@ pub enum ParseError {
     ExpectedExpression,
     ExpectedOperator,
     NotEnoughArguments(String),
+    UnexpectedEOF,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;

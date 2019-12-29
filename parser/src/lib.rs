@@ -5,10 +5,10 @@ mod ast;
 mod lexer;
 mod parser;
 
-use ast::{Expression, PrimitiveType, AST};
+use ast::{Expression, IntType, PrimitiveType, UIntType, AST};
 use lexer::{
     token,
-    token::{Keyword, Symbol},
+    token::{Keyword, Symbol, Type},
 };
 
 use crate::parser::{ParseError, ParseResult, Parser};
@@ -19,6 +19,19 @@ impl Parser {
         if let Some(tok) = token {
             if let Some(Symbol::Unit) = tok.sym() {
                 return Some(PrimitiveType::Unit);
+            }
+
+            match tok.ty() {
+                Some(Type::Str) => return Some(PrimitiveType::Str),
+                Some(Type::I8) => return Some(PrimitiveType::Int(IntType::I8)),
+                Some(Type::I16) => return Some(PrimitiveType::Int(IntType::I16)),
+                Some(Type::I32) => return Some(PrimitiveType::Int(IntType::I32)),
+                Some(Type::I64) => return Some(PrimitiveType::Int(IntType::I64)),
+                Some(Type::U8) => return Some(PrimitiveType::UInt(UIntType::U8)),
+                Some(Type::U16) => return Some(PrimitiveType::UInt(UIntType::U16)),
+                Some(Type::U32) => return Some(PrimitiveType::UInt(UIntType::U32)),
+                Some(Type::U64) => return Some(PrimitiveType::UInt(UIntType::U64)),
+                _ => {}
             }
         }
 
@@ -44,7 +57,17 @@ impl Parser {
         kw!(Fn, self);
         let name = ident!(required self);
 
-        sym!(required Unit, self);
+        let mut params = vec![];
+        loop {
+            match self.peek_symbol(Symbol::Arrow) {
+                Some(true) => break,
+                Some(false) => {
+                    let ty = capture!(expect parse_type, err ExpectedType, self);
+                    params.push(ty);
+                }
+                None => return Err(ParseError::UnexpectedEOF),
+            }
+        }
         sym!(required Arrow, self);
 
         let ret_ty = capture!(expect parse_type, err ExpectedType, self);
@@ -61,6 +84,7 @@ impl Parser {
             ty: PrimitiveType::Function {
                 ext,
                 ret_ty: box ret_ty,
+                params,
             },
         }))
     }
@@ -71,7 +95,7 @@ mod parser_tests {
     use super::{
         ast::AtomKind,
         lexer::{token::Token, Lexer},
-        Expression, ParseError, Parser, PrimitiveType, AST,
+        Expression, IntType, ParseError, Parser, PrimitiveType, AST,
     };
 
     fn tt(code: &'static str) -> Vec<Token> {
@@ -127,7 +151,8 @@ mod parser_tests {
                 body: None,
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -145,7 +170,8 @@ mod parser_tests {
                 body: None,
                 ty: PrimitiveType::Function {
                     ext: true,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -169,7 +195,8 @@ fn main () -> ()
                 body: None,
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -193,7 +220,8 @@ fn main () -> () = ()
                 body: Some(box Expression::Atom(AtomKind::Unit)),
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -229,7 +257,8 @@ fn main () -> () = 1 * 2 + 3 * 4
                 )),
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -253,7 +282,8 @@ fn main () -> () = {}
                 body: Some(box Expression::Block(vec![])),
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -279,7 +309,8 @@ fn main () -> () = { () }
                 )])),
                 ty: PrimitiveType::Function {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
                 }
             }),])
         );
@@ -289,12 +320,15 @@ fn main () -> () = { () }
     fn funcall() {
         let pt = parse_test!(
             "
-extern fn puts () -> ()
+extern fn puts str -> i32
+
+fn test str i32 -> ()
 
 @entry
 fn main () -> () = {
     puts \"Hello World\"
     puts \"Hallo\"
+    test \"Test\" $ 1 + 2
 }
 ",
             "Block Function"
@@ -309,7 +343,18 @@ fn main () -> () = {
                     body: None,
                     ty: PrimitiveType::Function {
                         ext: true,
+                        ret_ty: box PrimitiveType::Int(IntType::I32),
+                        params: vec![PrimitiveType::Str],
+                    }
+                }),
+                AST::Expr(Expression::Function {
+                    name: "test".to_string(),
+                    attributes: vec![],
+                    body: None,
+                    ty: PrimitiveType::Function {
+                        ext: false,
                         ret_ty: box PrimitiveType::Unit,
+                        params: vec![PrimitiveType::Str, PrimitiveType::Int(IntType::I32)],
                     }
                 }),
                 AST::Expr(Expression::Function {
@@ -323,11 +368,23 @@ fn main () -> () = {
                         Expression::Call {
                             name: "puts".to_string(),
                             args: vec![AtomKind::StringLiteral("Hallo".to_string())],
+                        },
+                        Expression::Call {
+                            name: "test".to_string(),
+                            args: vec![
+                                AtomKind::StringLiteral("Test".to_string()),
+                                AtomKind::Expr(box Expression::Binary(
+                                    box Expression::Atom(AtomKind::Integer(1)),
+                                    String::from("+"),
+                                    box Expression::Atom(AtomKind::Integer(2)),
+                                ))
+                            ]
                         }
                     ])),
                     ty: PrimitiveType::Function {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit
+                        ret_ty: box PrimitiveType::Unit,
+                        params: vec![PrimitiveType::Unit],
                     }
                 }),
             ])

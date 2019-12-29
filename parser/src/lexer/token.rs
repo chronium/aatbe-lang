@@ -36,6 +36,7 @@ pub enum Symbol {
     Star,
     Slash,
     Ampersand,
+    Dollar,
 }
 
 impl From<Symbol> for String {
@@ -65,6 +66,14 @@ pub enum Keyword {
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Type {
     Str,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
 }
 
 macro_rules! to_tok {
@@ -124,6 +133,14 @@ impl FromStr for Type {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "str" => Ok(Self::Str),
+            "i8" => Ok(Self::I8),
+            "i16" => Ok(Self::I16),
+            "i32" => Ok(Self::I32),
+            "i64" => Ok(Self::I64),
+            "u8" => Ok(Self::U8),
+            "u16" => Ok(Self::U16),
+            "u32" => Ok(Self::U32),
+            "u64" => Ok(Self::U64),
             _ => Err(()),
         }
     }

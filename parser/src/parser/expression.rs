@@ -68,13 +68,25 @@ impl Parser {
         None
     }
 
+    fn parse_atomized_expression(&mut self) -> Option<AtomKind> {
+        let arrow = sym!(bool Dollar, self);
+        if !arrow {
+            return None;
+        }
+        match capture!(self, parse_expression) {
+            None => None,
+            Some(e) => Some(AtomKind::Expr(box e)),
+        }
+    }
+
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
             parse_boolean,
             parse_number,
             parse_unit,
-            parse_string_lit
+            parse_string_lit,
+            parse_atomized_expression
         ) {
             None => Err(ParseError::ExpectedAtom),
             Some(atom) => Ok(atom),

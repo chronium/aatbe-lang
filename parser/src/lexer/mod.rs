@@ -132,6 +132,9 @@ impl<'c> Lexer<'c> {
                 '&' => {
                     self.push_symbol(Symbol::Ampersand, pos);
                 }
+                '$' => {
+                    self.push_symbol(Symbol::Dollar, pos);
+                }
                 '-' => match self.chars.peek() {
                     Some('>') => {
                         self.advance();
@@ -266,7 +269,7 @@ mod lexer_tests {
 
     #[test]
     fn symbols() {
-        let mut lexer = Lexer::new("@( )->{}()=+-*/&");
+        let mut lexer = Lexer::new("@( )->{}()=+-*/&$");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -284,6 +287,7 @@ mod lexer_tests {
             Symbol::Star,
             Symbol::Slash,
             Symbol::Ampersand,
+            Symbol::Dollar,
         ]
         .into_iter()
         .map(|t| Some(t));
@@ -395,10 +399,18 @@ mod lexer_tests {
 
     #[test]
     fn type_tests() {
-        let mut lexer = Lexer::new("str");
+        let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::Str));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I8));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I16));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I32));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I64));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U8));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U16));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U32));
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U64));
     }
 }
