@@ -14,28 +14,35 @@ use lexer::{
 use crate::parser::{ParseError, ParseResult, Parser};
 
 impl Parser {
-    fn parse_type(&mut self) -> Option<PrimitiveType> {
+    fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
         let token = self.next();
         if let Some(tok) = token {
             if let Some(Symbol::Unit) = tok.sym() {
-                return Some(PrimitiveType::Unit);
+                return Ok(PrimitiveType::Unit);
             }
 
             match tok.ty() {
-                Some(Type::Str) => return Some(PrimitiveType::Str),
-                Some(Type::I8) => return Some(PrimitiveType::Int(IntType::I8)),
-                Some(Type::I16) => return Some(PrimitiveType::Int(IntType::I16)),
-                Some(Type::I32) => return Some(PrimitiveType::Int(IntType::I32)),
-                Some(Type::I64) => return Some(PrimitiveType::Int(IntType::I64)),
-                Some(Type::U8) => return Some(PrimitiveType::UInt(UIntType::U8)),
-                Some(Type::U16) => return Some(PrimitiveType::UInt(UIntType::U16)),
-                Some(Type::U32) => return Some(PrimitiveType::UInt(UIntType::U32)),
-                Some(Type::U64) => return Some(PrimitiveType::UInt(UIntType::U64)),
+                Some(Type::Str) => return Ok(PrimitiveType::Str),
+                Some(Type::I8) => return Ok(PrimitiveType::Int(IntType::I8)),
+                Some(Type::I16) => return Ok(PrimitiveType::Int(IntType::I16)),
+                Some(Type::I32) => return Ok(PrimitiveType::Int(IntType::I32)),
+                Some(Type::I64) => return Ok(PrimitiveType::Int(IntType::I64)),
+                Some(Type::U8) => return Ok(PrimitiveType::UInt(UIntType::U8)),
+                Some(Type::U16) => return Ok(PrimitiveType::UInt(UIntType::U16)),
+                Some(Type::U32) => return Ok(PrimitiveType::UInt(UIntType::U32)),
+                Some(Type::U64) => return Ok(PrimitiveType::UInt(UIntType::U64)),
                 _ => {}
             }
         }
 
-        None
+        Err(ParseError::ExpectedType)
+    }
+
+    fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
+        let name = ident!(required self);
+        sym!(required Colon, self);
+        let ty = capture!(res parse_type, self)?;
+        Ok(PrimitiveType::NamedType { name, ty: box ty })
     }
 
     fn parse_attribute(&mut self) -> Option<String> {
@@ -62,7 +69,12 @@ impl Parser {
             match self.peek_symbol(Symbol::Arrow) {
                 Some(true) => break,
                 Some(false) => {
-                    let ty = capture!(expect parse_type, err ExpectedType, self);
+                    if params.len() > 0 {
+                        sym!(required Comma, self);
+                    }
+                    let ty = capture!(res parse_named_type, self)
+                        .or(capture!(res parse_type, self))
+                        .or(Err(ParseError::ExpectedType))?;
                     params.push(ty);
                 }
                 None => return Err(ParseError::UnexpectedEOF),
@@ -70,7 +82,7 @@ impl Parser {
         }
         sym!(required Arrow, self);
 
-        let ret_ty = capture!(expect parse_type, err ExpectedType, self);
+        let ret_ty = capture!(res parse_type, self)?;
 
         let mut body = None;
         if sym!(bool Assign, self) {
@@ -322,7 +334,7 @@ fn main () -> () = { () }
             "
 extern fn puts str -> i32
 
-fn test str i32 -> ()
+fn test s: str, i32 -> ()
 
 @entry
 fn main () -> () = {
@@ -354,7 +366,13 @@ fn main () -> () = {
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Str, PrimitiveType::Int(IntType::I32)],
+                        params: vec![
+                            PrimitiveType::NamedType {
+                                name: "s".to_string(),
+                                ty: box PrimitiveType::Str
+                            },
+                            PrimitiveType::Int(IntType::I32)
+                        ],
                     }
                 }),
                 AST::Expr(Expression::Function {

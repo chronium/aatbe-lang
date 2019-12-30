@@ -34,6 +34,10 @@ pub enum PrimitiveType {
         ret_ty: Box<PrimitiveType>,
         params: Vec<PrimitiveType>,
     },
+    NamedType {
+        name: String,
+        ty: Box<PrimitiveType>,
+    },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

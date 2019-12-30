@@ -45,6 +45,12 @@ macro_rules! capture {
         Some(ast) => Some(ast),
       }
     }};
+    ($self:ident err $err:ident, $opt:ident, $($opts:ident),*) => {{
+      match capture!(res $self, $opt) {
+        Err(_) => capture!(res $self, $($opts),*),
+        Ok(ast) => Ok(ast),
+      }
+    }};
     (expect $opt:ident, err $err:ident, $self:ident) => {{
       match capture!($self, $opt) {
         None => return Err(ParseError::$err),

@@ -135,6 +135,12 @@ impl<'c> Lexer<'c> {
                 '$' => {
                     self.push_symbol(Symbol::Dollar, pos);
                 }
+                ',' => {
+                    self.push_symbol(Symbol::Comma, pos);
+                }
+                ':' => {
+                    self.push_symbol(Symbol::Colon, pos);
+                }
                 '-' => match self.chars.peek() {
                     Some('>') => {
                         self.advance();
@@ -237,7 +243,7 @@ impl<'c> Lexer<'c> {
                         pos,
                     );
                 }
-                t => panic!("Unhandled token {}", t),
+                t => panic!("Unhandled token {} pos {:?}", t, pos),
             };
         }
     }
@@ -269,7 +275,7 @@ mod lexer_tests {
 
     #[test]
     fn symbols() {
-        let mut lexer = Lexer::new("@( )->{}()=+-*/&$");
+        let mut lexer = Lexer::new("@( )->{}()=+-*/&$,:");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -288,6 +294,8 @@ mod lexer_tests {
             Symbol::Slash,
             Symbol::Ampersand,
             Symbol::Dollar,
+            Symbol::Comma,
+            Symbol::Colon,
         ]
         .into_iter()
         .map(|t| Some(t));

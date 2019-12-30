@@ -37,6 +37,8 @@ pub enum Symbol {
     Slash,
     Ampersand,
     Dollar,
+    Comma,
+    Colon,
 }
 
 impl From<Symbol> for String {
