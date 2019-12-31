@@ -2,7 +2,7 @@ use crate::{
     ast::{AtomKind, Boolean, Expression},
     parser::{ParseError, ParseResult, Parser},
     token,
-    token::{Symbol, Token},
+    token::{Keyword, Symbol, Token},
 };
 
 fn prec(sym: Symbol) -> u32 {
@@ -69,8 +69,8 @@ impl Parser {
     }
 
     fn parse_atomized_expression(&mut self) -> Option<AtomKind> {
-        let arrow = sym!(bool Dollar, self);
-        if !arrow {
+        let dlr = sym!(bool Dollar, self);
+        if !dlr {
             return None;
         }
         match capture!(self, parse_expression) {
@@ -105,7 +105,7 @@ impl Parser {
     }
 
     fn parse_expr(&mut self, rbp: u32) -> ParseResult<Expression> {
-        let mut left = Expression::Atom(self.parse_atom()?);
+        let mut left = Expression::Atom(capture!(res parse_atom, self)?);
 
         while binds_tighter(self.peek(), rbp) {
             left = self.parse_rhs(left)?;
@@ -115,8 +115,7 @@ impl Parser {
     }
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
-        let name = self.peek_ident().ok_or(ParseError::ExpectedIdent)?;
-        self.next();
+        let name = ident!(required self);
         let mut args = vec![];
 
         loop {
@@ -133,12 +132,54 @@ impl Parser {
         }
     }
 
+    fn parse_decl(&mut self) -> ParseResult<Expression> {
+        let val = kw!(bool Val, self);
+        let var = kw!(bool Var, self);
+
+        if !(val || var) {
+            return Err(ParseError::ExpectedExpression);
+        }
+
+        let ty = capture!(res parse_named_type, self)?;
+
+        let value = match sym!(bool Assign, self) {
+            false => None,
+            true => {
+                Some(box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?)
+            }
+        };
+
+        Ok(Expression::Decl {
+            ty,
+            value,
+            ext_mut: var,
+        })
+    }
+
+    fn parse_assign(&mut self) -> ParseResult<Expression> {
+        let name = ident!(required self);
+        sym!(required Assign, self);
+
+        let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+
+        Ok(Expression::Assign { name, value })
+    }
+
     pub fn parse_expression(&mut self) -> Option<Expression> {
         match self.peek_symbol(Symbol::LCurly) {
-            Some(false) => self
-                .parse_expr(0)
-                .or(capture!(res parse_funcall, self))
-                .ok(),
+            Some(false) => {
+                let prev_ind = self.index;
+                match self.parse_expr(0) {
+                    Err(_) => {
+                        self.index = prev_ind;
+                        capture!(res parse_decl, self)
+                            .or_else(|_| capture!(res parse_funcall, self))
+                            .or_else(|_| capture!(res parse_assign, self))
+                            .ok()
+                    }
+                    Ok(val) => Some(val),
+                }
+            }
             Some(true) => {
                 self.next();
                 let mut block = vec![];

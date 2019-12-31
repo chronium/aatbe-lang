@@ -41,8 +41,8 @@ impl Parser {
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
         let name = ident!(required self);
         sym!(required Colon, self);
-        let ty = capture!(res parse_type, self)?;
-        Ok(PrimitiveType::NamedType { name, ty: box ty })
+        let ty = box capture!(res parse_type, self)?;
+        Ok(PrimitiveType::NamedType { name, ty })
     }
 
     fn parse_attribute(&mut self) -> Option<String> {
@@ -73,7 +73,7 @@ impl Parser {
                         sym!(required Comma, self);
                     }
                     let ty = capture!(res parse_named_type, self)
-                        .or(capture!(res parse_type, self))
+                        .or_else(|_| capture!(res parse_type, self))
                         .or(Err(ParseError::ExpectedType))?;
                     params.push(ty);
                 }
@@ -82,7 +82,7 @@ impl Parser {
         }
         sym!(required Arrow, self);
 
-        let ret_ty = capture!(res parse_type, self)?;
+        let ret_ty = box capture!(res parse_type, self)?;
 
         let mut body = None;
         if sym!(bool Assign, self) {
@@ -95,7 +95,7 @@ impl Parser {
             body,
             ty: PrimitiveType::Function {
                 ext,
-                ret_ty: box ret_ty,
+                ret_ty,
                 params,
             },
         }))
@@ -406,6 +406,60 @@ fn main () -> () = {
                     }
                 }),
             ])
+        );
+    }
+
+    #[test]
+    fn variable_decl_assign() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () -> () = {
+    var var_t: str = \"Hello World\"
+    val val_t: str
+    var_t = \"Aloha honua\"
+}
+",
+            "Block Function"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                body: Some(box Expression::Block(vec![
+                    Expression::Decl {
+                        ty: PrimitiveType::NamedType {
+                            name: "var_t".to_string(),
+                            ty: box PrimitiveType::Str,
+                        },
+                        value: Some(box Expression::Atom(AtomKind::StringLiteral(String::from(
+                            "Hello World"
+                        )))),
+                        ext_mut: true,
+                    },
+                    Expression::Decl {
+                        ty: PrimitiveType::NamedType {
+                            name: "val_t".to_string(),
+                            ty: box PrimitiveType::Str,
+                        },
+                        value: None,
+                        ext_mut: false,
+                    },
+                    Expression::Assign {
+                        name: "var_t".to_string(),
+                        value: box Expression::Atom(AtomKind::StringLiteral(String::from(
+                            "Aloha honua"
+                        ))),
+                    }
+                ])),
+                ty: PrimitiveType::Function {
+                    ext: false,
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
+                }
+            }),])
         );
     }
 }

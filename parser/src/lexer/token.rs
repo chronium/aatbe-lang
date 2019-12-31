@@ -63,6 +63,8 @@ pub enum Boolean {
 pub enum Keyword {
     Fn,
     Extern,
+    Var,
+    Val,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -155,6 +157,8 @@ impl FromStr for Keyword {
         match s {
             "fn" => Ok(Self::Fn),
             "extern" => Ok(Self::Extern),
+            "var" => Ok(Self::Var),
+            "val" => Ok(Self::Val),
             _ => Err(()),
         }
     }

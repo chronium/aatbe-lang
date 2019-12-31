@@ -12,7 +12,7 @@ macro_rules! peek {
 // Used to clone a token reference for an Option for parser errors. May not be needed.
 #[macro_export]
 macro_rules! deref_opt {
-    ($opt: ident) => {
+    ($opt: expr) => {
         $opt.map(|t| t.clone())
     };
 }
@@ -80,11 +80,15 @@ macro_rules! capture {
 #[macro_export]
 macro_rules! kw {
     ($kw:ident, $self:ident) => {{
+        let prev_ind = $self.index;
         let token = $self.next();
         if let Some(tok) = token {
             match tok.kw() {
                 Some(kw) if kw == Keyword::$kw => {}
-                _ => return Err(ParseError::UnexpectedToken(deref_opt!(token))),
+                _ => {
+                    $self.index = prev_ind;
+                    return Err(ParseError::UnexpectedToken);
+                }
             }
         }
     }};
@@ -100,6 +104,7 @@ macro_rules! kw {
                 }
             }
         } else {
+            $self.index = prev_ind;
             false
         }
     }};
@@ -108,21 +113,28 @@ macro_rules! kw {
 #[macro_export]
 macro_rules! ident {
     (required $self:ident) => {{
+        let prev_ind = $self.index;
         let token = $self.next();
         if let Some(tok) = token {
             match tok.ident() {
                 Some(id) => id,
-                _ => return Err(ParseError::ExpectedIdent),
+                _ => {
+                    $self.index = prev_ind;
+                    return Err(ParseError::ExpectedIdent);
+                }
             }
         } else {
+            $self.index = prev_ind;
             return Err(ParseError::ExpectedIdent);
         }
     }};
     ($self:ident) => {{
+        let prev_ind = $self.index;
         let token = $self.next();
         if let Some(tok) = token {
             tok.ident()
         } else {
+            $self.index = prev_ind;
             None
         }
     }};
@@ -131,11 +143,15 @@ macro_rules! ident {
 #[macro_export]
 macro_rules! sym {
     (required $sym:ident, $self:ident) => {{
+        let prev_ind = $self.index;
         let token = $self.next();
         if let Some(tok) = token {
             match tok.sym() {
                 Some(kw) if kw == Symbol::$sym => {}
-                _ => return Err(ParseError::UnexpectedToken(deref_opt!(token))),
+                _ => {
+                    $self.index = prev_ind;
+                    return Err(ParseError::UnexpectedToken);
+                }
             }
         }
     }};

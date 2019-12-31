@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
     InvalidEOF,
-    UnexpectedToken(Option<Token>),
+    UnexpectedToken,
     ExpectedType,
     ExpectedAtom,
     ExpectedIdent,

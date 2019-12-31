@@ -1,7 +1,6 @@
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AST {
     File(Vec<AST>),
-    Type(PrimitiveType),
     Error,
     Expr(Expression),
 }
@@ -11,6 +10,15 @@ pub enum Expression {
     Atom(AtomKind),
     Binary(Box<Expression>, String, Box<Expression>),
     Block(Vec<Expression>),
+    Decl {
+        ty: PrimitiveType,
+        value: Option<Box<Expression>>,
+        ext_mut: bool,
+    },
+    Assign {
+        name: String,
+        value: Box<Expression>,
+    },
     Call {
         name: String,
         args: Vec<AtomKind>,
