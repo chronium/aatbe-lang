@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod macros;
+pub mod conditionals;
 pub mod expression;
 
 use crate::{
@@ -18,6 +19,9 @@ pub enum ParseError {
     ExpectedOperator,
     NotEnoughArguments(String),
     UnexpectedEOF,
+    ExpectedElseExpression,
+    ExpectedCondition,
+    ExpectedThenExpression,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;

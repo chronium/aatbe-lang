@@ -29,6 +29,11 @@ pub enum Expression {
         body: Option<Box<Expression>>,
         attributes: Vec<String>,
     },
+    If {
+        cond_expr: Box<Expression>,
+        then_expr: Box<Expression>,
+        else_expr: Option<Box<Expression>>,
+    },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

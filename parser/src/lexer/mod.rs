@@ -120,17 +120,39 @@ impl<'c> Lexer<'c> {
                 '}' => {
                     self.push_symbol(Symbol::RCurly, pos);
                 }
-                '=' => {
-                    self.push_symbol(Symbol::Assign, pos);
-                }
+                '=' => match self.chars.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.push_symbol(Symbol::Equal, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Assign, pos),
+                },
+                '!' => match self.chars.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.push_symbol(Symbol::NotEqual, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Not, pos),
+                },
+                '>' => match self.chars.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.push_symbol(Symbol::GreaterEqual, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Greater, pos),
+                },
+                '<' => match self.chars.peek() {
+                    Some('=') => {
+                        self.advance();
+                        self.push_symbol(Symbol::LowerEqual, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Lower, pos),
+                },
                 '+' => {
                     self.push_symbol(Symbol::Plus, pos);
                 }
                 '*' => {
                     self.push_symbol(Symbol::Star, pos);
-                }
-                '&' => {
-                    self.push_symbol(Symbol::Ampersand, pos);
                 }
                 '$' => {
                     self.push_symbol(Symbol::Dollar, pos);
@@ -140,6 +162,9 @@ impl<'c> Lexer<'c> {
                 }
                 ':' => {
                     self.push_symbol(Symbol::Colon, pos);
+                }
+                '%' => {
+                    self.push_symbol(Symbol::Modulo, pos);
                 }
                 '-' => match self.chars.peek() {
                     Some('>') => {
@@ -151,6 +176,21 @@ impl<'c> Lexer<'c> {
                 '@' => {
                     self.push_symbol(Symbol::At, pos);
                 }
+                '|' => match self.chars.peek() {
+                    Some('|') => {
+                        self.advance();
+                        self.push_symbol(Symbol::LogicalOr, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Or, pos),
+                },
+                '&' => match self.chars.peek() {
+                    Some('&') => {
+                        self.advance();
+                        self.push_symbol(Symbol::LogicalAnd, pos)
+                    }
+                    _ => self.push_symbol(Symbol::Ampersand, pos),
+                },
+                '^' => self.push_symbol(Symbol::Xor, pos),
                 '/' => match self.chars.peek() {
                     Some('/') => {
                         self.advance();
@@ -275,7 +315,8 @@ mod lexer_tests {
 
     #[test]
     fn symbols() {
-        let mut lexer = Lexer::new("@( )->{}()=+-*/&$,:");
+        let mut lexer =
+            Lexer::new("@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ %");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -296,6 +337,18 @@ mod lexer_tests {
             Symbol::Dollar,
             Symbol::Comma,
             Symbol::Colon,
+            Symbol::Not,
+            Symbol::Equal,
+            Symbol::NotEqual,
+            Symbol::Greater,
+            Symbol::GreaterEqual,
+            Symbol::Lower,
+            Symbol::LowerEqual,
+            Symbol::Or,
+            Symbol::LogicalOr,
+            Symbol::LogicalAnd,
+            Symbol::Xor,
+            Symbol::Modulo,
         ]
         .into_iter()
         .map(|t| Some(t));
@@ -391,7 +444,7 @@ mod lexer_tests {
 
     #[test]
     fn keyword_identifier() {
-        let mut lexer = Lexer::new("fn extern var val true false main");
+        let mut lexer = Lexer::new("fn extern var val if else true false main");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -399,6 +452,8 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Extern));
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Var));
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Val));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::If));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Else));
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::True));
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::False));
         assert_eq!(

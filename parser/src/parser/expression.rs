@@ -5,14 +5,18 @@ use crate::{
     token::{Keyword, Symbol, Token},
 };
 
-fn prec(sym: Symbol) -> u32 {
-    match sym {
-        Symbol::Plus => 10,
-        Symbol::Minus => 10,
-        Symbol::Star => 20,
-        Symbol::Slash => 20,
-        Symbol::LCurly => 0,
-        _ => panic!("No precedence on {:?}", sym),
+fn prec(symbol: Symbol) -> u32 {
+    match symbol {
+        Symbol::LogicalOr => 10,
+        Symbol::LogicalAnd => 15,
+        Symbol::Or => 20,
+        Symbol::Xor => 25,
+        Symbol::Ampersand => 30,
+        Symbol::Equal | Symbol::NotEqual => 40,
+        Symbol::Lower | Symbol::LowerEqual | Symbol::Greater | Symbol::GreaterEqual => 45,
+        Symbol::Plus | Symbol::Minus => 50,
+        Symbol::Star | Symbol::Slash | Symbol::Modulo => 60,
+        _ => panic!("Not an op {:?}", symbol),
     }
 }
 
@@ -175,6 +179,7 @@ impl Parser {
                         capture!(res parse_decl, self)
                             .or_else(|_| capture!(res parse_funcall, self))
                             .or_else(|_| capture!(res parse_assign, self))
+                            .or_else(|_| capture!(res parse_if_else, self))
                             .ok()
                     }
                     Ok(val) => Some(val),

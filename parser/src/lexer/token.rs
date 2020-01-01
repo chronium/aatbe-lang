@@ -39,6 +39,18 @@ pub enum Symbol {
     Dollar,
     Comma,
     Colon,
+    Equal,
+    NotEqual,
+    Greater,
+    GreaterEqual,
+    Lower,
+    LowerEqual,
+    Not,
+    LogicalAnd,
+    Or,
+    LogicalOr,
+    Xor,
+    Modulo,
 }
 
 impl From<Symbol> for String {
@@ -48,6 +60,19 @@ impl From<Symbol> for String {
             Symbol::Minus => String::from("-"),
             Symbol::Star => String::from("*"),
             Symbol::Slash => String::from("/"),
+            Symbol::Not => String::from("!"),
+            Symbol::Equal => String::from("=="),
+            Symbol::NotEqual => String::from("!="),
+            Symbol::Greater => String::from(">"),
+            Symbol::GreaterEqual => String::from(">="),
+            Symbol::Lower => String::from("<"),
+            Symbol::LowerEqual => String::from("<="),
+            Symbol::Or => String::from("|"),
+            Symbol::LogicalOr => String::from("||"),
+            Symbol::Ampersand => String::from("&"),
+            Symbol::LogicalAnd => String::from("&&"),
+            Symbol::Xor => String::from("^"),
+            Symbol::Modulo => String::from("%"),
             _ => panic!("Symbol to str {:?}", sym),
         }
     }
@@ -65,6 +90,8 @@ pub enum Keyword {
     Extern,
     Var,
     Val,
+    If,
+    Else,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -114,7 +141,23 @@ impl Token {
     pub fn op(&self) -> Option<Symbol> {
         if let TokenKind::Symbol(sym) = self.kind {
             return match sym {
-                Symbol::Plus | Symbol::Minus | Symbol::Star | Symbol::Slash => Some(sym),
+                Symbol::Plus
+                | Symbol::Minus
+                | Symbol::Star
+                | Symbol::Slash
+                | Symbol::Equal
+                | Symbol::NotEqual
+                | Symbol::Greater
+                | Symbol::GreaterEqual
+                | Symbol::Lower
+                | Symbol::LowerEqual
+                | Symbol::Not
+                | Symbol::Ampersand
+                | Symbol::LogicalAnd
+                | Symbol::Or
+                | Symbol::LogicalOr
+                | Symbol::Xor
+                | Symbol::Modulo => Some(sym),
                 _ => None,
             };
         }
@@ -159,6 +202,8 @@ impl FromStr for Keyword {
             "extern" => Ok(Self::Extern),
             "var" => Ok(Self::Var),
             "val" => Ok(Self::Val),
+            "if" => Ok(Self::If),
+            "else" => Ok(Self::Else),
             _ => Err(()),
         }
     }
