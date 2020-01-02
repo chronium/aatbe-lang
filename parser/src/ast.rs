@@ -60,6 +60,8 @@ pub enum AtomKind {
     StringLiteral(String),
     Expr(Box<Expression>),
     Unit,
+    Parenthesized(Box<Expression>),
+    Unary(String, Box<AtomKind>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

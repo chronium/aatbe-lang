@@ -140,7 +140,7 @@ fn main () -> () = ()
         let pt = parse_test!(
             "
 @entry
-fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & 3
+fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -3
 ",
             "Binary Function"
         );
@@ -172,7 +172,10 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & 3
                             box Expression::Atom(AtomKind::Integer(2)),
                         ),
                         String::from("&"),
-                        box Expression::Atom(AtomKind::Integer(3)),
+                        box Expression::Atom(AtomKind::Unary(
+                            "-".to_string(),
+                            box AtomKind::Integer(3),
+                        )),
                     ),
                 ),),
                 ty: PrimitiveType::Function {
@@ -383,8 +386,8 @@ fn main () -> () = {
       bar \"foo\"
   }
 
-  if true != false baz true
-  if true false else true
+  if !(true != false) baz true
+  if !true false else true
 }
 ",
             "If Else conditions"
@@ -412,11 +415,14 @@ fn main () -> () = {
                         }])),
                     },
                     Expression::If {
-                        cond_expr: box Expression::Binary(
-                            box Expression::Atom(AtomKind::Bool(Boolean::True)),
-                            "!=".to_string(),
-                            box Expression::Atom(AtomKind::Bool(Boolean::False)),
-                        ),
+                        cond_expr: box Expression::Atom(AtomKind::Unary(
+                            "!".to_string(),
+                            box AtomKind::Parenthesized(box Expression::Binary(
+                                box Expression::Atom(AtomKind::Bool(Boolean::True)),
+                                "!=".to_string(),
+                                box Expression::Atom(AtomKind::Bool(Boolean::False))
+                            )),
+                        )),
                         then_expr: box Expression::Call {
                             name: "baz".to_string(),
                             args: vec![AtomKind::Bool(Boolean::True)]
@@ -424,7 +430,10 @@ fn main () -> () = {
                         else_expr: None,
                     },
                     Expression::If {
-                        cond_expr: box Expression::Atom(AtomKind::Bool(Boolean::True)),
+                        cond_expr: box Expression::Atom(AtomKind::Unary(
+                            "!".to_string(),
+                            box AtomKind::Bool(Boolean::True)
+                        )),
                         then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
                         else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::True))),
                     },

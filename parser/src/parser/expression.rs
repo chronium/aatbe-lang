@@ -97,6 +97,27 @@ impl Parser {
         }
     }
 
+    fn parse_unary(&mut self) -> ParseResult<AtomKind> {
+        if sym!(bool Minus, self) {
+            Ok(AtomKind::Unary(
+                String::from("-"),
+                box capture!(res parse_unary, self)?,
+            ))
+        } else if sym!(bool Not, self) {
+            Ok(AtomKind::Unary(
+                String::from("!"),
+                box capture!(res parse_unary, self)?,
+            ))
+        } else if sym!(bool LParen, self) {
+            let expr =
+                box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+            sym!(required RParen, self);
+            Ok(AtomKind::Parenthesized(expr))
+        } else {
+            capture!(res parse_atom, self)
+        }
+    }
+
     fn parse_rhs(&mut self, lhs: Expression) -> ParseResult<Expression> {
         let op = sym!(op self);
         match op {
@@ -109,7 +130,7 @@ impl Parser {
     }
 
     fn parse_expr(&mut self, rbp: u32) -> ParseResult<Expression> {
-        let mut left = Expression::Atom(capture!(res parse_atom, self)?);
+        let mut left = Expression::Atom(capture!(res parse_unary, self)?);
 
         while binds_tighter(self.peek(), rbp) {
             left = self.parse_rhs(left)?;
