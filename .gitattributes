@@ -1,7 +1,0 @@
-* text=auto
-
-*.rs text eol=lf
-*.aat text eol=lf
-*.json text eol=lf
-
-*.* text eol=lf

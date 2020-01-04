@@ -1,20 +1,20 @@
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum UnaryOp {
-    Negative,
-    Negate,
+  Negative,
+  Negate,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BinaryOp {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
-    Equals,
-    NotEquals,
-    Less,
-    Greater,
-    LessEquals,
-    GreaterEquals,
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
+  Modulo,
+  Equals,
+  NotEquals,
+  Less,
+  Greater,
+  LessEquals,
+  GreaterEquals,
 }
