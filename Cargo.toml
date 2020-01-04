@@ -3,6 +3,5 @@
 members = [
   "aatboot",
   "comp-be",
-  "aatrt",
-  "parser"
+  "aatrt"
 ]
