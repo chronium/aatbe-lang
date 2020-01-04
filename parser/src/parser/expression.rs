@@ -83,6 +83,17 @@ impl Parser {
         }
     }
 
+    fn parse_ident(&mut self) -> Option<AtomKind> {
+        if capture!(res parse_funcall, self)
+            .or_else(|_| capture!(res parse_assign, self))
+            .is_ok()
+        {
+            None
+        } else {
+            ident!(res self).map(|i| AtomKind::Ident(i)).ok()
+        }
+    }
+
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
@@ -90,7 +101,8 @@ impl Parser {
             parse_number,
             parse_unit,
             parse_string_lit,
-            parse_atomized_expression
+            parse_atomized_expression,
+            parse_ident
         ) {
             None => Err(ParseError::ExpectedAtom),
             Some(atom) => Ok(atom),
@@ -197,9 +209,10 @@ impl Parser {
                 match self.parse_expr(0) {
                     Err(_) => {
                         self.index = prev_ind;
-                        capture!(res parse_decl, self)
-                            .or_else(|_| capture!(res parse_funcall, self))
+
+                        capture!(res parse_funcall, self)
                             .or_else(|_| capture!(res parse_assign, self))
+                            .or_else(|_| capture!(res parse_decl, self))
                             .or_else(|_| capture!(res parse_if_else, self))
                             .ok()
                     }
@@ -210,6 +223,7 @@ impl Parser {
                 self.next();
                 let mut block = vec![];
                 loop {
+                    println!("{}", block.len());
                     match self.peek_symbol(Symbol::RCurly) {
                         Some(true) => {
                             self.next();

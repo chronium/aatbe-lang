@@ -92,6 +92,7 @@ pub enum Keyword {
     Val,
     If,
     Else,
+    Use,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -204,6 +205,7 @@ impl FromStr for Keyword {
             "val" => Ok(Self::Val),
             "if" => Ok(Self::If),
             "else" => Ok(Self::Else),
+            "use" => Ok(Self::Use),
             _ => Err(()),
         }
     }

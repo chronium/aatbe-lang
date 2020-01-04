@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update
 
 RUN apt-get install -y --no-install-recommends apt-utils dialog 2>&1
-RUN apt-get install -y git iproute2 procps lsb-release
+RUN apt-get install -y git hub iproute2 procps lsb-release
 RUN apt-get install -y lldb
 RUN apt-get install -y libllvm6.0 llvm-6.0 llvm-6.0-dev llvm-6.0-runtime llvm-6.0-tools
 

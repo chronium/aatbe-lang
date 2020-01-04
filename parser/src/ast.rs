@@ -3,6 +3,7 @@ pub enum AST {
     File(Vec<AST>),
     Error,
     Expr(Expression),
+    Import(String),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -62,6 +63,7 @@ pub enum AtomKind {
     Unit,
     Parenthesized(Box<Expression>),
     Unary(String, Box<AtomKind>),
+    Ident(String),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

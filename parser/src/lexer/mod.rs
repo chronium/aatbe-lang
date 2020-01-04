@@ -444,7 +444,7 @@ mod lexer_tests {
 
     #[test]
     fn keyword_identifier() {
-        let mut lexer = Lexer::new("fn extern var val if else true false main");
+        let mut lexer = Lexer::new("fn extern var val if else use true false main");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -454,6 +454,7 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Val));
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::If));
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Else));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Use));
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::True));
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::False));
         assert_eq!(

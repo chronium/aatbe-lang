@@ -22,6 +22,7 @@ pub enum ParseError {
     ExpectedElseExpression,
     ExpectedCondition,
     ExpectedThenExpression,
+    ExpectedPath,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -63,6 +64,10 @@ impl Parser {
         peek!(self.tt, self.index).and_then(|t| t.ident())
     }
 
+    pub fn peek_str(&self) -> Option<String> {
+        peek!(self.tt, self.index).and_then(|t| t.st())
+    }
+
     pub fn peek_symbol(&self, symbol: Symbol) -> Option<bool> {
         peek!(self.tt, self.index)
             .and_then(|t| t.sym())
@@ -78,9 +83,11 @@ impl Parser {
                 None => break Err(ParseError::InvalidEOF),
             };
 
-            res.push(self.parse_function().unwrap_or_else(|r| {
-                panic!("{:?}", r);
-            }));
+            res.push(
+                capture!(res parse_use, self)
+                    .or_else(|_| capture!(res parse_function, self))
+                    .unwrap_or_else(|r| panic!("{:?}", r)),
+            );
         };
 
         self.pt = Some(AST::File(res));

@@ -51,6 +51,16 @@ impl Parser {
         ident!(self)
     }
 
+    fn parse_use(&mut self) -> ParseResult<AST> {
+        kw!(Use, self);
+        if let Some(path) = self.peek_str() {
+            self.next();
+            Ok(AST::Import(path))
+        } else {
+            Err(ParseError::ExpectedPath)
+        }
+    }
+
     fn parse_function(&mut self) -> ParseResult<AST> {
         let mut attributes = Vec::new();
 

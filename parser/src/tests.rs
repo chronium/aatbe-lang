@@ -140,7 +140,7 @@ fn main () -> () = ()
         let pt = parse_test!(
             "
 @entry
-fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -3
+fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
 ",
             "Binary Function"
         );
@@ -174,7 +174,7 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -3
                         String::from("&"),
                         box Expression::Atom(AtomKind::Unary(
                             "-".to_string(),
-                            box AtomKind::Integer(3),
+                            box AtomKind::Ident("foo".to_string()),
                         )),
                     ),
                 ),),
@@ -444,6 +444,36 @@ fn main () -> () = {
                     params: vec![PrimitiveType::Unit],
                 }
             }),])
+        );
+    }
+
+    #[test]
+    fn use_path() {
+        let pt = parse_test!(
+            "
+use \"lib.aat\"
+
+@entry
+fn main () -> ()
+",
+            "Use path"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Import(String::from("lib.aat")),
+                AST::Expr(Expression::Function {
+                    name: "main".to_string(),
+                    attributes: attr(vec!["entry"]),
+                    body: None,
+                    ty: PrimitiveType::Function {
+                        ext: false,
+                        ret_ty: box PrimitiveType::Unit,
+                        params: vec![PrimitiveType::Unit],
+                    }
+                }),
+            ])
         );
     }
 }
