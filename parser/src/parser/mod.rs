@@ -46,30 +46,36 @@ impl Parser {
         &self.pt
     }
 
-    pub fn next(&mut self) -> Option<&Token> {
+    pub fn next(&mut self) -> Option<Token> {
         if (self.index) >= self.tt.len() {
             None
         } else {
-            let ret = peek!(self.tt, self.index);
+            let ret = self.peek().cloned();
             self.index += 1;
-            ret.clone()
+            ret
         }
     }
 
-    pub fn peek(&self) -> Option<&Token> {
+    pub fn peek(&mut self) -> Option<&Token> {
+        loop {
+            match peek!(self.tt, self.index).map_or(None, |t| t.comm()) {
+                Some(_) => self.index += 1,
+                None => break,
+            }
+        }
         peek!(self.tt, self.index)
     }
 
-    pub fn peek_ident(&self) -> Option<String> {
-        peek!(self.tt, self.index).and_then(|t| t.ident())
+    pub fn peek_ident(&mut self) -> Option<String> {
+        self.peek().and_then(|t| t.ident())
     }
 
-    pub fn peek_str(&self) -> Option<String> {
-        peek!(self.tt, self.index).and_then(|t| t.st())
+    pub fn peek_str(&mut self) -> Option<String> {
+        self.peek().and_then(|t| t.st())
     }
 
-    pub fn peek_symbol(&self, symbol: Symbol) -> Option<bool> {
-        peek!(self.tt, self.index)
+    pub fn peek_symbol(&mut self, symbol: Symbol) -> Option<bool> {
+        self.peek()
             .and_then(|t| t.sym())
             .map_or(Some(false), |t| Some(t == symbol))
     }

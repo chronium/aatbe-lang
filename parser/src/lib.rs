@@ -1,9 +1,10 @@
 #![feature(box_syntax)]
 #![allow(dead_code)]
 
-mod ast;
-mod lexer;
-mod parser;
+pub mod ast;
+pub mod lexer;
+pub mod parser;
+
 mod tests;
 
 use ast::{Expression, IntType, PrimitiveType, UIntType, AST};
@@ -20,6 +21,10 @@ impl Parser {
         if let Some(tok) = token {
             if let Some(Symbol::Unit) = tok.sym() {
                 return Ok(PrimitiveType::Unit);
+            }
+
+            if let Some(Symbol::GoDot) = tok.sym() {
+                return Ok(PrimitiveType::Varargs);
             }
 
             match tok.ty() {

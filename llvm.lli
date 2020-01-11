@@ -1,19 +1,16 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-@0 = private unnamed_addr constant [6 x i8] c"Hello\00", align 1
+@0 = private unnamed_addr constant [12 x i8] c"Hello %s\0A%d\00"
+@1 = private unnamed_addr constant [6 x i8] c"World\00"
+@2 = private unnamed_addr constant [4 x i8] c"123\00"
 
 declare i32 @puts(i8*)
 
 declare i32 @printf(i8*, ...)
 
-define i8* @ident(i8*) {
-  ret i8* %0
-}
-
 define void @main() {
 entry:
-  %0 = call i8* @ident(i8* getelementptr inbounds ([6 x i8], [6 x i8]* @0, i32 0, i32 0))
-  %1 = call i32 @puts(i8* %0)
+  %0 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @0, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @1, i32 0, i32 0), i8* getelementptr inbounds ([4 x i8], [4 x i8]* @2, i32 0, i32 0))
   ret void
 }

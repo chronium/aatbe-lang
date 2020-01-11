@@ -1,4 +1,5 @@
-use comp_be::{codegen::AatbeModule, parser::aatbe_parser};
+use comp_be::codegen::AatbeModule;
+use parser::{lexer::Lexer, parser::Parser};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
@@ -38,8 +39,12 @@ fn main() -> io::Result<()> {
 
     f.read_to_string(&mut code)?;
 
-    let parsed = match aatbe_parser::file(code.as_str()) {
-        Ok(ast) => ast,
+    let mut lexer = Lexer::new(code.as_str());
+    lexer.lex();
+
+    let mut parser = Parser::new(lexer.tt());
+    match parser.parse() {
+        Ok(_) => {}
         Err(err) => panic!(format!("{:#?}", err)),
     };
 
@@ -50,10 +55,12 @@ fn main() -> io::Result<()> {
             .create(true)
             .open(Path::new(parse_out).with_extension("txt"))?;
 
-        if let Err(e) = writeln!(file, "{:#?}", parsed) {
+        if let Err(e) = writeln!(file, "{:#?}", parser.pt()) {
             error!("Could not write to file: {}", e);
         }
     }
+
+    let pt = parser.pt().as_ref().expect("Empty parse tree");
 
     let mut module = AatbeModule::new(
         input_path
@@ -62,8 +69,8 @@ fn main() -> io::Result<()> {
             .map(|stem_str| stem_str.to_string())
             .expect("Could not get spice name from path"),
     );
-    module.decl_pass(&parsed);
-    module.codegen_pass(&parsed);
+    module.decl_pass(&pt);
+    module.codegen_pass(&pt);
 
     if let Some(llvm_out) = matches.value_of("LLVM_OUT") {
         module

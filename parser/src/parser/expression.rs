@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, Boolean, Expression},
+    ast::{AtomKind, BindType, Boolean, Expression},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token},
@@ -189,7 +189,10 @@ impl Parser {
         Ok(Expression::Decl {
             ty,
             value,
-            ext_mut: var,
+            exterior_bind: match var {
+                true => BindType::Mutable,
+                false => BindType::Immutable,
+            },
         })
     }
 
@@ -223,7 +226,6 @@ impl Parser {
                 self.next();
                 let mut block = vec![];
                 loop {
-                    println!("{}", block.len());
                     match self.peek_symbol(Symbol::RCurly) {
                         Some(true) => {
                             self.next();

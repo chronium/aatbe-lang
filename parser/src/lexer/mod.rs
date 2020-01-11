@@ -120,6 +120,19 @@ impl<'c> Lexer<'c> {
                 '}' => {
                     self.push_symbol(Symbol::RCurly, pos);
                 }
+                '.' => match self.chars.peek() {
+                    Some('.') => {
+                        self.advance();
+                        match self.chars.peek() {
+                            Some('.') => {
+                                self.advance();
+                                self.push_symbol(Symbol::GoDot, pos)
+                            }
+                            _ => self.push_symbol(Symbol::DoDot, pos),
+                        }
+                    }
+                    _ => self.push_symbol(Symbol::Dot, pos),
+                },
                 '=' => match self.chars.peek() {
                     Some('=') => {
                         self.advance();
@@ -207,10 +220,23 @@ impl<'c> Lexer<'c> {
                                 self.advance();
                                 break;
                             }
-                            Some(c) => {
-                                buf.push(*c);
-                                self.advance();
-                            }
+                            Some(c) => match c {
+                                '\\' => {
+                                    self.advance();
+                                    match self.chars.peek() {
+                                        Some('n') => {
+                                            buf.push('\n');
+                                            self.advance();
+                                        }
+                                        Some(c) => buf.push(*c),
+                                        None => buf.push('\\'),
+                                    }
+                                }
+                                _ => {
+                                    buf.push(*c);
+                                    self.advance();
+                                }
+                            },
                             None => panic!("Unexpected EOF at {:?}", pos),
                         }
                     }
@@ -316,7 +342,7 @@ mod lexer_tests {
     #[test]
     fn symbols() {
         let mut lexer =
-            Lexer::new("@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ %");
+            Lexer::new("@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ...");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -349,6 +375,9 @@ mod lexer_tests {
             Symbol::LogicalAnd,
             Symbol::Xor,
             Symbol::Modulo,
+            Symbol::Dot,
+            Symbol::DoDot,
+            Symbol::GoDot,
         ]
         .into_iter()
         .map(|t| Some(t));
@@ -432,13 +461,13 @@ mod lexer_tests {
 
     #[test]
     fn string_literal_no_escape() {
-        let mut lexer = Lexer::new("\"Hello World\"");
+        let mut lexer = Lexer::new("\"Hello World\n\"");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
-            TokenKind::StringLiteral(String::from("Hello World")),
+            TokenKind::StringLiteral(String::from("Hello World\n")),
         )
     }
 

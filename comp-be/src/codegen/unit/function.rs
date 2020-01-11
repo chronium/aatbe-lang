@@ -1,33 +1,36 @@
 use crate::{
     codegen::{AatbeModule, CodegenUnit},
-    parser::ast::AST,
-    parser::PrimitiveType,
+    ty::LLVMTyInCtx,
 };
 
-pub fn declare_function(module: &mut AatbeModule, function: &AST) {
+use parser::ast::{Expression, PrimitiveType};
+
+pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     match function {
-        AST::Function {
+        Expression::Function {
             name,
             ty,
             attributes: _,
+            body: _,
         } => {
-            let func = module.llvm_module_ref().get_or_add_function(
-                name,
-                ty.as_ref().llvm_type_in_context(module.llvm_context_ref()),
-            );
+            let func = module
+                .llvm_module_ref()
+                .get_or_add_function(name, ty.llvm_ty_in_ctx(module.llvm_context_ref()));
 
             module.push_ref_in_scope(name, CodegenUnit::Function(func));
         }
+        _ => panic!("Unimplemented declare_function {:?}", function),
         _ => unreachable!(),
     }
 }
 
-pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
+pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
     match function {
-        AST::Function {
+        Expression::Function {
             name,
             ty: _,
             attributes,
+            body: _,
         } => {
             let func = module.get_func(name).unwrap();
 
@@ -50,30 +53,37 @@ pub fn codegen_function(module: &mut AatbeModule, function: &AST) {
     }
 }
 
-pub fn inject_function_in_scope(module: &mut AatbeModule, function: &AST) {
+pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
     match function {
-        AST::Function {
+        Expression::Function {
             name,
             ty,
             attributes: _,
+            body: _,
         } => {
             match ty {
-                box PrimitiveType::FunctionType {
-                    ret_type: _,
-                    param,
+                PrimitiveType::Function {
+                    ret_ty: _,
+                    params,
                     ext: false,
                 } => {
-                    let func = module
-                        .get_func(name)
-                        .expect("Compiler borked. Functions borked");
-                    match param {
-                        box PrimitiveType::NamedType { name, ty: _ } => {
-                            let param = func.get_param(0);
-                            module.push_ref_in_scope(name, CodegenUnit::FunctionArgument(param));
+                    for (pos, ty) in params.into_iter().enumerate() {
+                        match ty {
+                            PrimitiveType::NamedType { name, ty: _ } => {
+                                module.push_ref_in_scope(
+                                    name,
+                                    CodegenUnit::FunctionArgument(
+                                        module
+                                            .get_func(name)
+                                            .expect("Compiler borked. Functions borked")
+                                            .get_param(pos as u32),
+                                    ),
+                                );
+                            }
+                            PrimitiveType::Unit => {}
+                            _ => panic!("ICE: Unimplemented func args for {:?}", ty),
                         }
-                        box PrimitiveType::TupleType(types) if types.len() == 0 => {}
-                        _ => panic!("Unimplemented function arguments of type {:?}", param),
-                    };
+                    }
                 }
                 _ => unreachable!(),
             };

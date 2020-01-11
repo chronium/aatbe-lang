@@ -14,7 +14,7 @@ pub enum Expression {
     Decl {
         ty: PrimitiveType,
         value: Option<Box<Expression>>,
-        ext_mut: bool,
+        exterior_bind: BindType,
     },
     Assign {
         name: String,
@@ -38,9 +38,17 @@ pub enum Expression {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub enum BindType {
+    Mutable,
+    Immutable,
+    Constant,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum PrimitiveType {
     Unit,
     Str,
+    Varargs,
     Int(IntType),
     UInt(UIntType),
     Function {

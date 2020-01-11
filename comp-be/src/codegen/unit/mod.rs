@@ -1,6 +1,6 @@
 use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 
-use crate::parser::{ast::VarType, PrimitiveType};
+use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
 pub use function::{codegen_function, declare_function, inject_function_in_scope};
@@ -14,12 +14,12 @@ pub enum Mutability {
     Mutable,
 }
 
-impl From<&VarType> for Mutability {
-    fn from(ty: &VarType) -> Self {
+impl From<&BindType> for Mutability {
+    fn from(ty: &BindType) -> Self {
         match ty {
-            VarType::Const => panic!("const vars not implemented"),
-            VarType::Immutable => Mutability::Immutable,
-            VarType::Mutable => Mutability::Mutable,
+            BindType::Constant => panic!("const vars not implemented"),
+            BindType::Immutable => Mutability::Immutable,
+            BindType::Mutable => Mutability::Mutable,
         }
     }
 }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     use crate::{
-        ast::{AtomKind, Boolean},
+        ast::{AtomKind, BindType, Boolean},
         lexer::{token::Token, Lexer},
         Expression, IntType, ParseError, Parser, PrimitiveType, AST,
     };
@@ -245,7 +245,7 @@ fn main () -> () = { () }
             "
 extern fn puts str -> i32
 
-fn test s: str, i32 -> ()
+fn test s: str, i32, ... -> ()
 
 @entry
 fn main () -> () = {
@@ -282,7 +282,8 @@ fn main () -> () = {
                                 name: "s".to_string(),
                                 ty: box PrimitiveType::Str
                             },
-                            PrimitiveType::Int(IntType::I32)
+                            PrimitiveType::Int(IntType::I32),
+                            PrimitiveType::Varargs,
                         ],
                     }
                 }),
@@ -348,7 +349,7 @@ fn main () -> () = {
                         value: Some(box Expression::Atom(AtomKind::StringLiteral(String::from(
                             "Hello World"
                         )))),
-                        ext_mut: true,
+                        exterior_bind: BindType::Mutable,
                     },
                     Expression::Decl {
                         ty: PrimitiveType::NamedType {
@@ -356,7 +357,7 @@ fn main () -> () = {
                             ty: box PrimitiveType::Str,
                         },
                         value: None,
-                        ext_mut: false,
+                        exterior_bind: BindType::Immutable,
                     },
                     Expression::Assign {
                         name: "var_t".to_string(),
@@ -451,6 +452,7 @@ fn main () -> () = {
     fn use_path() {
         let pt = parse_test!(
             "
+// test comment
 use \"lib.aat\"
 
 @entry

@@ -10,5 +10,5 @@ name = "comp_be"
 path = "src/lib.rs"
 
 [dependencies]
-llvm-sys-wrapper="0.6.1"
-peg="*"
+llvm-sys-wrapper = "0.6.1"
+parser = { path = "../parser" }

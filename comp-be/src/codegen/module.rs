@@ -1,15 +1,17 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
-use crate::{
-    codegen::{
-        unit::{
-            alloc_variable, codegen_function, declare_function, inject_function_in_scope,
-            store_value,
-        },
-        CodegenUnit, Scope,
+use crate::codegen::{
+    unit::{
+        alloc_variable, codegen_function, declare_function, inject_function_in_scope, store_value,
     },
-    parser::{aatbe_parser, ast::AST, operations::BinaryOp, PrimitiveType},
+    CodegenUnit, Scope,
+};
+
+use parser::{
+    ast::{AtomKind, Expression, IntType, PrimitiveType, UIntType, AST},
+    lexer::Lexer,
+    parser::Parser,
 };
 
 #[allow(dead_code)]
@@ -48,34 +50,43 @@ impl AatbeModule {
 
         f.read_to_string(&mut code)?;
 
-        let parsed = match aatbe_parser::file(code.as_str()) {
-            Ok(ast) => ast,
-            Err(_) => panic!("Cannot find module {}", module),
+        let mut lexer = Lexer::new(code.as_str());
+        lexer.lex();
+
+        let mut parser = Parser::new(lexer.tt());
+        match parser.parse() {
+            Ok(_) => {}
+            Err(err) => panic!(format!("{:#?}", err)),
         };
 
-        Ok(parsed)
+        let pt = parser
+            .pt()
+            .as_ref()
+            .expect(format!("Empty parse tree in {}", module).as_str());
+
+        Ok(pt.clone())
+    }
+
+    pub fn decl_expr(&mut self, expr: &Expression) {
+        match expr {
+            Expression::Function {
+                name: _,
+                ty: _,
+                attributes: _,
+                body: _,
+            } => declare_function(self, expr),
+            _ => panic!("Top level {:?} unsupported", expr),
+        }
     }
 
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
-            AST::Function {
-                name: _,
-                ty: _,
-                attributes: _,
-            } => declare_function(self, ast),
-            AST::Assign(decl, _expr) => match decl {
-                box AST::Function {
-                    name: _,
-                    ty: _,
-                    attributes: _,
-                } => declare_function(self, decl),
-                _ => {}
-            },
-            AST::Block(nodes) | AST::File(nodes) => nodes
+            AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.decl_pass(n)))
                 .unwrap(),
+            AST::Expr(expr) => self.decl_expr(expr),
             AST::Import(module) => {
                 let ast = self
                     .parse_import(module)
@@ -89,9 +100,88 @@ impl AatbeModule {
         }
     }
 
+    pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
+        match atom {
+            AtomKind::StringLiteral(string) => {
+                Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
+            }
+            _ => panic!("ICE codegen_atom {:?}", atom),
+        }
+    }
+
+    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
+        match expr {
+            Expression::Call { name, args } => {
+                let mut args = args
+                    .iter()
+                    .filter_map(|arg| self.codegen_atom(arg))
+                    .collect::<Vec<LLVMValueRef>>();
+                Some(
+                    self.llvm_builder.build_call(
+                        self.get_func(name)
+                            .expect(format!("Call to undefined function {}", name).as_str())
+                            .into(),
+                        &mut args,
+                    ),
+                )
+            }
+            Expression::Function {
+                name,
+                ty,
+                body,
+                attributes: _,
+            } => {
+                match ty {
+                    PrimitiveType::Function {
+                        ret_ty: _,
+                        params: _,
+                        ext: true,
+                    } => None,
+                    _ => {
+                        codegen_function(self, expr);
+                        self.current_function = Some(name.clone());
+                        self.start_scope_with_name(name);
+                        inject_function_in_scope(self, expr);
+                        let ret = self.codegen_expr(
+                            &body
+                                .as_ref()
+                                .expect("ICE Function with no body but not external"),
+                        );
+
+                        // TODO: Typechecks
+                        match has_return_type(ty) {
+                            true => self.llvm_builder.build_ret(ret.expect(
+                                "Compiler broke, function returns broke. Everything's on fire",
+                            )),
+                            false => self.llvm_builder.build_ret_void(),
+                        };
+
+                        self.exit_scope();
+
+                        None
+                    }
+                }
+            }
+            Expression::Block(nodes) if nodes.len() == 0 => None,
+            Expression::Block(nodes) => {
+                self.start_scope();
+
+                let ret = nodes
+                    .iter()
+                    .fold(None, |_, n| Some(self.codegen_expr(n)))
+                    .unwrap();
+
+                self.exit_scope();
+
+                ret
+            }
+            _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
+        }
+    }
+
     pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
         match ast {
-            AST::Ref(name) => {
+            /*AST::Ref(name) => {
                 let var_ref = self.get_var(name);
 
                 match var_ref {
@@ -101,9 +191,6 @@ impl AatbeModule {
             }
             AST::True => Some(self.llvm_context.SInt1(1)),
             AST::False => Some(self.llvm_context.SInt1(0)),
-            AST::StringLiteral(string) => {
-                Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
-            }
             AST::IntLiteral(ty, val) => Some(self.codegen_const_int(ty, *val)),
             AST::Binary(op, lhs, rhs) => {
                 let lh = self
@@ -136,24 +223,6 @@ impl AatbeModule {
                 self.llvm_builder.position_at_end(end_bb);
 
                 None
-            }
-            AST::Call { name, arg } => {
-                let mut args = Vec::new();
-                match arg {
-                    box AST::Tuple(vals) => {
-                        for arg in vals {
-                            let arg_ref = self.codegen_pass(arg);
-                            if arg_ref.is_some() {
-                                args.push(arg_ref.unwrap());
-                            }
-                        }
-                    }
-                    _ => args.push(self.codegen_pass(arg).unwrap()),
-                };
-                match self.get_func(name) {
-                    Some(func) => Some(self.llvm_builder.build_call(func.into(), &mut args)),
-                    None => panic!("Cannot find function {:?}", name),
-                }
             }
             AST::Function {
                 name: _,
@@ -192,24 +261,12 @@ impl AatbeModule {
 
                 Some(self.get_var(name).expect("Compiler crapped out.").into())
             }
-            AST::Empty => None,
-            AST::Block(nodes) if nodes.len() == 0 => None,
-            AST::Block(nodes) => {
-                self.start_scope();
-
-                let ret = nodes
-                    .iter()
-                    .fold(None, |_, n| Some(self.codegen_pass(n)))
-                    .unwrap();
-
-                self.exit_scope();
-
-                ret
-            }
+            AST::Empty => None,*/
             AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
                 .unwrap(),
+            AST::Expr(expr) => self.codegen_expr(expr),
             AST::Import(module) => {
                 let ast = self
                     .get_imported_ast(module)
@@ -224,12 +281,12 @@ impl AatbeModule {
 
     pub fn codegen_binary_op(
         &self,
-        op: &BinaryOp,
+        op: &Expression,
         x: LLVMValueRef,
         y: LLVMValueRef,
     ) -> LLVMValueRef {
         match op {
-            BinaryOp::Add => self.llvm_builder.build_add(x, y),
+            /*BinaryOp::Add => self.llvm_builder.build_add(x, y),
             BinaryOp::Subtract => self.llvm_builder.build_sub(x, y),
             BinaryOp::Multiply => self.llvm_builder.build_mul(x, y),
             BinaryOp::Divide => self.llvm_builder.build_sdiv(x, y),
@@ -239,23 +296,21 @@ impl AatbeModule {
             BinaryOp::Less => self.llvm_builder.build_icmp_slt(x, y),
             BinaryOp::Greater => self.llvm_builder.build_icmp_sgt(x, y),
             BinaryOp::LessEquals => self.llvm_builder.build_icmp_sle(x, y),
-            BinaryOp::GreaterEquals => self.llvm_builder.build_icmp_sge(x, y),
+            BinaryOp::GreaterEquals => self.llvm_builder.build_icmp_sge(x, y),*/
             _ => panic!("Cannot binary op {:?}", op),
         }
     }
 
     pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
         match ty {
-            PrimitiveType::I8 => self.llvm_context.SInt8(val),
-            PrimitiveType::I16 => self.llvm_context.SInt16(val),
-            PrimitiveType::I32 => self.llvm_context.SInt32(val),
-            PrimitiveType::I64 => self.llvm_context.SInt64(val),
-            PrimitiveType::I128 => self.llvm_context.SInt128(val),
-            PrimitiveType::U8 => self.llvm_context.UInt8(val),
-            PrimitiveType::U16 => self.llvm_context.UInt16(val),
-            PrimitiveType::U32 => self.llvm_context.UInt32(val),
-            PrimitiveType::U64 => self.llvm_context.UInt64(val),
-            PrimitiveType::U128 => self.llvm_context.UInt128(val),
+            PrimitiveType::Int(IntType::I8) => self.llvm_context.SInt8(val),
+            PrimitiveType::Int(IntType::I16) => self.llvm_context.SInt16(val),
+            PrimitiveType::Int(IntType::I32) => self.llvm_context.SInt32(val),
+            PrimitiveType::Int(IntType::I64) => self.llvm_context.SInt64(val),
+            PrimitiveType::UInt(UIntType::U8) => self.llvm_context.UInt8(val),
+            PrimitiveType::UInt(UIntType::U16) => self.llvm_context.UInt16(val),
+            PrimitiveType::UInt(UIntType::U32) => self.llvm_context.UInt32(val),
+            PrimitiveType::UInt(UIntType::U64) => self.llvm_context.UInt64(val),
             _ => panic!("Cannot const int {:?}", ty),
         }
     }
@@ -330,14 +385,14 @@ impl AatbeModule {
 
 fn has_return_type(ty: &PrimitiveType) -> bool {
     match ty {
-        PrimitiveType::FunctionType {
-            ret_type,
-            param: _,
+        PrimitiveType::Function {
+            ret_ty,
+            params: _,
             ext: _,
-        } => match ret_type {
-            box PrimitiveType::TupleType(t) if t.len() == 0 => false,
+        } => match ret_ty {
+            box PrimitiveType::Unit => false,
             _ => true,
         },
-        _ => panic!("Not a function type"),
+        _ => panic!("Not a function type {:?}", ty),
     }
 }

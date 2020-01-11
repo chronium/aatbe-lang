@@ -51,6 +51,9 @@ pub enum Symbol {
     LogicalOr,
     Xor,
     Modulo,
+    Dot,
+    DoDot,
+    GoDot,
 }
 
 impl From<Symbol> for String {
@@ -173,6 +176,7 @@ impl Token {
     from_tok!(ident, Identifier, String);
     from_tok!(ty, Type, Type);
     from_tok!(st, StringLiteral, String);
+    from_tok!(comm, Comment, String);
 }
 
 impl FromStr for Type {

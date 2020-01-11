@@ -9,6 +9,7 @@ description = "Åtbe bootstrap compiler"
 
 [dependencies]
 comp-be = { path="../comp-be" }
+parser = { path="../parser" }
 
 clap = "2.33.0"
 simplelog = "^0.7.4"

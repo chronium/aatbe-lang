@@ -1,13 +1,12 @@
-use crate::{
-    codegen::{unit::Mutability, AatbeModule, CodegenUnit},
-    parser::ast::AST,
-};
+use crate::codegen::{unit::Mutability, AatbeModule, CodegenUnit};
+
+use parser::ast::Expression;
 
 use llvm_sys_wrapper::LLVMValueRef;
 
-pub fn alloc_variable(module: &mut AatbeModule, variable: &AST) {
+pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
     match variable {
-        AST::Decl(_mut, ty, name, box expr) => {
+        /*AST::Decl(_mut, ty, name, box expr) => {
             let var_ref = module.llvm_builder_ref().build_alloca_with_name(
                 ty.llvm_type_in_context(module.llvm_context_ref()),
                 name.as_ref(),
@@ -29,12 +28,13 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &AST) {
                     value: var_ref,
                 },
             );
-        }
+        }*/
+        _ => panic!("Alloc variable {:?}", variable),
         _ => unreachable!(),
     }
 }
 
-pub fn store_value(module: &mut AatbeModule, name: &String, value: &AST) -> LLVMValueRef {
+pub fn store_value(module: &mut AatbeModule, name: &String, value: &Expression) -> LLVMValueRef {
     let var_ref = module.get_var(name);
     let var = match var_ref {
         None => panic!("Cannot find variable {}", name),
@@ -43,7 +43,7 @@ pub fn store_value(module: &mut AatbeModule, name: &String, value: &AST) -> LLVM
     // TODO: Check mutability
 
     let val = module
-        .codegen_pass(value)
+        .codegen_expr(value)
         .expect(format!("Cannot codegen assignment for {} value", name).as_ref());
 
     module.llvm_builder_ref().build_store(val, var)
