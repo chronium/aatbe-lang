@@ -2,5 +2,5 @@ use "libc"
 
 @entry
 fn main () -> () = {
-  printf "Hello %s\n" "World"
+  printf "Hello %d\n" $ 1 + 2
 }

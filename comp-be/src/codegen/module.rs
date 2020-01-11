@@ -105,6 +105,8 @@ impl AatbeModule {
             AtomKind::StringLiteral(string) => {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
+            AtomKind::Integer(val) => Some(self.llvm_context.SInt64(*val)),
+            AtomKind::Expr(expr) => self.codegen_expr(expr),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
@@ -124,6 +126,15 @@ impl AatbeModule {
                         &mut args,
                     ),
                 )
+            }
+            Expression::Binary(lhs, op, rhs) => {
+                let lh = self
+                    .codegen_expr(lhs)
+                    .expect("Binary op lhs must contain a value");
+                let rh = self
+                    .codegen_expr(rhs)
+                    .expect("Binary op rhs must contain a value");
+                Some(self.codegen_binary_op(op, lh, rh))
             }
             Expression::Function {
                 name,
@@ -175,6 +186,7 @@ impl AatbeModule {
 
                 ret
             }
+            Expression::Atom(atom) => self.codegen_atom(atom),
             _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
         }
     }
@@ -192,15 +204,6 @@ impl AatbeModule {
             AST::True => Some(self.llvm_context.SInt1(1)),
             AST::False => Some(self.llvm_context.SInt1(0)),
             AST::IntLiteral(ty, val) => Some(self.codegen_const_int(ty, *val)),
-            AST::Binary(op, lhs, rhs) => {
-                let lh = self
-                    .codegen_pass(lhs)
-                    .expect("Binary op lhs must contain a value");
-                let rh = self
-                    .codegen_pass(rhs)
-                    .expect("Binary op rhs must contain a value");
-                Some(self.codegen_binary_op(op, lh, rh))
-            }
             AST::If {
                 condition,
                 then_block,
@@ -279,24 +282,19 @@ impl AatbeModule {
         }
     }
 
-    pub fn codegen_binary_op(
-        &self,
-        op: &Expression,
-        x: LLVMValueRef,
-        y: LLVMValueRef,
-    ) -> LLVMValueRef {
-        match op {
-            /*BinaryOp::Add => self.llvm_builder.build_add(x, y),
-            BinaryOp::Subtract => self.llvm_builder.build_sub(x, y),
-            BinaryOp::Multiply => self.llvm_builder.build_mul(x, y),
-            BinaryOp::Divide => self.llvm_builder.build_sdiv(x, y),
-            BinaryOp::Modulo => self.llvm_builder.build_srem(x, y),
-            BinaryOp::Equals => self.llvm_builder.build_icmp_eq(x, y),
-            BinaryOp::NotEquals => self.llvm_builder.build_icmp_ne(x, y),
-            BinaryOp::Less => self.llvm_builder.build_icmp_slt(x, y),
-            BinaryOp::Greater => self.llvm_builder.build_icmp_sgt(x, y),
-            BinaryOp::LessEquals => self.llvm_builder.build_icmp_sle(x, y),
-            BinaryOp::GreaterEquals => self.llvm_builder.build_icmp_sge(x, y),*/
+    pub fn codegen_binary_op(&self, op: &String, x: LLVMValueRef, y: LLVMValueRef) -> LLVMValueRef {
+        match op.as_str() {
+            "+" => self.llvm_builder.build_add(x, y),
+            "-" => self.llvm_builder.build_sub(x, y),
+            "*" => self.llvm_builder.build_mul(x, y),
+            "/" => self.llvm_builder.build_sdiv(x, y),
+            "%" => self.llvm_builder.build_srem(x, y),
+            "==" => self.llvm_builder.build_icmp_eq(x, y),
+            "!=" => self.llvm_builder.build_icmp_ne(x, y),
+            "<" => self.llvm_builder.build_icmp_slt(x, y),
+            ">" => self.llvm_builder.build_icmp_sgt(x, y),
+            ">=" => self.llvm_builder.build_icmp_sle(x, y),
+            ">=" => self.llvm_builder.build_icmp_sge(x, y),
             _ => panic!("Cannot binary op {:?}", op),
         }
     }
