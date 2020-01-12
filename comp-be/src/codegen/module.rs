@@ -9,7 +9,7 @@ use crate::codegen::{
 };
 
 use parser::{
-    ast::{AtomKind, Expression, IntType, PrimitiveType, UIntType, AST},
+    ast::{AtomKind, Boolean, Expression, IntType, PrimitiveType, UIntType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -106,6 +106,8 @@ impl AatbeModule {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
             AtomKind::Integer(val) => Some(self.llvm_context.SInt64(*val)),
+            AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
+            AtomKind::Bool(Boolean::False) => Some(self.llvm_context.SInt1(0)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
@@ -113,6 +115,34 @@ impl AatbeModule {
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
         match expr {
+            Expression::If {
+                cond_expr,
+                then_expr,
+                else_expr,
+            } => {
+                else_expr
+                    .as_ref()
+                    .expect_none("Else conditions not supported");
+
+                let func = self
+                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
+                    .expect("Must be in a function for if statement");
+
+                let then_bb = func.append_basic_block(String::default());
+                let end_bb = func.append_basic_block(String::default());
+
+                let cond = self.codegen_expr(cond_expr);
+
+                self.llvm_builder
+                    .build_cond_br(cond.unwrap(), then_bb, end_bb);
+
+                self.llvm_builder.position_at_end(then_bb);
+                self.codegen_expr(then_expr);
+                self.llvm_builder.build_br(end_bb);
+                self.llvm_builder.position_at_end(end_bb);
+
+                None
+            }
             Expression::Call { name, args } => {
                 let mut args = args
                     .iter()
@@ -204,29 +234,6 @@ impl AatbeModule {
             AST::True => Some(self.llvm_context.SInt1(1)),
             AST::False => Some(self.llvm_context.SInt1(0)),
             AST::IntLiteral(ty, val) => Some(self.codegen_const_int(ty, *val)),
-            AST::If {
-                condition,
-                then_block,
-            } => {
-                let func = self
-                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
-                    .expect("Must be in a function for if statement");
-
-                let then_bb = func.append_basic_block(String::default());
-                let end_bb = func.append_basic_block(String::default());
-
-                let cond = self.codegen_pass(condition);
-
-                self.llvm_builder
-                    .build_cond_br(cond.unwrap(), then_bb, end_bb);
-
-                self.llvm_builder.position_at_end(then_bb);
-                self.codegen_pass(then_block);
-                self.llvm_builder.build_br(end_bb);
-                self.llvm_builder.position_at_end(end_bb);
-
-                None
-            }
             AST::Function {
                 name: _,
                 ty: _,

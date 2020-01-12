@@ -3,4 +3,7 @@ use "libc"
 @entry
 fn main () -> () = {
   printf "Hello %d\n" $ 1 + 2
+
+  if true puts "true"
+  if false puts "false"
 }
