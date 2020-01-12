@@ -12,12 +12,13 @@ pub use variable::{alloc_variable, store_value};
 pub enum Mutability {
     Immutable,
     Mutable,
+    Constant,
 }
 
 impl From<&BindType> for Mutability {
     fn from(ty: &BindType) -> Self {
         match ty {
-            BindType::Constant => panic!("const vars not implemented"),
+            BindType::Constant => Mutability::Constant,
             BindType::Immutable => Mutability::Immutable,
             BindType::Mutable => Mutability::Mutable,
         }
@@ -75,6 +76,18 @@ impl CodegenUnit {
             } => builder.build_load(self.into()),
             CodegenUnit::FunctionArgument(_arg) => self.into(),
             _ => panic!("Cannot load non-variable"),
+        }
+    }
+
+    pub fn get_mutability(&self) -> &Mutability {
+        match self {
+            CodegenUnit::Variable {
+                mutable,
+                name: _,
+                ty: _,
+                value: _,
+            } => mutable,
+            _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }
 }

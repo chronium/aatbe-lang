@@ -1,4 +1,5 @@
 // spector:shouldfail
+// spector:name Simple Panic
 
 extern fn puts str -> i32
 extern fn exit i32 -> ()

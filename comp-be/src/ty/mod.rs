@@ -15,6 +15,7 @@ impl LLVMTyInCtx for PrimitiveType {
       PrimitiveType::Int(IntType::I32) | PrimitiveType::UInt(UIntType::U32) => ctx.Int32Type(),
       PrimitiveType::Int(IntType::I64) | PrimitiveType::UInt(UIntType::U64) => ctx.Int64Type(),
       PrimitiveType::Str => ctx.CharPointerType(),
+      PrimitiveType::NamedType { name: _, ty } => ty.llvm_ty_in_ctx(ctx),
       PrimitiveType::Function {
         ext: _,
         ret_ty,

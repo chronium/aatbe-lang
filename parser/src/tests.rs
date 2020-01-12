@@ -153,23 +153,41 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                 body: Some(box Expression::Binary(
                     box Expression::Binary(
                         box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(1)),
+                            box Expression::Atom(AtomKind::Integer(
+                                1,
+                                PrimitiveType::Int(IntType::I32)
+                            )),
                             String::from("+"),
                             box Expression::Binary(
-                                box Expression::Atom(AtomKind::Integer(2)),
+                                box Expression::Atom(AtomKind::Integer(
+                                    2,
+                                    PrimitiveType::Int(IntType::I32)
+                                )),
                                 String::from("*"),
-                                box Expression::Atom(AtomKind::Integer(3)),
+                                box Expression::Atom(AtomKind::Integer(
+                                    3,
+                                    PrimitiveType::Int(IntType::I32)
+                                )),
                             ),
                         ),
                         String::from("+"),
-                        box Expression::Atom(AtomKind::Integer(4)),
+                        box Expression::Atom(AtomKind::Integer(
+                            4,
+                            PrimitiveType::Int(IntType::I32)
+                        )),
                     ),
                     String::from("||"),
                     box Expression::Binary(
                         box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(1)),
+                            box Expression::Atom(AtomKind::Integer(
+                                1,
+                                PrimitiveType::Int(IntType::I32)
+                            )),
                             String::from("=="),
-                            box Expression::Atom(AtomKind::Integer(2)),
+                            box Expression::Atom(AtomKind::Integer(
+                                2,
+                                PrimitiveType::Int(IntType::I32)
+                            )),
                         ),
                         String::from("&"),
                         box Expression::Atom(AtomKind::Unary(
@@ -304,9 +322,15 @@ fn main () -> () = {
                             args: vec![
                                 AtomKind::StringLiteral("Test".to_string()),
                                 AtomKind::Expr(box Expression::Binary(
-                                    box Expression::Atom(AtomKind::Integer(1)),
+                                    box Expression::Atom(AtomKind::Integer(
+                                        1,
+                                        PrimitiveType::Int(IntType::I32)
+                                    )),
                                     String::from("+"),
-                                    box Expression::Atom(AtomKind::Integer(2)),
+                                    box Expression::Atom(AtomKind::Integer(
+                                        2,
+                                        PrimitiveType::Int(IntType::I32)
+                                    )),
                                 ))
                             ]
                         }
@@ -402,9 +426,15 @@ fn main () -> () = {
                 body: Some(box Expression::Block(vec![
                     Expression::If {
                         cond_expr: box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(1)),
+                            box Expression::Atom(AtomKind::Integer(
+                                1,
+                                PrimitiveType::Int(IntType::I32)
+                            )),
                             "==".to_string(),
-                            box Expression::Atom(AtomKind::Integer(2))
+                            box Expression::Atom(AtomKind::Integer(
+                                2,
+                                PrimitiveType::Int(IntType::I32)
+                            ))
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
                             name: "foo".to_string(),

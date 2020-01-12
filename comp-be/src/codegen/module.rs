@@ -102,19 +102,40 @@ impl AatbeModule {
 
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
+            AtomKind::Ident(name) => {
+                let var_ref = self.get_var(name);
+
+                match var_ref {
+                    None => panic!("Cannot find variable {}", name),
+                    Some(var) => Some(var.load_var(self.llvm_builder_ref())),
+                }
+            }
             AtomKind::StringLiteral(string) => {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
-            AtomKind::Integer(val) => Some(self.llvm_context.SInt64(*val)),
+            AtomKind::Integer(val, PrimitiveType::Int(IntType::I32)) => {
+                Some(self.llvm_context.SInt32(*val))
+            }
             AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
             AtomKind::Bool(Boolean::False) => Some(self.llvm_context.SInt1(0)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
+            AtomKind::Unit => None,
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
         match expr {
+            Expression::Assign { name, value } => Some(store_value(self, name, value)),
+            Expression::Decl {
+                ty: PrimitiveType::NamedType { name, ty: _ },
+                value: _,
+                exterior_bind: _,
+            } => {
+                alloc_variable(self, expr);
+
+                Some(self.get_var(name).expect("Compiler crapped out.").into())
+            }
             Expression::If {
                 cond_expr,
                 then_expr,
@@ -223,55 +244,6 @@ impl AatbeModule {
 
     pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
         match ast {
-            /*AST::Ref(name) => {
-                let var_ref = self.get_var(name);
-
-                match var_ref {
-                    None => panic!("Cannot find variable {}", name),
-                    Some(var) => Some(var.load_var(self.llvm_builder_ref())),
-                }
-            }
-            AST::True => Some(self.llvm_context.SInt1(1)),
-            AST::False => Some(self.llvm_context.SInt1(0)),
-            AST::IntLiteral(ty, val) => Some(self.codegen_const_int(ty, *val)),
-            AST::Function {
-                name: _,
-                ty: _,
-                attributes: _,
-            } => None,
-            AST::Assign(decl, expr) => match decl {
-                box AST::Function {
-                    name,
-                    ty,
-                    attributes: _,
-                } => {
-                    codegen_function(self, decl);
-                    self.current_function = Some(name.clone());
-                    self.start_scope_with_name(name);
-                    inject_function_in_scope(self, decl);
-                    let ret = self.codegen_pass(expr);
-
-                    // TODO: Typechecks
-                    match has_return_type(ty) {
-                        true => self.llvm_builder.build_ret(ret.expect(
-                            "Compiler broke, function returns broke. Everything's on fire",
-                        )),
-                        false => self.llvm_builder.build_ret_void(),
-                    };
-
-                    self.exit_scope();
-
-                    None
-                }
-                box AST::Ref(name) => Some(store_value(self, name, expr)),
-                _ => panic!("Cannot assign to {:?}", decl),
-            },
-            AST::Decl(_, _, name, _) => {
-                alloc_variable(self, ast);
-
-                Some(self.get_var(name).expect("Compiler crapped out.").into())
-            }
-            AST::Empty => None,*/
             AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
@@ -300,7 +272,7 @@ impl AatbeModule {
             "!=" => self.llvm_builder.build_icmp_ne(x, y),
             "<" => self.llvm_builder.build_icmp_slt(x, y),
             ">" => self.llvm_builder.build_icmp_sgt(x, y),
-            ">=" => self.llvm_builder.build_icmp_sle(x, y),
+            "<=" => self.llvm_builder.build_icmp_sle(x, y),
             ">=" => self.llvm_builder.build_icmp_sge(x, y),
             _ => panic!("Cannot binary op {:?}", op),
         }

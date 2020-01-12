@@ -277,6 +277,7 @@ impl<'c> Lexer<'c> {
                         }
                         u64::from_str_radix(&buf, 16).expect("Lexer died @hex -> u64")
                     } else {
+                        buf.push('0');
                         while let Some(ch) = self.chars.peek() {
                             match ch {
                                 '_' => self.advance(),
@@ -286,7 +287,7 @@ impl<'c> Lexer<'c> {
                                 _ => break,
                             };
                         }
-                        u64::from_str_radix(&buf, 10).expect("Lexer died @hex -> u64")
+                        u64::from_str_radix(&buf, 10).expect("Lexer died @dec -> u64")
                     };
                     self.push_token(TokenKind::IntLiteral(num), pos);
                 }

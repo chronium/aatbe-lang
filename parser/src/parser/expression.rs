@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Boolean, Expression},
+    ast::{AtomKind, BindType, Boolean, Expression, IntType, PrimitiveType, UIntType},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token},
@@ -44,7 +44,7 @@ impl Parser {
         let token = self.next();
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
-                return Some(AtomKind::Integer(val));
+                return Some(AtomKind::Integer(val, PrimitiveType::Int(IntType::I32)));
             }
         }
 

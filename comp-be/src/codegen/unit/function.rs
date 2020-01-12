@@ -56,7 +56,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
 pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
     match function {
         Expression::Function {
-            name,
+            name: fun_name,
             ty,
             attributes: _,
             body: _,
@@ -74,7 +74,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     name,
                                     CodegenUnit::FunctionArgument(
                                         module
-                                            .get_func(name)
+                                            .get_func(fun_name)
                                             .expect("Compiler borked. Functions borked")
                                             .get_param(pos as u32),
                                     ),
