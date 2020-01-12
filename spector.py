@@ -9,11 +9,12 @@ from datetime import datetime, timedelta
 
 # Character Sequences
 SYM_TICK = '\033[32m✓\033[0m'
+SYM_INFO = '\033[33m?\033[0m'
 SYM_FAIL = '\033[31m✗\033[0m'
 
 # Type Definitions
 TestCase = namedtuple('TestCase', 'options suite path src')
-TestStatistics = namedtuple('TestStatistics', 'name status time')
+TestStatistics = namedtuple('TestStatistics', 'name status time errors')
 
 def buildCompiler():
     """Build cargo before testing"""
@@ -89,11 +90,8 @@ def parseTest(file):
     # Build the structured test case
     return TestCase(opts, suite, file, content)
 
-def runTest(file):
+def runTest(test, testCaseMaxLen):
     """Run a single test"""
-
-    # Turn the file into structured data
-    test = parseTest(file)
 
     # Try building the test case
     proc = Popen(
@@ -121,33 +119,46 @@ def runTest(file):
     success = exitCode == 0 or (test.options['shouldfail'] and exitCode != 0)
 
     # Print results
+    errors = None
     if success:
-        print("[{suite}] {symbol} {time} {name}".format(
-            suite = test.suite,
+        print("{suite} {symbol} {time} {name}".format(
+            suite = test.suite.ljust(testCaseMaxLen, ' '),
             symbol = SYM_TICK,
             time = diffStr,
             name = test.options['name']
         ))
     else:
-        print("[{suite}] {symbol} {time} {name} (code {code})".format(
-            suite = test.suite,
+        print("{suite} {symbol} {time} {name} (code {code})".format(
+            suite = test.suite.ljust(testCaseMaxLen, ' '),
             symbol = SYM_FAIL,
             time = diffStr,
             name = test.options['name'],
             code = exitCode
         ))
-        print(str(err).replace("\\n", "\n"))
+        errors = err.decode('utf-8').replace("\\n", "\n")
+        errors = ''.join(filter(lambda line: 'panicked at' in line, errors.splitlines()))
+        print("{padding}\_ {symbol} {error}".format(
+            padding = ''.ljust(testCaseMaxLen - 2, ' '),
+            symbol = SYM_INFO,
+            error=errors
+        ))
         # print(str(output).replace("\\n", "\n"))
 
     # Build test statistics
-    return TestStatistics(test.options['name'], success, diffMs)
+    return TestStatistics(test.options['name'], success, diffMs, errors)
 
-def runTestCases(files):
+def runTestCases(tests, testCaseMaxLen):
     """Run tests and print a summary"""
     print()
 
     # Run all tests
-    results = [runTest(file) for file in files]
+    results = [runTest(test, testCaseMaxLen) for test in tests]
+
+    # Print errors
+    # print("\nErrors:")
+    # for test in filter(lambda res: res.errors is not None, results):
+    #     print("[%s]:\n%s" % (test.name, test.errors))
+    #     pass
 
     # Print summary
     print("\nSummary:")
@@ -166,4 +177,6 @@ def runTestCases(files):
 if __name__ == "__main__":
     buildCompiler()
     files = gatherTestCases()
-    runTestCases(files)
+    tests = [parseTest(file) for file in files]
+    maxlen = max([len(test.suite) for test in tests])
+    runTestCases(tests, maxlen)
