@@ -69,6 +69,42 @@ impl Parser {
         }
     }
 
+    fn parse_type_list(&mut self, terminator: Symbol) -> ParseResult<Vec<PrimitiveType>> {
+        let mut params = vec![];
+        loop {
+            match self.peek_symbol(terminator) {
+                Some(true) => break,
+                Some(false) => {
+                    if params.len() > 0 {
+                        sym!(required Comma, self);
+                    }
+                    let ty = capture!(res parse_named_type, self)
+                        .or_else(|_| capture!(res parse_type, self))
+                        .or(Err(ParseError::ExpectedType))?;
+                    params.push(ty);
+                }
+                None => return Err(ParseError::UnexpectedEOF),
+            }
+        }
+        self.next();
+        Ok(params)
+    }
+
+    fn parse_record(&mut self) -> ParseResult<AST> {
+        kw!(Record, self);
+        let name = ident!(required self);
+
+        let types = if sym!(bool Unit, self) {
+            vec![PrimitiveType::Unit]
+        } else {
+            sym!(required LParen, self);
+            self.parse_type_list(Symbol::RParen)
+                .expect(format!("Expected type list at {}", name).as_str())
+        };
+
+        Ok(AST::Record(name, types))
+    }
+
     fn parse_function(&mut self) -> ParseResult<AST> {
         let mut attributes = Vec::new();
 
@@ -83,23 +119,9 @@ impl Parser {
         kw!(Fn, self);
         let name = ident!(required self);
 
-        let mut params = vec![];
-        loop {
-            match self.peek_symbol(Symbol::Arrow) {
-                Some(true) => break,
-                Some(false) => {
-                    if params.len() > 0 {
-                        sym!(required Comma, self);
-                    }
-                    let ty = capture!(res parse_named_type, self)
-                        .or_else(|_| capture!(res parse_type, self))
-                        .or(Err(ParseError::ExpectedType))?;
-                    params.push(ty);
-                }
-                None => return Err(ParseError::UnexpectedEOF),
-            }
-        }
-        sym!(required Arrow, self);
+        let params = self
+            .parse_type_list(Symbol::Arrow)
+            .expect(format!("Expected type list at {}", name).as_str());
 
         let ret_ty = box capture!(res parse_type, self)?;
 

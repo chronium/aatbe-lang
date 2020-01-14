@@ -508,4 +508,35 @@ fn main () -> ()
             ])
         );
     }
+
+    #[test]
+    fn record_decl() {
+        let pt = parse_test!(
+            "
+rec Record(msg: str, time: i64)
+rec Unit()
+",
+            "Declare record"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Record(
+                    "Record".to_string(),
+                    vec![
+                        PrimitiveType::NamedType {
+                            name: "msg".to_string(),
+                            ty: box PrimitiveType::Str,
+                        },
+                        PrimitiveType::NamedType {
+                            name: "time".to_string(),
+                            ty: box PrimitiveType::Int(IntType::I64),
+                        }
+                    ]
+                ),
+                AST::Record("Unit".to_string(), vec![PrimitiveType::Unit],)
+            ])
+        );
+    }
 }

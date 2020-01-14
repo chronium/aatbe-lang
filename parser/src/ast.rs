@@ -4,6 +4,7 @@ pub enum AST {
     Error,
     Expr(Expression),
     Import(String),
+    Record(String, Vec<PrimitiveType>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
