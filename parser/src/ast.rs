@@ -49,6 +49,7 @@ pub enum PrimitiveType {
     Unit,
     Str,
     Varargs,
+    Bool,
     Int(IntType),
     UInt(UIntType),
     Function {

@@ -10,6 +10,7 @@ impl LLVMTyInCtx for PrimitiveType {
   fn llvm_ty_in_ctx(&self, ctx: &Context) -> LLVMTypeRef {
     match self {
       PrimitiveType::Unit => ctx.VoidType(),
+      PrimitiveType::Bool => ctx.Int1Type(),
       PrimitiveType::Int(IntType::I8) | PrimitiveType::UInt(UIntType::U8) => ctx.Int8Type(),
       PrimitiveType::Int(IntType::I16) | PrimitiveType::UInt(UIntType::U16) => ctx.Int16Type(),
       PrimitiveType::Int(IntType::I32) | PrimitiveType::UInt(UIntType::U32) => ctx.Int32Type(),

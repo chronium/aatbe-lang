@@ -474,7 +474,7 @@ mod lexer_tests {
 
     #[test]
     fn keyword_identifier() {
-        let mut lexer = Lexer::new("fn extern var val if else use true false main");
+        let mut lexer = Lexer::new("fn extern var val if else use true false main bool");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -491,6 +491,7 @@ mod lexer_tests {
             tokens.next().unwrap().kind,
             TokenKind::Identifier(String::from("main")),
         );
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Bool));
     }
 
     #[test]

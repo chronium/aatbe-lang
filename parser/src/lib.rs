@@ -19,12 +19,15 @@ impl Parser {
     fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
         let token = self.next();
         if let Some(tok) = token {
-            if let Some(Symbol::Unit) = tok.sym() {
-                return Ok(PrimitiveType::Unit);
-            }
+            match tok.sym() {
+                Some(Symbol::Unit) => return Ok(PrimitiveType::Unit),
+                Some(Symbol::GoDot) => return Ok(PrimitiveType::Varargs),
+                _ => {}
+            };
 
-            if let Some(Symbol::GoDot) = tok.sym() {
-                return Ok(PrimitiveType::Varargs);
+            match tok.kw() {
+                Some(Keyword::Bool) => return Ok(PrimitiveType::Bool),
+                _ => {}
             }
 
             match tok.ty() {

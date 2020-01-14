@@ -120,6 +120,12 @@ impl AatbeModule {
             AtomKind::Bool(Boolean::False) => Some(self.llvm_context.SInt1(0)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
+            AtomKind::Unary(op, val) if op == &String::from("!") => {
+                let value = self
+                    .codegen_atom(val)
+                    .expect(format!("ICE Cannot negate {:?}", val).as_str());
+                Some(self.llvm_builder.build_not(value))
+            }
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
