@@ -3,11 +3,13 @@ source_filename = "main"
 
 %Error = type { %String, i64, i8 }
 %String = type { i8* }
+%SelfRef = type { %SelfRef }
 
 declare i32 @puts(i8*)
 
 define void @main() {
 entry:
   %error = alloca %Error
+  %selfref = alloca %SelfRef
   ret void
 }

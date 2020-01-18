@@ -4,6 +4,8 @@ rec String(s: str)
 
 rec Error(msg: String, time: i64, level: u8)
 
+rec SelfRef(ref: SelfRef)
+
 @entry
 fn main () -> () = {
     val error: Error

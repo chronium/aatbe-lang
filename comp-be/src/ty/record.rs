@@ -8,17 +8,19 @@ pub struct Record {
 }
 
 impl Record {
-    pub fn new(module: &AatbeModule, name: &String, types: &Vec<PrimitiveType>) -> Self {
-        let inner = Struct::new_with_name(module.llvm_context_ref().as_ref(), name.as_ref());
+    pub fn new(module: &AatbeModule, name: &String) -> Self {
+        Self {
+            inner: Struct::new_with_name(module.llvm_context_ref().as_ref(), name.as_ref()),
+        }
+    }
 
+    pub fn set_body(&self, module: &AatbeModule, types: &Vec<PrimitiveType>) {
         let mut types = types
             .iter()
             .map(|ty| ty.llvm_ty_in_ctx(module))
             .collect::<Vec<LLVMTypeRef>>();
 
-        inner.set_body(&mut types, false);
-
-        Self { inner }
+        self.inner.set_body(&mut types, false);
     }
 }
 

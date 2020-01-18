@@ -89,7 +89,9 @@ impl AatbeModule {
         self.start_scope();
         match ast {
             AST::Record(name, types) => {
-                self.typectx.push_type(name, Record::new(self, name, types))
+                let rec = Record::new(self, name);
+                self.typectx.push_type(name, rec);
+                self.typectx.get_type(name).unwrap().set_body(self, types);
             }
             AST::File(nodes) => nodes
                 .iter()
