@@ -53,6 +53,7 @@ pub enum PrimitiveType {
     Bool,
     Int(IntSize),
     UInt(IntSize),
+    TypeRef(String),
     Function {
         ext: bool,
         ret_ty: Box<PrimitiveType>,

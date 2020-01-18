@@ -1,0 +1,11 @@
+// spector:name Declare record type
+
+rec String(s: str)
+rec Error(msg: String, time: i64)
+
+@entry
+fn main () -> () = {
+    // Declare uninitialized reference
+    // Required as to not have the types optimized out
+    val err: Error
+}

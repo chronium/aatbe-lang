@@ -1,11 +1,15 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
-use crate::codegen::{
-    unit::{
-        alloc_variable, codegen_function, declare_function, inject_function_in_scope, store_value,
+use crate::{
+    codegen::{
+        unit::{
+            alloc_variable, codegen_function, declare_function, inject_function_in_scope,
+            store_value,
+        },
+        CodegenUnit, Scope,
     },
-    CodegenUnit, Scope,
+    ty::{record::Record, TypeContext},
 };
 
 use parser::{
@@ -23,6 +27,7 @@ pub struct AatbeModule {
     scope_stack: Vec<Scope>,
     imported: HashMap<String, AST>,
     current_function: Option<String>,
+    typectx: TypeContext,
 }
 
 impl AatbeModule {
@@ -41,6 +46,7 @@ impl AatbeModule {
             imported: HashMap::new(),
             scope_stack: Vec::new(),
             current_function: None,
+            typectx: TypeContext::new(),
         }
     }
 
@@ -82,6 +88,9 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
+            AST::Record(name, types) => {
+                self.typectx.push_type(name, Record::new(self, name, types))
+            }
             AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.decl_pass(n)))
@@ -263,6 +272,7 @@ impl AatbeModule {
                 self.codegen_pass(&ast);
                 None
             }
+            AST::Record(_, _) => None,
             _ => panic!("cannot codegen {:?}", ast),
         }
     }
@@ -320,7 +330,7 @@ impl AatbeModule {
         None
     }
 
-    pub fn push_ref_in_scope(&mut self, name: &String, unit: CodegenUnit) {
+    pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
         self.scope_stack
             .first_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
@@ -363,6 +373,10 @@ impl AatbeModule {
 
     pub fn llvm_context_ref(&self) -> &Context {
         &self.llvm_context
+    }
+
+    pub fn typectx_ref(&self) -> &TypeContext {
+        &self.typectx
     }
 }
 

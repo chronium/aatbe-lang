@@ -42,6 +42,11 @@ impl Parser {
                 Some(Type::U64) => return Ok(PrimitiveType::UInt(IntSize::Bits64)),
                 _ => {}
             }
+
+            match tok.ident() {
+                Some(s) => return Ok(PrimitiveType::TypeRef(s)),
+                None => {}
+            }
         }
 
         Err(ParseError::ExpectedType)

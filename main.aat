@@ -1,11 +1,10 @@
-// spector:name Declare variable, and reassign
-
 extern fn puts str -> i32
+
+rec String(s: str)
+
+rec Error(msg: String, time: i64, level: u8)
 
 @entry
 fn main () -> () = {
-  var test: str = "Hello"
-  puts test
-  test = "World"
-  puts test
+    val error: Error
 }

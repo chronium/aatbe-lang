@@ -9,11 +9,11 @@ use std::{
     path::Path,
 };
 
-use log::{debug, error, info, warn};
+use log::{error, warn};
 use simplelog::*;
 
 fn main() -> io::Result<()> {
-    let matches = clap_app!(aatboot => 
+    let matches = clap_app!(aatboot =>
     (version: crate_version!())
     (author: crate_authors!())
     (about: crate_description!())

@@ -14,10 +14,9 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
             value,
             exterior_bind,
         } => {
-            let var_ref = module.llvm_builder_ref().build_alloca_with_name(
-                ty.llvm_ty_in_ctx(module.llvm_context_ref()),
-                name.as_ref(),
-            );
+            let var_ref = module
+                .llvm_builder_ref()
+                .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
 
             if let Some(e) = value {
                 let val = module
@@ -26,7 +25,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                 module.llvm_builder_ref().build_store(val, var_ref);
             }
 
-            module.push_ref_in_scope(
+            module.push_in_scope(
                 name,
                 CodegenUnit::Variable {
                     mutable: Mutability::from(exterior_bind),
