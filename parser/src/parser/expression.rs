@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Boolean, Expression, IntType, PrimitiveType, UIntType},
+    ast::{AtomKind, BindType, Boolean, Expression, IntSize, PrimitiveType},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token},
@@ -44,7 +44,7 @@ impl Parser {
         let token = self.next();
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
-                return Some(AtomKind::Integer(val, PrimitiveType::Int(IntType::I32)));
+                return Some(AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)));
             }
         }
 
@@ -97,6 +97,7 @@ impl Parser {
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
+            parse_record_init,
             parse_boolean,
             parse_number,
             parse_unit,
@@ -203,6 +204,42 @@ impl Parser {
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
         Ok(Expression::Assign { name, value })
+    }
+
+    fn parse_named_value(&mut self) -> ParseResult<AtomKind> {
+        let name = ident!(required self);
+        sym!(required Colon, self);
+        let val = box capture!(expect parse_expression, err ExpectedExpression, self);
+        Ok(AtomKind::NamedValue { name, val })
+    }
+
+    fn parse_named_value_list(&mut self, terminator: Symbol) -> ParseResult<Vec<AtomKind>> {
+        let mut params = vec![];
+        loop {
+            match self.peek_symbol(terminator) {
+                Some(true) => break,
+                Some(false) => {
+                    if params.len() > 0 {
+                        sym!(required Comma, self);
+                    }
+                    let ty =
+                        capture!(res parse_named_value, self).or(Err(ParseError::ExpectedType))?;
+                    params.push(ty);
+                }
+                None => return Err(ParseError::UnexpectedEOF),
+            }
+        }
+        self.next();
+        Ok(params)
+    }
+
+    fn parse_record_init(&mut self) -> Option<AtomKind> {
+        let record = ident!(opt self);
+        sym!(LCurly, self);
+        let values = self
+            .parse_named_value_list(Symbol::RCurly)
+            .expect(format!("Expected a named argument list at {}", record).as_str());
+        Some(AtomKind::RecordInit { record, values })
     }
 
     pub fn parse_expression(&mut self) -> Option<Expression> {

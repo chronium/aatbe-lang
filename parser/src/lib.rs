@@ -7,7 +7,7 @@ pub mod parser;
 
 mod tests;
 
-use ast::{Expression, IntType, PrimitiveType, UIntType, AST};
+use ast::{Expression, IntSize, PrimitiveType, AST};
 use lexer::{
     token,
     token::{Keyword, Symbol, Type},
@@ -32,14 +32,14 @@ impl Parser {
 
             match tok.ty() {
                 Some(Type::Str) => return Ok(PrimitiveType::Str),
-                Some(Type::I8) => return Ok(PrimitiveType::Int(IntType::I8)),
-                Some(Type::I16) => return Ok(PrimitiveType::Int(IntType::I16)),
-                Some(Type::I32) => return Ok(PrimitiveType::Int(IntType::I32)),
-                Some(Type::I64) => return Ok(PrimitiveType::Int(IntType::I64)),
-                Some(Type::U8) => return Ok(PrimitiveType::UInt(UIntType::U8)),
-                Some(Type::U16) => return Ok(PrimitiveType::UInt(UIntType::U16)),
-                Some(Type::U32) => return Ok(PrimitiveType::UInt(UIntType::U32)),
-                Some(Type::U64) => return Ok(PrimitiveType::UInt(UIntType::U64)),
+                Some(Type::I8) => return Ok(PrimitiveType::Int(IntSize::Bits8)),
+                Some(Type::I16) => return Ok(PrimitiveType::Int(IntSize::Bits16)),
+                Some(Type::I32) => return Ok(PrimitiveType::Int(IntSize::Bits32)),
+                Some(Type::I64) => return Ok(PrimitiveType::Int(IntSize::Bits64)),
+                Some(Type::U8) => return Ok(PrimitiveType::UInt(IntSize::Bits8)),
+                Some(Type::U16) => return Ok(PrimitiveType::UInt(IntSize::Bits16)),
+                Some(Type::U32) => return Ok(PrimitiveType::UInt(IntSize::Bits32)),
+                Some(Type::U64) => return Ok(PrimitiveType::UInt(IntSize::Bits64)),
                 _ => {}
             }
         }

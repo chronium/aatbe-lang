@@ -128,6 +128,22 @@ macro_rules! ident {
             return Err(ParseError::ExpectedIdent);
         }
     }};
+    (opt $self:ident) => {{
+        let prev_ind = $self.index;
+        let token = $self.next();
+        if let Some(tok) = token {
+            match tok.ident() {
+                Some(id) => id,
+                _ => {
+                    $self.index = prev_ind;
+                    return None;
+                }
+            }
+        } else {
+            $self.index = prev_ind;
+            return None;
+        }
+    }};
     (res $self:ident) => {{
         let prev_ind = $self.index;
         let token = $self.next();

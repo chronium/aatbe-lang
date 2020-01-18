@@ -9,7 +9,7 @@ use crate::codegen::{
 };
 
 use parser::{
-    ast::{AtomKind, Boolean, Expression, IntType, PrimitiveType, UIntType, AST},
+    ast::{AtomKind, Boolean, Expression, IntSize, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -113,7 +113,7 @@ impl AatbeModule {
             AtomKind::StringLiteral(string) => {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
-            AtomKind::Integer(val, PrimitiveType::Int(IntType::I32)) => {
+            AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)) => {
                 Some(self.llvm_context.SInt32(*val))
             }
             AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
@@ -286,14 +286,14 @@ impl AatbeModule {
 
     pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
         match ty {
-            PrimitiveType::Int(IntType::I8) => self.llvm_context.SInt8(val),
-            PrimitiveType::Int(IntType::I16) => self.llvm_context.SInt16(val),
-            PrimitiveType::Int(IntType::I32) => self.llvm_context.SInt32(val),
-            PrimitiveType::Int(IntType::I64) => self.llvm_context.SInt64(val),
-            PrimitiveType::UInt(UIntType::U8) => self.llvm_context.UInt8(val),
-            PrimitiveType::UInt(UIntType::U16) => self.llvm_context.UInt16(val),
-            PrimitiveType::UInt(UIntType::U32) => self.llvm_context.UInt32(val),
-            PrimitiveType::UInt(UIntType::U64) => self.llvm_context.UInt64(val),
+            PrimitiveType::Int(IntSize::Bits8) => self.llvm_context.SInt8(val),
+            PrimitiveType::Int(IntSize::Bits16) => self.llvm_context.SInt16(val),
+            PrimitiveType::Int(IntSize::Bits32) => self.llvm_context.SInt32(val),
+            PrimitiveType::Int(IntSize::Bits64) => self.llvm_context.SInt64(val),
+            PrimitiveType::UInt(IntSize::Bits8) => self.llvm_context.UInt8(val),
+            PrimitiveType::UInt(IntSize::Bits16) => self.llvm_context.UInt16(val),
+            PrimitiveType::UInt(IntSize::Bits32) => self.llvm_context.UInt32(val),
+            PrimitiveType::UInt(IntSize::Bits64) => self.llvm_context.UInt64(val),
             _ => panic!("Cannot const int {:?}", ty),
         }
     }

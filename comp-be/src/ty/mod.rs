@@ -1,4 +1,4 @@
-use parser::ast::{IntType, PrimitiveType, UIntType};
+use parser::ast::{IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{Context, LLVMFunctionType, LLVMTypeRef};
 
@@ -11,10 +11,10 @@ impl LLVMTyInCtx for PrimitiveType {
     match self {
       PrimitiveType::Unit => ctx.VoidType(),
       PrimitiveType::Bool => ctx.Int1Type(),
-      PrimitiveType::Int(IntType::I8) | PrimitiveType::UInt(UIntType::U8) => ctx.Int8Type(),
-      PrimitiveType::Int(IntType::I16) | PrimitiveType::UInt(UIntType::U16) => ctx.Int16Type(),
-      PrimitiveType::Int(IntType::I32) | PrimitiveType::UInt(UIntType::U32) => ctx.Int32Type(),
-      PrimitiveType::Int(IntType::I64) | PrimitiveType::UInt(UIntType::U64) => ctx.Int64Type(),
+      PrimitiveType::Int(IntSize::Bits8) | PrimitiveType::UInt(IntSize::Bits8) => ctx.Int8Type(),
+      PrimitiveType::Int(IntSize::Bits16) | PrimitiveType::UInt(IntSize::Bits16) => ctx.Int16Type(),
+      PrimitiveType::Int(IntSize::Bits32) | PrimitiveType::UInt(IntSize::Bits32) => ctx.Int32Type(),
+      PrimitiveType::Int(IntSize::Bits64) | PrimitiveType::UInt(IntSize::Bits64) => ctx.Int64Type(),
       PrimitiveType::Str => ctx.CharPointerType(),
       PrimitiveType::NamedType { name: _, ty } => ty.llvm_ty_in_ctx(ctx),
       PrimitiveType::Function {
