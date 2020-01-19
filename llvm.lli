@@ -1,15 +1,16 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-%Error = type { %String, i64, i8 }
 %String = type { i8* }
-%SelfRef = type { %SelfRef }
+
+@0 = private unnamed_addr constant [12 x i8] c"Hello World\00"
 
 declare i32 @puts(i8*)
 
 define void @main() {
 entry:
-  %error = alloca %Error
-  %selfref = alloca %SelfRef
+  %msg = alloca %String
+  %msg.s = getelementptr inbounds %String, %String* %msg, i32 0, i32 0
+  store i8* getelementptr inbounds ([12 x i8], [12 x i8]* @0, i32 0, i32 0), i8** %msg.s
   ret void
 }

@@ -6,7 +6,7 @@ pub mod function;
 pub use function::{codegen_function, declare_function, inject_function_in_scope};
 
 pub mod variable;
-pub use variable::{alloc_variable, store_value};
+pub use variable::{alloc_variable, init_record, store_value};
 
 #[derive(Debug)]
 pub enum Mutability {

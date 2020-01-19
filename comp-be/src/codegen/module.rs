@@ -4,8 +4,8 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 use crate::{
     codegen::{
         unit::{
-            alloc_variable, codegen_function, declare_function, inject_function_in_scope,
-            store_value,
+            alloc_variable, codegen_function, declare_function, init_record,
+            inject_function_in_scope, store_value,
         },
         CodegenUnit, Scope,
     },
@@ -89,7 +89,7 @@ impl AatbeModule {
         self.start_scope();
         match ast {
             AST::Record(name, types) => {
-                let rec = Record::new(self, name);
+                let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, rec);
                 self.typectx.get_type(name).unwrap().set_body(self, types);
             }
@@ -143,7 +143,17 @@ impl AatbeModule {
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
         match expr {
-            Expression::Assign { name, value } => Some(store_value(self, name, value)),
+            Expression::Assign { name, value } => match value {
+                box Expression::Atom(AtomKind::RecordInit { record, values }) => Some(init_record(
+                    self,
+                    name,
+                    &AtomKind::RecordInit {
+                        record: record.clone(),
+                        values: values.to_vec(),
+                    },
+                )),
+                _ => Some(store_value(self, name, value)),
+            },
             Expression::Decl {
                 ty: PrimitiveType::NamedType { name, ty: _ },
                 value: _,
