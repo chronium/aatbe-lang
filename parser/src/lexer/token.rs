@@ -175,10 +175,7 @@ impl Token {
         match &self.kind {
             TokenKind::Identifier(accessor) => {
                 match accessor.clone().split(".").collect::<Vec<&str>>() {
-                    acc if acc.len() > 1 => {
-                        Some(acc.iter().map(|val| String::from(*val)).collect())
-                    }
-                    _ => None,
+                    acc => Some(acc.iter().map(|val| String::from(*val)).collect()),
                 }
             }
             _ => None,

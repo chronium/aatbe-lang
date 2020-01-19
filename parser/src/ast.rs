@@ -75,6 +75,7 @@ pub enum AtomKind {
     Parenthesized(Box<Expression>),
     Unary(String, Box<AtomKind>),
     Ident(String),
+    Access(Vec<String>),
     NamedValue {
         name: String,
         val: Box<Expression>,

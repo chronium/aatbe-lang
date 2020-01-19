@@ -2,6 +2,7 @@
 source_filename = "main"
 
 %String = type { i8* }
+%Nested = type { %String }
 
 @0 = private unnamed_addr constant [12 x i8] c"Hello World\00"
 
@@ -12,5 +13,13 @@ entry:
   %msg = alloca %String
   %msg.s = getelementptr inbounds %String, %String* %msg, i32 0, i32 0
   store i8* getelementptr inbounds ([12 x i8], [12 x i8]* @0, i32 0, i32 0), i8** %msg.s
+  %nessie = alloca %Nested
+  %0 = load %String, %String* %msg
+  %nessie.m = getelementptr inbounds %Nested, %Nested* %nessie, i32 0, i32 0
+  store %String %0, %String* %nessie.m
+  %nessie.m1 = getelementptr inbounds %Nested, %Nested* %nessie, i32 0, i32 0
+  %m.s = getelementptr inbounds %String, %String* %nessie.m1, i32 0, i32 0
+  %1 = load i8*, i8** %m.s
+  %2 = call i32 @puts(i8* %1)
   ret void
 }

@@ -90,7 +90,16 @@ impl Parser {
         {
             None
         } else {
-            ident!(res self).map(|i| AtomKind::Ident(i)).ok()
+            ident!(res raw self)
+                .map(|i| {
+                    i.map(|id| match id.split_accessor() {
+                        Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
+                        Some(parts) => AtomKind::Access(parts),
+                        None => unreachable!(),
+                    })
+                    .unwrap()
+                })
+                .ok()
         }
     }
 

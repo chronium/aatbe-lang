@@ -546,7 +546,7 @@ rec Unit()
             "
 rec Record(msg: str, time: i32)
 
-fn rec_test () -> () = Record { msg: \"Hello World\", time: 42 }
+fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
 ",
             "Initialize record"
         );
@@ -585,6 +585,13 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42 }
                                     42,
                                     PrimitiveType::Int(IntSize::Bits32)
                                 ))
+                            },
+                            AtomKind::NamedValue {
+                                name: "a".to_string(),
+                                val: box Expression::Atom(AtomKind::Access(vec![
+                                    "a".to_string(),
+                                    "b".to_string()
+                                ]))
                             }
                         ],
                     })),

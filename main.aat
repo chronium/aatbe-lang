@@ -2,7 +2,11 @@ extern fn puts str -> i32
 
 rec String(s: str)
 
+rec Nested(m: String)
+
 @entry
 fn main () -> () = {
     val msg: String = String { s: "Hello World" }
+    val nessie: Nested = Nested { m: msg }
+    puts nessie.m.s
 }
