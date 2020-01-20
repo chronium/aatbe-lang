@@ -111,7 +111,7 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_access(&self, parts: Vec<String>) -> LLVMValueRef {
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> LLVMValueRef {
         if let ([rec_ref], tail) = parts.split_at(1) {
             match self.get_var(&rec_ref) {
                 None => panic!("Could not find record {}", rec_ref),
@@ -136,16 +136,10 @@ impl AatbeModule {
                         _ => unreachable!(),
                     };
 
-                    let ty = self
-                        .typectx_ref()
+                    self.typectx_ref()
                         .get_type(&rec_type)
-                        .expect("ICE get_access variable without type");
-                    self.llvm_builder_ref().build_load(ty.read_field(
-                        self,
-                        rec.into(),
-                        rec_ref,
-                        tail.to_vec(),
-                    ))
+                        .expect("ICE get_access variable without type")
+                        .read_field(self, rec.into(), rec_ref, tail.to_vec())
                 }
             }
         } else {
@@ -155,7 +149,10 @@ impl AatbeModule {
 
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
-            AtomKind::Access(path) => Some(self.get_access(path.to_vec())),
+            AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
+                self.get_interior_pointer(path.to_vec()),
+                path.join(".").as_str(),
+            )),
             AtomKind::Ident(name) => {
                 let var_ref = self.get_var(name);
 

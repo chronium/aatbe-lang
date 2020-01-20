@@ -88,17 +88,27 @@ pub fn init_record(module: &mut AatbeModule, ref_name: &String, rec: &AtomKind) 
 }
 
 pub fn store_value(module: &mut AatbeModule, name: &String, value: &Expression) -> LLVMValueRef {
-    let var_ref = module.get_var(name);
+    let parts = name
+        .split('.')
+        .collect::<Vec<&str>>()
+        .iter()
+        .map(|s| String::from(*s))
+        .collect::<Vec<String>>();
 
-    let var = match var_ref {
-        None => panic!("Cannot find variable {}", name),
-        Some(var) => {
-            match var.get_mutability() {
-                Mutability::Mutable => {}
-                _ => panic!("Cannot reassign to immutable/constant {}", name),
-            };
-            var.into()
+    let var: LLVMValueRef = if parts.len() == 1 {
+        let var_ref = module.get_var(name);
+        match var_ref {
+            None => panic!("Cannot find variable {}", name),
+            Some(var) => {
+                match var.get_mutability() {
+                    Mutability::Mutable => {}
+                    _ => panic!("Cannot reassign to immutable/constant {}", name),
+                };
+                var.into()
+            }
         }
+    } else {
+        module.get_interior_pointer(parts)
     };
 
     let val = module
