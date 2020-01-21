@@ -6,7 +6,5 @@ fn ident s: str -> str = s
 
 @entry
 fn main () -> () = {
-  // TODO: Fix parser arguments in parentheses
-  // puts (ident "Hello")
-  puts $ ident "Hello"
+  puts (ident "Hello")
 }

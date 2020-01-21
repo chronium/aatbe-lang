@@ -166,7 +166,7 @@ impl Parser {
         let mut args = vec![];
 
         loop {
-            match capture!(res parse_atom, self) {
+            match capture!(res parse_unary, self) {
                 Ok(expr) => args.push(expr),
                 Err(_) => break,
             }

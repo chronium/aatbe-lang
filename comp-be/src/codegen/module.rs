@@ -177,6 +177,7 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
                 Some(self.llvm_builder.build_not(value))
             }
+            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
