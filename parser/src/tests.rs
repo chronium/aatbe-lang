@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod parser_tests {
     use crate::{
-        ast::{AtomKind, BindType, Boolean},
+        ast::{AtomKind, BindType, Boolean, IntSize},
         lexer::{token::Token, Lexer},
-        Expression, IntType, ParseError, Parser, PrimitiveType, AST,
+        Expression, ParseError, Parser, PrimitiveType, AST,
     };
 
     fn tt(code: &'static str) -> Vec<Token> {
@@ -155,25 +155,25 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                         box Expression::Binary(
                             box Expression::Atom(AtomKind::Integer(
                                 1,
-                                PrimitiveType::Int(IntType::I32)
+                                PrimitiveType::Int(IntSize::Bits32)
                             )),
                             String::from("+"),
                             box Expression::Binary(
                                 box Expression::Atom(AtomKind::Integer(
                                     2,
-                                    PrimitiveType::Int(IntType::I32)
+                                    PrimitiveType::Int(IntSize::Bits32)
                                 )),
                                 String::from("*"),
                                 box Expression::Atom(AtomKind::Integer(
                                     3,
-                                    PrimitiveType::Int(IntType::I32)
+                                    PrimitiveType::Int(IntSize::Bits32)
                                 )),
                             ),
                         ),
                         String::from("+"),
                         box Expression::Atom(AtomKind::Integer(
                             4,
-                            PrimitiveType::Int(IntType::I32)
+                            PrimitiveType::Int(IntSize::Bits32)
                         )),
                     ),
                     String::from("||"),
@@ -181,12 +181,12 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                         box Expression::Binary(
                             box Expression::Atom(AtomKind::Integer(
                                 1,
-                                PrimitiveType::Int(IntType::I32)
+                                PrimitiveType::Int(IntSize::Bits32)
                             )),
                             String::from("=="),
                             box Expression::Atom(AtomKind::Integer(
                                 2,
-                                PrimitiveType::Int(IntType::I32)
+                                PrimitiveType::Int(IntSize::Bits32)
                             )),
                         ),
                         String::from("&"),
@@ -284,7 +284,7 @@ fn main () -> () = {
                     body: None,
                     ty: PrimitiveType::Function {
                         ext: true,
-                        ret_ty: box PrimitiveType::Int(IntType::I32),
+                        ret_ty: box PrimitiveType::Int(IntSize::Bits32),
                         params: vec![PrimitiveType::Str],
                     }
                 }),
@@ -300,7 +300,7 @@ fn main () -> () = {
                                 name: "s".to_string(),
                                 ty: box PrimitiveType::Str
                             },
-                            PrimitiveType::Int(IntType::I32),
+                            PrimitiveType::Int(IntSize::Bits32),
                             PrimitiveType::Varargs,
                         ],
                     }
@@ -324,12 +324,12 @@ fn main () -> () = {
                                 AtomKind::Expr(box Expression::Binary(
                                     box Expression::Atom(AtomKind::Integer(
                                         1,
-                                        PrimitiveType::Int(IntType::I32)
+                                        PrimitiveType::Int(IntSize::Bits32)
                                     )),
                                     String::from("+"),
                                     box Expression::Atom(AtomKind::Integer(
                                         2,
-                                        PrimitiveType::Int(IntType::I32)
+                                        PrimitiveType::Int(IntSize::Bits32)
                                     )),
                                 ))
                             ]
@@ -428,12 +428,12 @@ fn main () -> () = {
                         cond_expr: box Expression::Binary(
                             box Expression::Atom(AtomKind::Integer(
                                 1,
-                                PrimitiveType::Int(IntType::I32)
+                                PrimitiveType::Int(IntSize::Bits32)
                             )),
                             "==".to_string(),
                             box Expression::Atom(AtomKind::Integer(
                                 2,
-                                PrimitiveType::Int(IntType::I32)
+                                PrimitiveType::Int(IntSize::Bits32)
                             ))
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
@@ -499,6 +499,102 @@ fn main () -> ()
                     name: "main".to_string(),
                     attributes: attr(vec!["entry"]),
                     body: None,
+                    ty: PrimitiveType::Function {
+                        ext: false,
+                        ret_ty: box PrimitiveType::Unit,
+                        params: vec![PrimitiveType::Unit],
+                    }
+                }),
+            ])
+        );
+    }
+
+    #[test]
+    fn record_decl() {
+        let pt = parse_test!(
+            "
+rec Record(msg: str, time: i64)
+rec Unit()
+",
+            "Declare record"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Record(
+                    "Record".to_string(),
+                    vec![
+                        PrimitiveType::NamedType {
+                            name: "msg".to_string(),
+                            ty: box PrimitiveType::Str,
+                        },
+                        PrimitiveType::NamedType {
+                            name: "time".to_string(),
+                            ty: box PrimitiveType::Int(IntSize::Bits64),
+                        }
+                    ]
+                ),
+                AST::Record("Unit".to_string(), vec![PrimitiveType::Unit],)
+            ])
+        );
+    }
+
+    #[test]
+    fn init_record() {
+        let pt = parse_test!(
+            "
+rec Record(msg: str, time: i32)
+
+fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
+",
+            "Initialize record"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Record(
+                    "Record".to_string(),
+                    vec![
+                        PrimitiveType::NamedType {
+                            name: "msg".to_string(),
+                            ty: box PrimitiveType::Str,
+                        },
+                        PrimitiveType::NamedType {
+                            name: "time".to_string(),
+                            ty: box PrimitiveType::Int(IntSize::Bits32),
+                        }
+                    ]
+                ),
+                AST::Expr(Expression::Function {
+                    name: "rec_test".to_string(),
+                    attributes: vec![],
+                    body: Some(box Expression::Atom(AtomKind::RecordInit {
+                        record: "Record".to_string(),
+                        values: vec![
+                            AtomKind::NamedValue {
+                                name: "msg".to_string(),
+                                val: box Expression::Atom(AtomKind::StringLiteral(
+                                    "Hello World".to_string()
+                                ))
+                            },
+                            AtomKind::NamedValue {
+                                name: "time".to_string(),
+                                val: box Expression::Atom(AtomKind::Integer(
+                                    42,
+                                    PrimitiveType::Int(IntSize::Bits32)
+                                ))
+                            },
+                            AtomKind::NamedValue {
+                                name: "a".to_string(),
+                                val: box Expression::Atom(AtomKind::Access(vec![
+                                    "a".to_string(),
+                                    "b".to_string()
+                                ]))
+                            }
+                        ],
+                    })),
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,

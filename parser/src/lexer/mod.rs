@@ -246,7 +246,7 @@ impl<'c> Lexer<'c> {
                     let mut buf = c.to_string();
                     while let Some(c) = self.chars.peek() {
                         match c {
-                            'a'..='z' | 'A'..='Z' | '_' | '-' | '0'..='9' => {
+                            'a'..='z' | 'A'..='Z' | '_' | '-' | '0'..='9' | '.' => {
                                 buf.push(*c);
                                 self.advance();
                             }
@@ -474,7 +474,8 @@ mod lexer_tests {
 
     #[test]
     fn keyword_identifier() {
-        let mut lexer = Lexer::new("fn extern var val if else use true false main bool");
+        let mut lexer =
+            Lexer::new("fn extern var val if else use true false main record.test bool rec");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -491,7 +492,12 @@ mod lexer_tests {
             tokens.next().unwrap().kind,
             TokenKind::Identifier(String::from("main")),
         );
+        assert_eq!(
+            tokens.next().unwrap().kind,
+            TokenKind::Identifier(String::from("record.test")),
+        );
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Bool));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Record));
     }
 
     #[test]

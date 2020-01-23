@@ -1,15 +1,19 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
-use crate::codegen::{
-    unit::{
-        alloc_variable, codegen_function, declare_function, inject_function_in_scope, store_value,
+use crate::{
+    codegen::{
+        unit::{
+            alloc_variable, codegen_function, declare_function, init_record,
+            inject_function_in_scope, store_value,
+        },
+        CodegenUnit, Scope,
     },
-    CodegenUnit, Scope,
+    ty::{record::Record, TypeContext},
 };
 
 use parser::{
-    ast::{AtomKind, Boolean, Expression, IntType, PrimitiveType, UIntType, AST},
+    ast::{AtomKind, Boolean, Expression, IntSize, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -23,6 +27,7 @@ pub struct AatbeModule {
     scope_stack: Vec<Scope>,
     imported: HashMap<String, AST>,
     current_function: Option<String>,
+    typectx: TypeContext,
 }
 
 impl AatbeModule {
@@ -41,6 +46,7 @@ impl AatbeModule {
             imported: HashMap::new(),
             scope_stack: Vec::new(),
             current_function: None,
+            typectx: TypeContext::new(),
         }
     }
 
@@ -82,6 +88,11 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
+            AST::Record(name, types) => {
+                let rec = Record::new(self, name, types);
+                self.typectx.push_type(name, rec);
+                self.typectx.get_type(name).unwrap().set_body(self, types);
+            }
             AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.decl_pass(n)))
@@ -100,8 +111,48 @@ impl AatbeModule {
         }
     }
 
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> LLVMValueRef {
+        if let ([rec_ref], tail) = parts.split_at(1) {
+            match self.get_var(&rec_ref) {
+                None => panic!("Could not find record {}", rec_ref),
+                Some(rec) => {
+                    let rec_type = match rec {
+                        CodegenUnit::Variable {
+                            mutable: _,
+                            name: _,
+                            ty: PrimitiveType::TypeRef(rec),
+                            value: _,
+                        } => rec.clone(),
+                        CodegenUnit::Variable {
+                            mutable: _,
+                            name: _,
+                            ty:
+                                PrimitiveType::NamedType {
+                                    name: _,
+                                    ty: box PrimitiveType::TypeRef(rec),
+                                },
+                            value: _,
+                        } => rec.clone(),
+                        _ => unreachable!(),
+                    };
+
+                    self.typectx_ref()
+                        .get_type(&rec_type)
+                        .expect("ICE get_access variable without type")
+                        .read_field(self, rec.into(), rec_ref, tail.to_vec())
+                }
+            }
+        } else {
+            unreachable!()
+        }
+    }
+
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
+            AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
+                self.get_interior_pointer(path.to_vec()),
+                path.join(".").as_str(),
+            )),
             AtomKind::Ident(name) => {
                 let var_ref = self.get_var(name);
 
@@ -113,7 +164,7 @@ impl AatbeModule {
             AtomKind::StringLiteral(string) => {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
-            AtomKind::Integer(val, PrimitiveType::Int(IntType::I32)) => {
+            AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)) => {
                 Some(self.llvm_context.SInt32(*val))
             }
             AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
@@ -126,13 +177,24 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
                 Some(self.llvm_builder.build_not(value))
             }
+            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
         match expr {
-            Expression::Assign { name, value } => Some(store_value(self, name, value)),
+            Expression::Assign { name, value } => match value {
+                box Expression::Atom(AtomKind::RecordInit { record, values }) => Some(init_record(
+                    self,
+                    name,
+                    &AtomKind::RecordInit {
+                        record: record.clone(),
+                        values: values.to_vec(),
+                    },
+                )),
+                _ => Some(store_value(self, name, value)),
+            },
             Expression::Decl {
                 ty: PrimitiveType::NamedType { name, ty: _ },
                 value: _,
@@ -263,6 +325,7 @@ impl AatbeModule {
                 self.codegen_pass(&ast);
                 None
             }
+            AST::Record(_, _) => None,
             _ => panic!("cannot codegen {:?}", ast),
         }
     }
@@ -286,14 +349,14 @@ impl AatbeModule {
 
     pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
         match ty {
-            PrimitiveType::Int(IntType::I8) => self.llvm_context.SInt8(val),
-            PrimitiveType::Int(IntType::I16) => self.llvm_context.SInt16(val),
-            PrimitiveType::Int(IntType::I32) => self.llvm_context.SInt32(val),
-            PrimitiveType::Int(IntType::I64) => self.llvm_context.SInt64(val),
-            PrimitiveType::UInt(UIntType::U8) => self.llvm_context.UInt8(val),
-            PrimitiveType::UInt(UIntType::U16) => self.llvm_context.UInt16(val),
-            PrimitiveType::UInt(UIntType::U32) => self.llvm_context.UInt32(val),
-            PrimitiveType::UInt(UIntType::U64) => self.llvm_context.UInt64(val),
+            PrimitiveType::Int(IntSize::Bits8) => self.llvm_context.SInt8(val),
+            PrimitiveType::Int(IntSize::Bits16) => self.llvm_context.SInt16(val),
+            PrimitiveType::Int(IntSize::Bits32) => self.llvm_context.SInt32(val),
+            PrimitiveType::Int(IntSize::Bits64) => self.llvm_context.SInt64(val),
+            PrimitiveType::UInt(IntSize::Bits8) => self.llvm_context.UInt8(val),
+            PrimitiveType::UInt(IntSize::Bits16) => self.llvm_context.UInt16(val),
+            PrimitiveType::UInt(IntSize::Bits32) => self.llvm_context.UInt32(val),
+            PrimitiveType::UInt(IntSize::Bits64) => self.llvm_context.UInt64(val),
             _ => panic!("Cannot const int {:?}", ty),
         }
     }
@@ -320,7 +383,7 @@ impl AatbeModule {
         None
     }
 
-    pub fn push_ref_in_scope(&mut self, name: &String, unit: CodegenUnit) {
+    pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
         self.scope_stack
             .first_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
@@ -363,6 +426,10 @@ impl AatbeModule {
 
     pub fn llvm_context_ref(&self) -> &Context {
         &self.llvm_context
+    }
+
+    pub fn typectx_ref(&self) -> &TypeContext {
+        &self.typectx
     }
 }
 

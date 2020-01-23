@@ -7,7 +7,7 @@ pub mod parser;
 
 mod tests;
 
-use ast::{Expression, IntType, PrimitiveType, UIntType, AST};
+use ast::{Expression, IntSize, PrimitiveType, AST};
 use lexer::{
     token,
     token::{Keyword, Symbol, Type},
@@ -32,15 +32,20 @@ impl Parser {
 
             match tok.ty() {
                 Some(Type::Str) => return Ok(PrimitiveType::Str),
-                Some(Type::I8) => return Ok(PrimitiveType::Int(IntType::I8)),
-                Some(Type::I16) => return Ok(PrimitiveType::Int(IntType::I16)),
-                Some(Type::I32) => return Ok(PrimitiveType::Int(IntType::I32)),
-                Some(Type::I64) => return Ok(PrimitiveType::Int(IntType::I64)),
-                Some(Type::U8) => return Ok(PrimitiveType::UInt(UIntType::U8)),
-                Some(Type::U16) => return Ok(PrimitiveType::UInt(UIntType::U16)),
-                Some(Type::U32) => return Ok(PrimitiveType::UInt(UIntType::U32)),
-                Some(Type::U64) => return Ok(PrimitiveType::UInt(UIntType::U64)),
+                Some(Type::I8) => return Ok(PrimitiveType::Int(IntSize::Bits8)),
+                Some(Type::I16) => return Ok(PrimitiveType::Int(IntSize::Bits16)),
+                Some(Type::I32) => return Ok(PrimitiveType::Int(IntSize::Bits32)),
+                Some(Type::I64) => return Ok(PrimitiveType::Int(IntSize::Bits64)),
+                Some(Type::U8) => return Ok(PrimitiveType::UInt(IntSize::Bits8)),
+                Some(Type::U16) => return Ok(PrimitiveType::UInt(IntSize::Bits16)),
+                Some(Type::U32) => return Ok(PrimitiveType::UInt(IntSize::Bits32)),
+                Some(Type::U64) => return Ok(PrimitiveType::UInt(IntSize::Bits64)),
                 _ => {}
+            }
+
+            match tok.ident() {
+                Some(s) => return Ok(PrimitiveType::TypeRef(s)),
+                None => {}
             }
         }
 
@@ -69,6 +74,42 @@ impl Parser {
         }
     }
 
+    fn parse_type_list(&mut self, terminator: Symbol) -> ParseResult<Vec<PrimitiveType>> {
+        let mut params = vec![];
+        loop {
+            match self.peek_symbol(terminator) {
+                Some(true) => break,
+                Some(false) => {
+                    if params.len() > 0 {
+                        sym!(required Comma, self);
+                    }
+                    let ty = capture!(res parse_named_type, self)
+                        .or_else(|_| capture!(res parse_type, self))
+                        .or(Err(ParseError::ExpectedType))?;
+                    params.push(ty);
+                }
+                None => return Err(ParseError::UnexpectedEOF),
+            }
+        }
+        self.next();
+        Ok(params)
+    }
+
+    fn parse_record(&mut self) -> ParseResult<AST> {
+        kw!(Record, self);
+        let name = ident!(required self);
+
+        let types = if sym!(bool Unit, self) {
+            vec![PrimitiveType::Unit]
+        } else {
+            sym!(required LParen, self);
+            self.parse_type_list(Symbol::RParen)
+                .expect(format!("Expected type list at {}", name).as_str())
+        };
+
+        Ok(AST::Record(name, types))
+    }
+
     fn parse_function(&mut self) -> ParseResult<AST> {
         let mut attributes = Vec::new();
 
@@ -83,23 +124,9 @@ impl Parser {
         kw!(Fn, self);
         let name = ident!(required self);
 
-        let mut params = vec![];
-        loop {
-            match self.peek_symbol(Symbol::Arrow) {
-                Some(true) => break,
-                Some(false) => {
-                    if params.len() > 0 {
-                        sym!(required Comma, self);
-                    }
-                    let ty = capture!(res parse_named_type, self)
-                        .or_else(|_| capture!(res parse_type, self))
-                        .or(Err(ParseError::ExpectedType))?;
-                    params.push(ty);
-                }
-                None => return Err(ParseError::UnexpectedEOF),
-            }
-        }
-        sym!(required Arrow, self);
+        let params = self
+            .parse_type_list(Symbol::Arrow)
+            .expect(format!("Expected type list at {}", name).as_str());
 
         let ret_ty = box capture!(res parse_type, self)?;
 

@@ -4,6 +4,7 @@ pub enum AST {
     Error,
     Expr(Expression),
     Import(String),
+    Record(String, Vec<PrimitiveType>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -50,8 +51,9 @@ pub enum PrimitiveType {
     Str,
     Varargs,
     Bool,
-    Int(IntType),
-    UInt(UIntType),
+    Int(IntSize),
+    UInt(IntSize),
+    TypeRef(String),
     Function {
         ext: bool,
         ret_ty: Box<PrimitiveType>,
@@ -73,6 +75,15 @@ pub enum AtomKind {
     Parenthesized(Box<Expression>),
     Unary(String, Box<AtomKind>),
     Ident(String),
+    Access(Vec<String>),
+    NamedValue {
+        name: String,
+        val: Box<Expression>,
+    },
+    RecordInit {
+        record: String,
+        values: Vec<AtomKind>,
+    },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -82,17 +93,9 @@ pub enum Boolean {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum IntType {
-    I8,
-    I16,
-    I32,
-    I64,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum UIntType {
-    U8,
-    U16,
-    U32,
-    U64,
+pub enum IntSize {
+    Bits8,
+    Bits16,
+    Bits32,
+    Bits64,
 }

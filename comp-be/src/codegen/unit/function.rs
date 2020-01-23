@@ -15,12 +15,11 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
         } => {
             let func = module
                 .llvm_module_ref()
-                .get_or_add_function(name, ty.llvm_ty_in_ctx(module.llvm_context_ref()));
+                .get_or_add_function(name, ty.llvm_ty_in_ctx(module));
 
-            module.push_ref_in_scope(name, CodegenUnit::Function(func));
+            module.push_in_scope(name, CodegenUnit::Function(func));
         }
         _ => panic!("Unimplemented declare_function {:?}", function),
-        _ => unreachable!(),
     }
 }
 
@@ -70,7 +69,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                     for (pos, ty) in params.into_iter().enumerate() {
                         match ty {
                             PrimitiveType::NamedType { name, ty: _ } => {
-                                module.push_ref_in_scope(
+                                module.push_in_scope(
                                     name,
                                     CodegenUnit::FunctionArgument(
                                         module

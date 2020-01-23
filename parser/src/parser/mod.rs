@@ -92,6 +92,7 @@ impl Parser {
             res.push(
                 capture!(res parse_use, self)
                     .or_else(|_| capture!(res parse_function, self))
+                    .or_else(|_| capture!(res parse_record, self))
                     .unwrap_or_else(|r| panic!("{:?}", r)),
             );
         };

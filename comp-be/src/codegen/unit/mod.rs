@@ -1,12 +1,13 @@
 use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 
+use crate::codegen::AatbeModule;
 use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
 pub use function::{codegen_function, declare_function, inject_function_in_scope};
 
 pub mod variable;
-pub use variable::{alloc_variable, store_value};
+pub use variable::{alloc_variable, init_record, store_value};
 
 #[derive(Debug)]
 pub enum Mutability {
@@ -53,12 +54,32 @@ impl Into<LLVMValueRef> for &CodegenUnit {
 }
 
 impl CodegenUnit {
+    pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<u32> {
+        match self {
+            CodegenUnit::Variable {
+                mutable: _,
+                name: _,
+                ty:
+                    PrimitiveType::NamedType {
+                        name: _,
+                        ty: box PrimitiveType::TypeRef(record),
+                    },
+                value: _,
+            } => match module.typectx_ref().get_type(record) {
+                Some(rec) => rec.get_field_index(name),
+                _ => panic!("Cannot get index from {:?}", self),
+            },
+            _ => panic!("Cannot get index from {:?}", self),
+        }
+    }
+
     pub fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
         match self {
             CodegenUnit::Function(func) => func.append_basic_block(name.as_ref()),
             _ => panic!("Cannot append basic block on {:?}", self),
         }
     }
+
     fn get_param(&self, index: u32) -> LLVMValueRef {
         match self {
             CodegenUnit::Function(func) => func.get_param(index),

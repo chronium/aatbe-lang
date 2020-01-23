@@ -97,6 +97,7 @@ pub enum Keyword {
     Else,
     Use,
     Bool,
+    Record,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -170,6 +171,17 @@ impl Token {
         None
     }
 
+    pub fn split_accessor(&self) -> Option<Vec<String>> {
+        match &self.kind {
+            TokenKind::Identifier(accessor) => {
+                match accessor.clone().split(".").collect::<Vec<&str>>() {
+                    acc => Some(acc.iter().map(|val| String::from(*val)).collect()),
+                }
+            }
+            _ => None,
+        }
+    }
+
     from_tok!(kw, Keyword, Keyword);
     from_tok!(bl, BooleanLiteral, Boolean);
     from_tok!(sym, Symbol, Symbol);
@@ -212,6 +224,7 @@ impl FromStr for Keyword {
             "else" => Ok(Self::Else),
             "use" => Ok(Self::Use),
             "bool" => Ok(Self::Bool),
+            "rec" => Ok(Self::Record),
             _ => Err(()),
         }
     }
