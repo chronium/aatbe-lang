@@ -71,6 +71,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 let mut param_types = params
                     .iter()
                     .filter_map(|t| match t {
+                        PrimitiveType::TypeRef(_name) => None,
                         PrimitiveType::Unit => None,
                         PrimitiveType::Varargs => {
                             varargs = true;

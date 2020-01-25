@@ -103,6 +103,12 @@ impl Parser {
         }
     }
 
+    fn parse_symbol_literal(&mut self) -> Option<AtomKind> {
+        sym!(Colon, self);
+        let symbol = ident!(opt self);
+        Some(AtomKind::SymbolLiteral(symbol))
+    }
+
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
@@ -112,6 +118,7 @@ impl Parser {
             parse_unit,
             parse_string_lit,
             parse_atomized_expression,
+            parse_symbol_literal,
             parse_ident
         ) {
             None => Err(ParseError::ExpectedAtom),
@@ -290,7 +297,7 @@ impl Parser {
                         }
                         Some(false) => match capture!(self, parse_expression) {
                             Some(expr) => block.push(expr),
-                            None => panic!("Broken Expression"),
+                            None => panic!("Broken Expression {:?}", self.peek()),
                         },
                         None => panic!("Expected RCurly"),
                     }

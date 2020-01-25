@@ -9,7 +9,10 @@ use crate::{
         },
         CodegenUnit, Scope,
     },
-    ty::{record::Record, TypeContext},
+    ty::{
+        record::{store_named_field, Record},
+        LLVMTyInCtx, TypeContext,
+    },
 };
 
 use parser::{
@@ -179,10 +182,34 @@ impl AatbeModule {
                 Some(self.llvm_builder.build_not(value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            AtomKind::RecordInit {
-                record: _,
-                values: _,
-            } => unimplemented!(),
+            AtomKind::RecordInit { record, values } => {
+                let rec = self.llvm_builder_ref().build_alloca(
+                    self.typectx_ref()
+                        .get_type(record)
+                        .expect(format!("ICE could not find record {}", record).as_str())
+                        .llvm_ty_in_ctx(self),
+                );
+                values.iter().for_each(|val| match val {
+                    AtomKind::NamedValue { name, val } => {
+                        let val_ref = self
+                            .codegen_expr(val)
+                            .expect(format!("ICE could not codegen {:?}", val).as_str());
+                        store_named_field(
+                            self,
+                            rec,
+                            record,
+                            self.typectx_ref()
+                                .get_type(record)
+                                .expect(format!("ICE could not find record {}", record).as_str()),
+                            name,
+                            val_ref,
+                        );
+                    }
+                    _ => panic!("ICE codegen_atom {:?}", atom),
+                });
+
+                Some(self.llvm_builder_ref().build_load(rec))
+            }
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
@@ -238,13 +265,23 @@ impl AatbeModule {
                 None
             }
             Expression::Call { name, args } => {
+                let mut name = name.clone();
+
+                args.iter().for_each(|arg| match arg {
+                    AtomKind::SymbolLiteral(symbol) => name.push_str(&format!("__{}", symbol)),
+                    _ => {}
+                });
+
                 let mut args = args
                     .iter()
-                    .filter_map(|arg| self.codegen_atom(arg))
+                    .filter_map(|arg| match arg {
+                        AtomKind::SymbolLiteral(_) => None,
+                        _ => self.codegen_atom(arg),
+                    })
                     .collect::<Vec<LLVMValueRef>>();
                 Some(
                     self.llvm_builder.build_call(
-                        self.get_func(name)
+                        self.get_func(&name)
                             .expect(format!("Call to undefined function {}", name).as_str())
                             .into(),
                         &mut args,

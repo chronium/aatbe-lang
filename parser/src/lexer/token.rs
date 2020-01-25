@@ -139,11 +139,9 @@ impl Token {
     pub fn new(kind: TokenKind, position: Position) -> Self {
         Self { kind, position }
     }
-
     to_tok!(keyword, Keyword, Keyword);
     to_tok!(boolean, BooleanLiteral, Boolean);
     to_tok!(r#type, Type, Type);
-
     pub fn op(&self) -> Option<Symbol> {
         if let TokenKind::Symbol(sym) = self.kind {
             return match sym {
@@ -167,10 +165,8 @@ impl Token {
                 _ => None,
             };
         }
-
         None
     }
-
     pub fn split_accessor(&self) -> Option<Vec<String>> {
         match &self.kind {
             TokenKind::Identifier(accessor) => {
@@ -181,7 +177,6 @@ impl Token {
             _ => None,
         }
     }
-
     from_tok!(kw, Keyword, Keyword);
     from_tok!(bl, BooleanLiteral, Boolean);
     from_tok!(sym, Symbol, Symbol);
@@ -194,7 +189,6 @@ impl Token {
 
 impl FromStr for Type {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "str" => Ok(Self::Str),
@@ -213,7 +207,6 @@ impl FromStr for Type {
 
 impl FromStr for Keyword {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "fn" => Ok(Self::Fn),
@@ -232,7 +225,6 @@ impl FromStr for Keyword {
 
 impl FromStr for Boolean {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "true" => Ok(Self::True),

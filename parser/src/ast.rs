@@ -75,6 +75,7 @@ pub enum PrimitiveType {
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AtomKind {
+    SymbolLiteral(String),
     Bool(Boolean),
     Integer(u64, PrimitiveType),
     StringLiteral(String),

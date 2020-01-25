@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{AatbeModule, CodegenUnit},
+    codegen::{mangle_v1::NameMangler, AatbeModule, CodegenUnit},
     ty::LLVMTyInCtx,
 };
 
@@ -8,16 +8,18 @@ use parser::ast::{Expression, PrimitiveType};
 pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     match function {
         Expression::Function {
-            name,
+            name: _,
             ty,
             attributes: _,
             body: _,
         } => {
+            let name = function.mangle();
+
             let func = module
                 .llvm_module_ref()
-                .get_or_add_function(name, ty.llvm_ty_in_ctx(module));
+                .get_or_add_function(&name, ty.llvm_ty_in_ctx(module));
 
-            module.push_in_scope(name, CodegenUnit::Function(func));
+            module.push_in_scope(&name, CodegenUnit::Function(func));
         }
         _ => panic!("Unimplemented declare_function {:?}", function),
     }
@@ -31,7 +33,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
             attributes,
             body: _,
         } => {
-            let func = module.get_func(name).unwrap();
+            let func = module.get_func(&function.mangle()).unwrap();
 
             if !attributes.is_empty() {
                 for attr in attributes {
@@ -55,25 +57,33 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
 pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
     match function {
         Expression::Function {
-            name: fun_name,
+            name: _,
             ty,
             attributes: _,
             body: _,
         } => {
+            let fun_name = function.mangle();
             match ty {
                 PrimitiveType::Function {
                     ret_ty: _,
                     params,
                     ext: false,
                 } => {
-                    for (pos, ty) in params.into_iter().enumerate() {
+                    for (pos, ty) in params
+                        .into_iter()
+                        .filter(|ty| match ty {
+                            PrimitiveType::TypeRef(_name) => false,
+                            _ => true,
+                        })
+                        .enumerate()
+                    {
                         match ty {
                             PrimitiveType::NamedType { name, ty: _ } => {
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::FunctionArgument(
                                         module
-                                            .get_func(fun_name)
+                                            .get_func(&fun_name)
                                             .expect("Compiler borked. Functions borked")
                                             .get_param(pos as u32),
                                     ),
