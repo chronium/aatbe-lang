@@ -149,6 +149,7 @@ impl AatbeModule {
 
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
+            AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
             AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
                 self.get_interior_pointer(path.to_vec()),
                 path.join(".").as_str(),
@@ -178,22 +179,26 @@ impl AatbeModule {
                 Some(self.llvm_builder.build_not(value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
+            AtomKind::RecordInit {
+                record: _,
+                values: _,
+            } => unimplemented!(),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
         match expr {
-            Expression::Assign { name, value } => match value {
+            Expression::Assign { lval, value } => match value {
                 box Expression::Atom(AtomKind::RecordInit { record, values }) => Some(init_record(
                     self,
-                    name,
+                    lval,
                     &AtomKind::RecordInit {
                         record: record.clone(),
                         values: values.to_vec(),
                     },
                 )),
-                _ => Some(store_value(self, name, value)),
+                _ => Some(store_value(self, lval, value)),
             },
             Expression::Decl {
                 ty: PrimitiveType::NamedType { name, ty: _ },

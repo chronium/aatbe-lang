@@ -52,7 +52,7 @@ impl Record {
                 .clone();
 
             match ty {
-                PrimitiveType::TypeRef(typeref) => module
+                PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
                     .typectx_ref()
                     .get_type(&typeref)
                     .expect(format!("ICE no type associated with {}", typeref).as_str())

@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AST {
     File(Vec<AST>),
@@ -18,7 +20,7 @@ pub enum Expression {
         exterior_bind: BindType,
     },
     Assign {
-        name: String,
+        lval: LValue,
         value: Box<Expression>,
     },
     Call {
@@ -36,6 +38,12 @@ pub enum Expression {
         then_expr: Box<Expression>,
         else_expr: Option<Box<Expression>>,
     },
+}
+
+#[derive(Eq, PartialEq, Clone)]
+pub enum LValue {
+    Ident(String),
+    Accessor(Vec<String>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -98,4 +106,22 @@ pub enum IntSize {
     Bits16,
     Bits32,
     Bits64,
+}
+
+impl fmt::Debug for LValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LValue::Ident(name) => write!(f, "{}", name),
+            LValue::Accessor(parts) => write!(f, "{}", parts.join(".")),
+        }
+    }
+}
+
+impl From<&LValue> for String {
+    fn from(lval: &LValue) -> String {
+        match lval {
+            LValue::Ident(name) => name.clone(),
+            LValue::Accessor(parts) => parts.join("."),
+        }
+    }
 }

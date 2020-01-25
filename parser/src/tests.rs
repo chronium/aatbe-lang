@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     use crate::{
-        ast::{AtomKind, BindType, Boolean, IntSize},
+        ast::{AtomKind, BindType, Boolean, IntSize, LValue},
         lexer::{token::Token, Lexer},
         Expression, ParseError, Parser, PrimitiveType, AST,
     };
@@ -384,7 +384,7 @@ fn main () -> () = {
                         exterior_bind: BindType::Immutable,
                     },
                     Expression::Assign {
-                        name: "var_t".to_string(),
+                        lval: LValue::Ident("var_t".to_string()),
                         value: box Expression::Atom(AtomKind::StringLiteral(String::from(
                             "Aloha honua"
                         ))),

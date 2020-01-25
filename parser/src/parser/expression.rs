@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Boolean, Expression, IntSize, PrimitiveType},
+    ast::{AtomKind, BindType, Boolean, Expression, IntSize, LValue, PrimitiveType},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token},
@@ -206,13 +206,24 @@ impl Parser {
         })
     }
 
+    fn parse_lvalue(&mut self) -> ParseResult<LValue> {
+        ident!(res raw self).map(|i| {
+            i.map(|id| match id.split_accessor() {
+                Some(parts) if parts.len() == 1 => LValue::Ident(parts[0].clone()),
+                Some(parts) => LValue::Accessor(parts),
+                None => unreachable!(),
+            })
+            .unwrap()
+        })
+    }
+
     fn parse_assign(&mut self) -> ParseResult<Expression> {
-        let name = ident!(required self);
+        let lval = capture!(res parse_lvalue, self)?;
         sym!(required Assign, self);
 
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
-        Ok(Expression::Assign { name, value })
+        Ok(Expression::Assign { lval, value })
     }
 
     fn parse_named_value(&mut self) -> ParseResult<AtomKind> {

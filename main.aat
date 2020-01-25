@@ -9,6 +9,6 @@ fn main () -> () = {
     val msg: String = String { s: "Hello World" }
     val nessie: Nested = Nested { m: msg }
     puts nessie.m.s
-    nessie.m.s = "Aloha"
+    nessie.m = String { s: "Aloha" }
     puts nessie.m.s
 }
