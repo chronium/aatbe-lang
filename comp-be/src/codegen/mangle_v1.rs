@@ -19,7 +19,7 @@ impl NameMangler for Expression {
                     params: _,
                 } => {
                     if !attributes.contains(&String::from("entry")) {
-                        format!("{}__{}", name, ty.mangle())
+                        format!("{}{}", name, ty.mangle())
                     } else {
                         name.clone()
                     }
@@ -51,7 +51,11 @@ impl NameMangler for PrimitiveType {
                     .filter(|m| !m.is_empty())
                     .collect::<Vec<String>>()
                     .join(".");
-                format!("{}", params_mangled)
+                if !params_mangled.is_empty() {
+                    format!("__{}", params_mangled)
+                } else {
+                    String::new()
+                }
             }
             /* Leave out until type inference
             PrimitiveType::Unit => String::from("U"),
