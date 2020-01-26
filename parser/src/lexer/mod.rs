@@ -234,6 +234,10 @@ impl<'c> Lexer<'c> {
                                             buf.push('\n');
                                             self.advance();
                                         }
+                                        Some('"') => {
+                                            buf.push('"');
+                                            self.advance();
+                                        }
                                         Some(c) => buf.push(*c),
                                         None => buf.push('\\'),
                                     }
