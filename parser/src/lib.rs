@@ -22,6 +22,10 @@ impl Parser {
             match tok.sym() {
                 Some(Symbol::Unit) => return Ok(PrimitiveType::Unit),
                 Some(Symbol::GoDot) => return Ok(PrimitiveType::Varargs),
+                Some(Symbol::Ampersand) => match capture!(res parse_type, self) {
+                    Err(_) => {}
+                    Ok(ty) => return Ok(PrimitiveType::Ref(box ty)),
+                },
                 _ => {}
             };
 

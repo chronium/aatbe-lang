@@ -1,16 +1,7 @@
-extern fn puts str -> i32
-
-rec String(s: str)
-
-fn new String, s: str -> String = {
-    String {
-        s: s
-    }
-}
+use "libc"
 
 @entry
 fn main () -> () = {
-    val msg: String = new :String "Hello World!"
-
-    puts msg.s
+    val hw: str = "Hello World"
+    printf "hw[0] = %c\n" hw[0]
 }

@@ -62,6 +62,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &AtomKind) -> L
                     Some(var) => var.into(),
                 },
                 LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+                LValue::Deref(_) => unimplemented!(),
             };
 
             values.iter().for_each(|val| match val {
@@ -103,6 +104,7 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
             }
         },
         LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+        LValue::Deref(_) => unimplemented!(),
     };
 
     let val = module

@@ -152,6 +152,16 @@ impl AatbeModule {
 
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
+            AtomKind::Index(box val, box index) => {
+                let index = self.codegen_expr(index).expect("ICE codegen_atom index");
+                let val = self.codegen_atom(val).expect("ICE codegen_atom val");
+
+                let gep = self
+                    .llvm_builder_ref()
+                    .build_inbounds_gep(val, &mut [index]);
+
+                Some(self.llvm_builder_ref().build_load(gep))
+            }
             AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
             AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
                 self.get_interior_pointer(path.to_vec()),

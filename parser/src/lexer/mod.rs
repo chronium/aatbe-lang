@@ -120,6 +120,12 @@ impl<'c> Lexer<'c> {
                 '}' => {
                     self.push_symbol(Symbol::RCurly, pos);
                 }
+                '[' => {
+                    self.push_symbol(Symbol::LBracket, pos);
+                }
+                ']' => {
+                    self.push_symbol(Symbol::RBracket, pos);
+                }
                 '.' => match self.chars.peek() {
                     Some('.') => {
                         self.advance();
@@ -342,8 +348,9 @@ mod lexer_tests {
 
     #[test]
     fn symbols() {
-        let mut lexer =
-            Lexer::new("@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ...");
+        let mut lexer = Lexer::new(
+            "@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ... [ ]",
+        );
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -379,6 +386,8 @@ mod lexer_tests {
             Symbol::Dot,
             Symbol::DoDot,
             Symbol::GoDot,
+            Symbol::LBracket,
+            Symbol::RBracket,
         ]
         .into_iter()
         .map(|t| Some(t));

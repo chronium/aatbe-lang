@@ -44,6 +44,7 @@ pub enum Expression {
 pub enum LValue {
     Ident(String),
     Accessor(Vec<String>),
+    Deref(Box<LValue>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -71,6 +72,7 @@ pub enum PrimitiveType {
         name: String,
         ty: Box<PrimitiveType>,
     },
+    Ref(Box<PrimitiveType>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -85,6 +87,8 @@ pub enum AtomKind {
     Unary(String, Box<AtomKind>),
     Ident(String),
     Access(Vec<String>),
+    Deref(Box<AtomKind>),
+    Index(Box<AtomKind>, Box<Expression>),
     NamedValue {
         name: String,
         val: Box<Expression>,
@@ -114,6 +118,7 @@ impl fmt::Debug for LValue {
         match self {
             LValue::Ident(name) => write!(f, "{}", name),
             LValue::Accessor(parts) => write!(f, "{}", parts.join(".")),
+            LValue::Deref(lval) => write!(f, "*{:?}", lval),
         }
     }
 }
@@ -123,6 +128,7 @@ impl From<&LValue> for String {
         match lval {
             LValue::Ident(name) => name.clone(),
             LValue::Accessor(parts) => parts.join("."),
+            LValue::Deref(lval) => format!("*{:?}", lval),
         }
     }
 }

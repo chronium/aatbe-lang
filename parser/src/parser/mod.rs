@@ -23,6 +23,7 @@ pub enum ParseError {
     ExpectedCondition,
     ExpectedThenExpression,
     ExpectedPath,
+    ExpectedLValue,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;

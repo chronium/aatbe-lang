@@ -1,27 +1,22 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-%String = type { i8* }
-
-@0 = private unnamed_addr constant [13 x i8] c"Hello World!\00"
+@0 = private unnamed_addr constant [12 x i8] c"Hello World\00"
+@1 = private unnamed_addr constant [12 x i8] c"hw[0] = %c\0A\00"
 
 declare i32 @puts(i8*)
 
-define %String @new__String(i8*) {
-  %2 = alloca %String
-  %String.s = getelementptr inbounds %String, %String* %2, i32 0, i32 0
-  store i8* %0, i8** %String.s
-  %3 = load %String, %String* %2
-  ret %String %3
-}
+declare i32 @printf(i8*, ...)
+
+declare i32 @putchar(i8)
 
 define void @main() {
 entry:
-  %msg = alloca %String
-  %0 = call %String @new__String(i8* getelementptr inbounds ([13 x i8], [13 x i8]* @0, i32 0, i32 0))
-  store %String %0, %String* %msg
-  %msg.s = getelementptr inbounds %String, %String* %msg, i32 0, i32 0
-  %msg.s1 = load i8*, i8** %msg.s
-  %1 = call i32 @puts(i8* %msg.s1)
+  %hw = alloca i8*
+  store i8* getelementptr inbounds ([12 x i8], [12 x i8]* @0, i32 0, i32 0), i8** %hw
+  %0 = load i8*, i8** %hw
+  %1 = getelementptr inbounds i8, i8* %0, i32 0
+  %2 = load i8, i8* %1
+  %3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @1, i32 0, i32 0), i8 %2)
   ret void
 }

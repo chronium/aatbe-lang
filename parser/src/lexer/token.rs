@@ -28,6 +28,8 @@ pub enum Symbol {
     Arrow,
     LCurly,
     RCurly,
+    LBracket,
+    RBracket,
     At,
     Unit,
     Assign,

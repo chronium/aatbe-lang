@@ -127,7 +127,7 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<AtomKind> {
-        if sym!(bool Minus, self) {
+        let res = if sym!(bool Minus, self) {
             Ok(AtomKind::Unary(
                 String::from("-"),
                 box capture!(res parse_unary, self)?,
@@ -142,8 +142,19 @@ impl Parser {
                 box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
             sym!(required RParen, self);
             Ok(AtomKind::Parenthesized(expr))
+        } else if sym!(bool Star, self) {
+            Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
         } else {
             capture!(res parse_atom, self)
+        };
+
+        if sym!(bool LBracket, self) && res.is_ok() {
+            let index =
+                box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+            sym!(required RBracket, self);
+            Ok(AtomKind::Index(box res.unwrap(), index))
+        } else {
+            res
         }
     }
 
@@ -213,8 +224,8 @@ impl Parser {
         })
     }
 
-    fn parse_lvalue(&mut self) -> ParseResult<LValue> {
-        ident!(res raw self).map(|i| {
+    fn parse_lval_ident(&mut self) -> Option<LValue> {
+        ident!(raw self).map(|i| {
             i.map(|id| match id.split_accessor() {
                 Some(parts) if parts.len() == 1 => LValue::Ident(parts[0].clone()),
                 Some(parts) => LValue::Accessor(parts),
@@ -222,6 +233,19 @@ impl Parser {
             })
             .unwrap()
         })
+    }
+
+    fn parse_lval_deref(&mut self) -> Option<LValue> {
+        sym!(Star, self);
+
+        match capture!(res parse_lvalue, self) {
+            Err(_) => None,
+            Ok(lval) => Some(LValue::Deref(box lval)),
+        }
+    }
+
+    fn parse_lvalue(&mut self) -> ParseResult<LValue> {
+        capture!(self, parse_lval_ident, parse_lval_deref).ok_or(ParseError::ExpectedLValue)
     }
 
     fn parse_assign(&mut self) -> ParseResult<Expression> {

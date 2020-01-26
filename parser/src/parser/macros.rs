@@ -176,6 +176,22 @@ macro_rules! ident {
             Err(ParseError::ExpectedIdent)
         }
     }};
+    (raw $self:ident) => {{
+        let prev_ind = $self.index;
+        let token = $self.next();
+        if let Some(tok) = token.clone() {
+            match tok.ident() {
+                Some(_) => Some(token),
+                _ => {
+                    $self.index = prev_ind;
+                    None
+                }
+            }
+        } else {
+            $self.index = prev_ind;
+            None
+        }
+    }};
     ($self:ident) => {{
         let prev_ind = $self.index;
         let token = $self.next();

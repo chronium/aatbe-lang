@@ -20,6 +20,7 @@ fn main() -> io::Result<()> {
     (@arg INPUT: +required "The file to compile")
     (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
+    (@arg LLVM_JIT: --("jit") -j "JIT the code")
     (@arg bitcode: -c --bitcode "Emit LLVM Bitcode"))
     .get_matches();
 
@@ -86,10 +87,12 @@ fn main() -> io::Result<()> {
 
     match module.llvm_module_ref().verify() {
         Ok(_) => {
-            let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
-            let named_function = module.llvm_module_ref().named_function("main");
-            let mut params = [];
-            let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
+            if matches.is_present("LLVM_JIT") {
+                let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
+                let named_function = module.llvm_module_ref().named_function("main");
+                let mut params = [];
+                let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
+            }
             Ok(())
         }
         Err(err) => panic!(err),
