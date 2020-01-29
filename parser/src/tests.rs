@@ -269,7 +269,7 @@ fn test s: str, i32, ... -> ()
 fn main () -> () = {
     puts \"Hello World\"
     puts \"Hallo\"
-    test \"Test\" $ 1 + 2
+    test \"Test\", $1 + 2
 }
 ",
             "Function calls"

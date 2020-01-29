@@ -31,7 +31,7 @@ entry:
   %6 = load i8*, i8** %hw
   %7 = call i32 (i8*, ...) @printf(i8* %6)
   %8 = load i8*, i8** %hw
-  %9 = getelementptr inbounds i8, i8* %8, i64 0
+  %9 = getelementptr inbounds i8, i8* %8, i32 0
   store i8 74, i8* %9
   %10 = load i8*, i8** %hw
   %11 = call i32 (i8*, ...) @printf(i8* %10)

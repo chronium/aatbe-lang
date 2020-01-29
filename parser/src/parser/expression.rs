@@ -202,7 +202,15 @@ impl Parser {
         let name = ident!(required self);
         let mut args = vec![];
 
+        match capture!(res parse_unary, self) {
+            Ok(expr) => args.push(expr),
+            Err(e) => return Err(e),
+        };
+
         loop {
+            if !sym!(bool Comma, self) {
+                break;
+            }
             match capture!(res parse_unary, self) {
                 Ok(expr) => args.push(expr),
                 Err(_) => break,

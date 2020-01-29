@@ -4,7 +4,7 @@ use "libc"
 fn main () -> () = {
     val len: i32 = strlen "Hello World\n"
     var hw: str = (malloc len) as str
-    strncpy (hw) ("Hello World\n") (len)
+    strncpy hw, "Hello World\n", len
     printf hw
     hw[0] = 'J'
     printf hw
