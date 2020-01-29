@@ -1,3 +1,6 @@
 extern fn puts str -> i32
 extern fn printf str, ... -> i32
-extern fn putchar i8 -> i32
+extern fn putchar char -> i32
+extern fn malloc i32 -> char*
+extern fn strlen str -> i32
+extern fn strncpy char*, char*, i32 -> char*

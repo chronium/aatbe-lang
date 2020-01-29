@@ -90,6 +90,21 @@ impl<'c> Lexer<'c> {
         }
     }
 
+    pub fn escape_char(&mut self) -> char {
+        match self.chars.peek() {
+            Some('n') => {
+                self.advance();
+                '\n'
+            }
+            Some('"') => {
+                self.advance();
+                '"'
+            }
+            Some(c) => *c,
+            None => '\\',
+        }
+    }
+
     pub fn lex(&mut self) {
         loop {
             self.eat_whitespace();
@@ -218,6 +233,17 @@ impl<'c> Lexer<'c> {
                     }
                     _ => self.push_symbol(Symbol::Slash, pos),
                 },
+                '\'' => {
+                    let c = self.escape_char();
+                    self.advance();
+                    match self.chars.peek() {
+                        Some('\'') => {
+                            self.advance();
+                            self.push_token(TokenKind::CharLiteral(c), pos);
+                        }
+                        _ => panic!("Expected ' at {:?}", pos),
+                    }
+                }
                 '"' => {
                     let mut buf = String::default();
                     loop {
@@ -229,18 +255,7 @@ impl<'c> Lexer<'c> {
                             Some(c) => match c {
                                 '\\' => {
                                     self.advance();
-                                    match self.chars.peek() {
-                                        Some('n') => {
-                                            buf.push('\n');
-                                            self.advance();
-                                        }
-                                        Some('"') => {
-                                            buf.push('"');
-                                            self.advance();
-                                        }
-                                        Some(c) => buf.push(*c),
-                                        None => buf.push('\\'),
-                                    }
+                                    buf.push(self.escape_char());
                                 }
                                 _ => {
                                     buf.push(*c);

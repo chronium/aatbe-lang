@@ -2,5 +2,10 @@ use "libc"
 
 @entry
 fn main () -> () = {
-    printf "\"Hello World\"[0] = %c\n" "Hello World"[0]
+    val len: i32 = strlen "Hello World\n"
+    var hw: str = (malloc len) as str
+    strncpy (hw) ("Hello World\n") (len)
+    printf hw
+    hw[0] = 'J'
+    printf hw
 }

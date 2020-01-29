@@ -45,6 +45,7 @@ pub enum LValue {
     Ident(String),
     Accessor(Vec<String>),
     Deref(Box<LValue>),
+    Index(Box<LValue>, Box<Expression>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -60,6 +61,7 @@ pub enum PrimitiveType {
     Str,
     Varargs,
     Bool,
+    Char,
     Int(IntSize),
     UInt(IntSize),
     TypeRef(String),
@@ -73,6 +75,7 @@ pub enum PrimitiveType {
         ty: Box<PrimitiveType>,
     },
     Ref(Box<PrimitiveType>),
+    Pointer(Box<PrimitiveType>),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -81,6 +84,7 @@ pub enum AtomKind {
     Bool(Boolean),
     Integer(u64, PrimitiveType),
     StringLiteral(String),
+    CharLiteral(char),
     Expr(Box<Expression>),
     Unit,
     Parenthesized(Box<Expression>),
@@ -89,6 +93,7 @@ pub enum AtomKind {
     Access(Vec<String>),
     Deref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
+    Cast(Box<AtomKind>, PrimitiveType),
     NamedValue {
         name: String,
         val: Box<Expression>,
@@ -119,6 +124,7 @@ impl fmt::Debug for LValue {
             LValue::Ident(name) => write!(f, "{}", name),
             LValue::Accessor(parts) => write!(f, "{}", parts.join(".")),
             LValue::Deref(lval) => write!(f, "*{:?}", lval),
+            LValue::Index(what, _) => write!(f, "{:?}[]", what),
         }
     }
 }
@@ -129,6 +135,7 @@ impl From<&LValue> for String {
             LValue::Ident(name) => name.clone(),
             LValue::Accessor(parts) => parts.join("."),
             LValue::Deref(lval) => format!("*{:?}", lval),
+            LValue::Index(what, _) => format!("{:?}[]", what),
         }
     }
 }

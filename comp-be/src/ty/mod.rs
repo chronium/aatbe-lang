@@ -55,12 +55,17 @@ impl LLVMTyInCtx for PrimitiveType {
                 ctx.Int64Type()
             }
             PrimitiveType::Str => ctx.CharPointerType(),
+            PrimitiveType::Char => ctx.Int8Type(),
             PrimitiveType::NamedType { name: _, ty } => ty.llvm_ty_in_ctx(module),
             PrimitiveType::TypeRef(name) => module
                 .typectx_ref()
                 .get_type(name)
                 .expect(format!("Type {} is not declared", name).as_str())
                 .llvm_ty_in_ctx(module),
+            PrimitiveType::Pointer(ty) => match ty {
+                box PrimitiveType::Char => ctx.CharPointerType(),
+                _ => panic!("llvm_ty_in_ctx {:?}", ty),
+            },
             PrimitiveType::Function {
                 ext: _,
                 ret_ty,

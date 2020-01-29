@@ -61,6 +61,16 @@ impl Parser {
         None
     }
 
+    fn parse_char_lit(&mut self) -> Option<AtomKind> {
+        let token = self.next();
+        if let Some(tok) = token {
+            if let Some(val) = tok.ch() {
+                return Some(AtomKind::CharLiteral(val));
+            }
+        }
+        None
+    }
+
     fn parse_unit(&mut self) -> Option<AtomKind> {
         let token = self.next();
         if let Some(tok) = token {
@@ -117,6 +127,7 @@ impl Parser {
             parse_number,
             parse_unit,
             parse_string_lit,
+            parse_char_lit,
             parse_atomized_expression,
             parse_symbol_literal,
             parse_ident
@@ -148,13 +159,21 @@ impl Parser {
             capture!(res parse_atom, self)
         };
 
-        if sym!(bool LBracket, self) && res.is_ok() {
+        let index = if sym!(bool LBracket, self) && res.is_ok() {
             let index =
                 box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
             sym!(required RBracket, self);
             Ok(AtomKind::Index(box res.unwrap(), index))
         } else {
             res
+        };
+
+        if kw!(bool As, self) && index.is_ok() {
+            let ty = capture!(res parse_type, self)?;
+
+            Ok(AtomKind::Cast(box index.unwrap(), ty))
+        } else {
+            index
         }
     }
 
@@ -245,7 +264,17 @@ impl Parser {
     }
 
     fn parse_lvalue(&mut self) -> ParseResult<LValue> {
-        capture!(self, parse_lval_ident, parse_lval_deref).ok_or(ParseError::ExpectedLValue)
+        let lval =
+            capture!(self, parse_lval_ident, parse_lval_deref).ok_or(ParseError::ExpectedLValue);
+
+        if sym!(bool LBracket, self) && lval.is_ok() {
+            let index =
+                box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+            sym!(required RBracket, self);
+            Ok(LValue::Index(box lval.unwrap(), index))
+        } else {
+            lval
+        }
     }
 
     fn parse_assign(&mut self) -> ParseResult<Expression> {

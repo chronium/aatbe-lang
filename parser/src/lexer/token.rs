@@ -19,6 +19,7 @@ pub enum TokenKind {
     Keyword(Keyword),
     Type(Type),
     StringLiteral(String),
+    CharLiteral(char),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -100,10 +101,12 @@ pub enum Keyword {
     Use,
     Bool,
     Record,
+    As,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Type {
+    Char,
     Str,
     I8,
     I16,
@@ -187,12 +190,14 @@ impl Token {
     from_tok!(ty, Type, Type);
     from_tok!(st, StringLiteral, String);
     from_tok!(comm, Comment, String);
+    from_tok!(ch, CharLiteral, char);
 }
 
 impl FromStr for Type {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "char" => Ok(Self::Char),
             "str" => Ok(Self::Str),
             "i8" => Ok(Self::I8),
             "i16" => Ok(Self::I16),
@@ -220,6 +225,7 @@ impl FromStr for Keyword {
             "use" => Ok(Self::Use),
             "bool" => Ok(Self::Bool),
             "rec" => Ok(Self::Record),
+            "as" => Ok(Self::As),
             _ => Err(()),
         }
     }

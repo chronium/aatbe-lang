@@ -54,16 +54,30 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
 }
 
 pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &AtomKind) -> LLVMValueRef {
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+        match lval {
+            LValue::Ident(name) => match module.get_var(name) {
+                None => panic!("Cannot find variable {}", name),
+                Some(var) => var.into(),
+            },
+            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Deref(_) => unimplemented!(),
+            LValue::Index(lval, index) => {
+                let val = get_lval(module, lval);
+                let index = module.codegen_expr(index).expect("ICE init_record index");
+
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_inbounds_gep(val, &mut [index]);
+
+                module.llvm_builder_ref().build_load(gep)
+            }
+        }
+    }
+
     match rec {
         AtomKind::RecordInit { record, values } => {
-            let var: LLVMValueRef = match lval {
-                LValue::Ident(name) => match module.get_var(name) {
-                    None => panic!("Cannot find variable {}", name),
-                    Some(var) => var.into(),
-                },
-                LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
-                LValue::Deref(_) => unimplemented!(),
-            };
+            let var: LLVMValueRef = get_lval(module, lval);
 
             values.iter().for_each(|val| match val {
                 AtomKind::NamedValue { name, val } => {
@@ -92,20 +106,35 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &AtomKind) -> L
 }
 
 pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) -> LLVMValueRef {
-    let var: LLVMValueRef = match lval {
-        LValue::Ident(name) => match module.get_var(name) {
-            None => panic!("Cannot find variable {}", name),
-            Some(var) => {
-                match var.get_mutability() {
-                    Mutability::Mutable => {}
-                    _ => panic!("Cannot reassign to immutable/constant {}", name),
-                };
-                var.into()
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+        match lval {
+            LValue::Ident(name) => match module.get_var(name) {
+                None => panic!("Cannot find variable {}", name),
+                Some(var) => {
+                    match var.get_mutability() {
+                        Mutability::Mutable => {}
+                        _ => panic!("Cannot reassign to immutable/constant {}", name),
+                    };
+                    var.into()
+                }
+            },
+            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Deref(_) => unimplemented!(),
+            LValue::Index(lval, index) => {
+                let val = get_lval(module, lval);
+                let index = module.codegen_expr(index).expect("ICE store_value index");
+
+                let load = module.llvm_builder_ref().build_load(val);
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_inbounds_gep(load, &mut [index]);
+
+                gep
             }
-        },
-        LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
-        LValue::Deref(_) => unimplemented!(),
-    };
+        }
+    }
+
+    let var: LLVMValueRef = get_lval(module, lval);
 
     let val = module
         .codegen_expr(value)

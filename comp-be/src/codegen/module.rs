@@ -152,9 +152,15 @@ impl AatbeModule {
 
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
         match atom {
+            AtomKind::Cast(box val, ty) => {
+                let val = self.codegen_atom(val).expect("ICE codegen_atom cast val");
+                let ty = ty.llvm_ty_in_ctx(self);
+
+                Some(self.llvm_builder_ref().build_bitcast(val, ty))
+            }
             AtomKind::Index(box val, box index) => {
                 let index = self.codegen_expr(index).expect("ICE codegen_atom index");
-                let val = self.codegen_atom(val).expect("ICE codegen_atom val");
+                let val = self.codegen_atom(val).expect("ICE codegen_atom index val");
 
                 let gep = self
                     .llvm_builder_ref()
@@ -178,6 +184,7 @@ impl AatbeModule {
             AtomKind::StringLiteral(string) => {
                 Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
             }
+            AtomKind::CharLiteral(ch) => Some(self.llvm_context_ref().SInt8(*ch as u64)),
             AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)) => {
                 Some(self.llvm_context.SInt32(*val))
             }
