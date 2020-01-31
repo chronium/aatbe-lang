@@ -1,11 +1,10 @@
-use "libc"
+use "prelude"
 
 @entry
 fn main () -> () = {
-    val len: i32 = strlen "Hello World\n"
-    var hw: str = (malloc len) as str
-    strncpy hw, "Hello World\n", len
-    printf hw
-    hw[0] = 'J'
-    printf hw
+    val hello: String = new :String, "Hello World!"
+    print hello
+    put_char_at hello, 0, 'J'
+    print hello
+    put_char_at hello, 80, '!'
 }

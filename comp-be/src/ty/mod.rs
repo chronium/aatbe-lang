@@ -64,6 +64,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 .llvm_ty_in_ctx(module),
             PrimitiveType::Pointer(ty) => match ty {
                 box PrimitiveType::Char => ctx.CharPointerType(),
+                tr @ box PrimitiveType::TypeRef(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
                 _ => panic!("llvm_ty_in_ctx {:?}", ty),
             },
             PrimitiveType::Function {

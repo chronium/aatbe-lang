@@ -1,0 +1,6 @@
+extern fn exit i32 -> ()
+
+fn panic msg: str -> () = {
+  printf "PANIC: %s\n", msg
+  exit 1
+}

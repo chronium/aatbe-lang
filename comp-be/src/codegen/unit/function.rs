@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{mangle_v1::NameMangler, AatbeModule, CodegenUnit},
+    codegen::{mangle_v1::NameMangler, unit::Mutability, AatbeModule, CodegenUnit},
     ty::LLVMTyInCtx,
 };
 
@@ -78,7 +78,30 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                         .enumerate()
                     {
                         match ty {
-                            PrimitiveType::NamedType { name, ty: _ } => {
+                            PrimitiveType::NamedType {
+                                name,
+                                ty: box PrimitiveType::TypeRef(_),
+                            } => {
+                                let arg = module
+                                    .get_func(&fun_name)
+                                    .expect("Compiler borked. Functions borked")
+                                    .get_param(pos as u32);
+                                let llty = ty.llvm_ty_in_ctx(module);
+                                let ptr = module
+                                    .llvm_builder_ref()
+                                    .build_alloca_with_name(llty, name.as_ref());
+                                module.llvm_builder_ref().build_store(arg, ptr);
+                                module.push_in_scope(
+                                    name,
+                                    CodegenUnit::Variable {
+                                        mutable: Mutability::Immutable,
+                                        name: name.clone(),
+                                        ty: ty.clone(),
+                                        value: ptr,
+                                    },
+                                );
+                            }
+                            PrimitiveType::NamedType { name, ty } => {
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::FunctionArgument(
@@ -86,6 +109,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                             .get_func(&fun_name)
                                             .expect("Compiler borked. Functions borked")
                                             .get_param(pos as u32),
+                                        *ty.clone(),
                                     ),
                                 );
                             }

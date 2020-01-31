@@ -136,7 +136,14 @@ impl AatbeModule {
                                 },
                             value: _,
                         } => rec.clone(),
-                        _ => unreachable!(),
+                        CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
+                            rec.clone()
+                        }
+                        CodegenUnit::FunctionArgument(
+                            _arg,
+                            PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
+                        ) => rec.clone(),
+                        _ => panic!("ICE get_interior_pointer {:?}", rec),
                     };
 
                     self.typectx_ref()
@@ -169,6 +176,10 @@ impl AatbeModule {
                 Some(self.llvm_builder_ref().build_load(gep))
             }
             AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
+            AtomKind::Deref(path) => {
+                let acc = self.codegen_atom(path).expect("");
+                Some(self.llvm_builder_ref().build_load(acc))
+            }
             AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
                 self.get_interior_pointer(path.to_vec()),
                 path.join(".").as_str(),
@@ -466,7 +477,7 @@ impl AatbeModule {
                 ty: _,
                 value: _,
             }) => val_ref,
-            Some(CodegenUnit::FunctionArgument(_arg)) => val_ref,
+            Some(CodegenUnit::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
         }
     }

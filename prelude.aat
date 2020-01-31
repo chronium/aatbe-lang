@@ -1,0 +1,25 @@
+use "libc"
+use "aatrt"
+
+rec String(buffer: str, length: i32, max_len: i32)
+
+fn new String, value: str -> String = {
+    val len: i32 = (strlen value)
+    val buf: str = (malloc len) as str
+    (strncpy buf, value, len)
+
+    String {
+        buffer: buf,
+        length: len,
+        max_len: len
+    }
+}
+
+fn print value: String -> () = {
+    printf "%s\n", value.buffer
+}
+
+fn put_char_at value: String, ind: i32, c: char -> () = {
+    if ind >= value.length panic "Index out of bounds"
+    value.buffer[ind] = c
+}

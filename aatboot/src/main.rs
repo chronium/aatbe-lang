@@ -78,11 +78,11 @@ fn main() -> io::Result<()> {
             .llvm_module_ref()
             .print_module_to_file(
                 Path::new(llvm_out)
-                    .with_extension("lli")
+                    .with_extension("ll")
                     .to_str()
-                    .expect("Could not create .lli file path"),
+                    .expect("Could not create .ll file path"),
             )
-            .expect("Could not write .lli file");
+            .expect("Could not write .ll file");
     }
 
     match module.llvm_module_ref().verify() {

@@ -29,7 +29,7 @@ impl From<&BindType> for Mutability {
 #[derive(Debug)]
 pub enum CodegenUnit {
     Function(Function),
-    FunctionArgument(LLVMValueRef),
+    FunctionArgument(LLVMValueRef, PrimitiveType),
     Variable {
         mutable: Mutability,
         name: String,
@@ -42,7 +42,7 @@ impl Into<LLVMValueRef> for &CodegenUnit {
     fn into(self) -> LLVMValueRef {
         match self {
             CodegenUnit::Function(func) => func.as_ref(),
-            CodegenUnit::FunctionArgument(arg) => *arg,
+            CodegenUnit::FunctionArgument(arg, _) => *arg,
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
@@ -95,7 +95,7 @@ impl CodegenUnit {
                 ty: _,
                 value: _,
             } => builder.build_load(self.into()),
-            CodegenUnit::FunctionArgument(_arg) => self.into(),
+            CodegenUnit::FunctionArgument(_, _) => self.into(),
             _ => panic!("Cannot load non-variable"),
         }
     }
