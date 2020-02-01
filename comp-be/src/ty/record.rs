@@ -54,7 +54,7 @@ impl Record {
             match ty {
                 PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
                     .typectx_ref()
-                    .get_type(&typeref)
+                    .get_record(&typeref)
                     .expect(format!("ICE no type associated with {}", typeref).as_str())
                     .read_field(module, gep, &member, rest.to_vec()),
                 _ => gep,

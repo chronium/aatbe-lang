@@ -11,7 +11,7 @@ use crate::{
     },
     ty::{
         record::{store_named_field, Record},
-        LLVMTyInCtx, TypeContext,
+        LLVMTyInCtx, TypeContext, TypeKind,
     },
 };
 
@@ -20,6 +20,35 @@ use parser::{
     lexer::Lexer,
     parser::Parser,
 };
+
+pub struct ValueTypePair(LLVMValueRef, TypeKind);
+
+impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, TypeKind)) -> ValueTypePair {
+        ValueTypePair(val, ty)
+    }
+}
+
+impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
+    fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
+        (vtp.0, vtp.1)
+    }
+}
+
+impl ValueTypePair {
+    pub fn indexable(&self) -> Option<ValueTypePair> {
+        match &self {
+            ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
+                prim @ PrimitiveType::Str => Some((*val, TypeKind::Primitive(prim.clone())).into()),
+                PrimitiveType::Pointer(box ty) => {
+                    Some((self.0, TypeKind::Primitive(ty.clone())).into())
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
 
 #[allow(dead_code)]
 pub struct AatbeModule {
@@ -93,8 +122,8 @@ impl AatbeModule {
         match ast {
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
-                self.typectx.push_type(name, rec);
-                self.typectx.get_type(name).unwrap().set_body(self, types);
+                self.typectx.push_type(name, TypeKind::RecordType(rec));
+                self.typectx.get_record(name).unwrap().set_body(self, types);
             }
             AST::File(nodes) => nodes
                 .iter()
@@ -147,7 +176,7 @@ impl AatbeModule {
                     };
 
                     self.typectx_ref()
-                        .get_type(&rec_type)
+                        .get_record(&rec_type)
                         .expect("ICE get_access variable without type")
                         .read_field(self, rec.into(), rec_ref, tail.to_vec())
                 }
@@ -157,25 +186,39 @@ impl AatbeModule {
         }
     }
 
-    pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
+    pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
             AtomKind::Cast(box val, ty) => {
-                let val = self.codegen_atom(val).expect("ICE codegen_atom cast val");
-                let ty = ty.llvm_ty_in_ctx(self);
+                let (val, _) = self
+                    .codegen_atom(val)
+                    .expect("ICE codegen_atom cast val")
+                    .into();
 
-                Some(self.llvm_builder_ref().build_bitcast(val, ty))
+                Some(
+                    (
+                        self.llvm_builder_ref()
+                            .build_bitcast(val, ty.llvm_ty_in_ctx(self)),
+                        TypeKind::prim(ty.clone()),
+                    )
+                        .into(),
+                )
             }
             AtomKind::Index(box val, box index) => {
                 let index = self.codegen_expr(index).expect("ICE codegen_atom index");
-                let val = self.codegen_atom(val).expect("ICE codegen_atom index val");
+                let (val, ty) = self
+                    .codegen_atom(val)
+                    .expect("ICE codegen_atom index val")
+                    .indexable()
+                    .expect(format!("{:?} is not indexable", val).as_str())
+                    .into();
 
                 let gep = self
                     .llvm_builder_ref()
                     .build_inbounds_gep(val, &mut [index]);
 
-                Some(self.llvm_builder_ref().build_load(gep))
+                Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
-            AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
+            /*AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
             AtomKind::Deref(path) => {
                 let acc = self.codegen_atom(path).expect("");
                 Some(self.llvm_builder_ref().build_load(acc))
@@ -183,38 +226,60 @@ impl AatbeModule {
             AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
                 self.get_interior_pointer(path.to_vec()),
                 path.join(".").as_str(),
-            )),
-            AtomKind::Ident(name) => {
+            )),*/
+            /*AtomKind::Ident(name) => {
                 let var_ref = self.get_var(name);
 
                 match var_ref {
                     None => panic!("Cannot find variable {}", name),
                     Some(var) => Some(var.load_var(self.llvm_builder_ref())),
                 }
+            }*/
+            AtomKind::StringLiteral(string) => Some(
+                (
+                    self.llvm_builder.build_global_string_ptr(string.as_str()),
+                    TypeKind::prim(PrimitiveType::Str),
+                )
+                    .into(),
+            ),
+            AtomKind::CharLiteral(ch) => Some(
+                (
+                    self.llvm_context_ref().SInt8(*ch as u64),
+                    TypeKind::prim(PrimitiveType::Str),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => {
+                Some((self.llvm_context.SInt32(*val), TypeKind::prim(prim.clone())).into())
             }
-            AtomKind::StringLiteral(string) => {
-                Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
-            }
-            AtomKind::CharLiteral(ch) => Some(self.llvm_context_ref().SInt8(*ch as u64)),
-            AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)) => {
-                Some(self.llvm_context.SInt32(*val))
-            }
-            AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
-            AtomKind::Bool(Boolean::False) => Some(self.llvm_context.SInt1(0)),
-            AtomKind::Expr(expr) => self.codegen_expr(expr),
+            AtomKind::Bool(Boolean::True) => Some(
+                (
+                    self.llvm_context.SInt1(1),
+                    TypeKind::prim(PrimitiveType::Bool),
+                )
+                    .into(),
+            ),
+            AtomKind::Bool(Boolean::False) => Some(
+                (
+                    self.llvm_context.SInt1(0),
+                    TypeKind::prim(PrimitiveType::Bool),
+                )
+                    .into(),
+            ),
+            //AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
-            AtomKind::Unary(op, val) if op == &String::from("!") => {
+            /*AtomKind::Unary(op, val) if op == &String::from("!") => {
                 let value = self
                     .codegen_atom(val)
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
                 Some(self.llvm_builder.build_not(value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            _ => panic!("ICE codegen_atom {:?}", atom),
+            _ => panic!("ICE codegen_atom {:?}", atom),*/
         }
     }
 
-    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
+    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
             Expression::RecordInit { record, values } => {
                 let rec = self.llvm_builder_ref().build_alloca(
@@ -233,7 +298,7 @@ impl AatbeModule {
                             rec,
                             record,
                             self.typectx_ref()
-                                .get_type(record)
+                                .get_record(record)
                                 .expect(format!("ICE could not find record {}", record).as_str()),
                             name,
                             val_ref,
@@ -304,7 +369,7 @@ impl AatbeModule {
                     .iter()
                     .filter_map(|arg| match arg {
                         AtomKind::SymbolLiteral(_) => None,
-                        _ => self.codegen_atom(arg),
+                        _ => self.codegen_atom(arg).map(|arg| arg.0),
                     })
                     .collect::<Vec<LLVMValueRef>>();
                 Some(
@@ -375,7 +440,7 @@ impl AatbeModule {
 
                 ret
             }
-            Expression::Atom(atom) => self.codegen_atom(atom),
+            Expression::Atom(atom) => self.codegen_atom(atom).map(|atom| atom.0),
             _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
         }
     }

@@ -90,7 +90,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
                         &lval.into(),
                         module
                             .typectx_ref()
-                            .get_type(record)
+                            .get_record(record)
                             .expect(format!("ICE could not find record {}", record).as_str()),
                         name,
                         val_ref,

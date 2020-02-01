@@ -2,9 +2,5 @@ use "prelude"
 
 @entry
 fn main () -> () = {
-    val hello: String = new :String, "Hello World!"
-    print hello
-    put_char_at hello, 0, 'J'
-    print hello
-    put_char_at hello, 80, '!'
+    val hw: i32 = "Hello World!"
 }

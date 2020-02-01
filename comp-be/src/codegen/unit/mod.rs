@@ -65,8 +65,8 @@ impl CodegenUnit {
                         ty: box PrimitiveType::TypeRef(record),
                     },
                 value: _,
-            } => match module.typectx_ref().get_type(record) {
-                Some(rec) => rec.get_field_index(name),
+            } => match module.typectx_ref().get_record(record) {
+                Ok(rec) => rec.get_field_index(name),
                 _ => panic!("Cannot get index from {:?}", self),
             },
             _ => panic!("Cannot get index from {:?}", self),
