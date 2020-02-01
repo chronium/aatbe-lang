@@ -57,6 +57,13 @@ impl Parser {
         }
     }
 
+    pub fn peek_rel(&self, offs: isize) -> Option<&Token> {
+        if self.index as isize + offs < 0 {
+            panic!("Peek relative < 0");
+        }
+        peek!(self.tt, (self.index as isize + offs) as usize)
+    }
+
     pub fn peek(&mut self) -> Option<&Token> {
         loop {
             match peek!(self.tt, self.index).map_or(None, |t| t.comm()) {

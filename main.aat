@@ -2,6 +2,6 @@ use "libc"
 
 @entry
 fn main () -> () = {
-    if 1 {}
-    if false {}
+    val test: i32 = 10
+    if test {}
 }

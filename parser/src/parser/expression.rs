@@ -94,24 +94,36 @@ impl Parser {
     }
 
     fn parse_ident(&mut self) -> Option<AtomKind> {
-        if capture!(res parse_funcall, self)
-            .or_else(|_| capture!(res parse_assign, self))
-            .or_else(|_| capture!(res parse_record_init, self))
-            .is_ok()
-        {
-            None
-        } else {
-            ident!(res raw self)
-                .map(|i| {
-                    i.map(|id| match id.split_accessor() {
-                        Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
-                        Some(parts) => AtomKind::Access(parts),
-                        None => unreachable!(),
+        if self
+            .peek_rel(-1)
+            .map(|t| {
+                t.kw()
+                    .map(|kw| match kw {
+                        Keyword::If => false,
+                        _ => true,
                     })
-                    .unwrap()
-                })
-                .ok()
+                    .unwrap_or(true)
+            })
+            .unwrap_or(true)
+        {
+            if capture!(res parse_funcall, self)
+                .or_else(|_| capture!(res parse_assign, self))
+                .or_else(|_| capture!(res parse_record_init, self))
+                .is_ok()
+            {
+                return None;
+            }
         }
+        ident!(res raw self)
+            .map(|i| {
+                i.map(|id| match id.split_accessor() {
+                    Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
+                    Some(parts) => AtomKind::Access(parts),
+                    None => unreachable!(),
+                })
+                .unwrap()
+            })
+            .ok()
     }
 
     fn parse_symbol_literal(&mut self) -> Option<AtomKind> {
