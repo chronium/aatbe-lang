@@ -36,6 +36,17 @@ impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
 }
 
 impl ValueTypePair {
+    pub fn prim(&self) -> &PrimitiveType {
+        match self {
+            ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
+            _ => panic!("ICE prim {:?}"),
+        }
+    }
+
+    pub fn val(&self) -> LLVMValueRef {
+        self.0
+    }
+
     pub fn indexable(&self) -> Option<ValueTypePair> {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
@@ -214,7 +225,7 @@ impl AatbeModule {
 
                 let gep = self
                     .llvm_builder_ref()
-                    .build_inbounds_gep(val, &mut [index]);
+                    .build_inbounds_gep(val, &mut [index.0]);
 
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
@@ -274,8 +285,8 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
                 Some(self.llvm_builder.build_not(value))
             }
-            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            _ => panic!("ICE codegen_atom {:?}", atom),*/
+            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),*/
+            _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
 
@@ -301,15 +312,21 @@ impl AatbeModule {
                                 .get_record(record)
                                 .expect(format!("ICE could not find record {}", record).as_str()),
                             name,
-                            val_ref,
+                            val_ref.0,
                         );
                     }
                     _ => panic!("ICE codegen_expr {:?}", expr),
                 });
 
-                Some(self.llvm_builder_ref().build_load(rec))
+                Some(
+                    (
+                        self.llvm_builder_ref().build_load(rec),
+                        TypeKind::Primitive(PrimitiveType::TypeRef(record.clone())),
+                    )
+                        .into(),
+                )
             }
-            Expression::Assign { lval, value } => match value {
+            /*Expression::Assign { lval, value } => match value {
                 box Expression::RecordInit { record, values } => Some(init_record(
                     self,
                     lval,
@@ -318,18 +335,26 @@ impl AatbeModule {
                         values: values.to_vec(),
                     },
                 )),
-                _ => Some(store_value(self, lval, value)),
-            },
+                _ => {
+                    Some(store_value(self, lval, value))
+                },
+            },*/
             Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: PrimitiveType::NamedType { name, ty },
                 value: _,
                 exterior_bind: _,
             } => {
                 alloc_variable(self, expr);
 
-                Some(self.get_var(name).expect("Compiler crapped out.").into())
+                Some(
+                    (
+                        self.get_var(name).expect("Compiler crapped out.").into(),
+                        TypeKind::Primitive(*ty.clone()),
+                    )
+                        .into(),
+                )
             }
-            Expression::If {
+            /*Expression::If {
                 cond_expr,
                 then_expr,
                 else_expr,
@@ -389,7 +414,7 @@ impl AatbeModule {
                     .codegen_expr(rhs)
                     .expect("Binary op rhs must contain a value");
                 Some(self.codegen_binary_op(op, lh, rh))
-            }
+            }*/
             Expression::Function {
                 name,
                 ty,
@@ -415,9 +440,12 @@ impl AatbeModule {
 
                         // TODO: Typechecks
                         match has_return_type(ty) {
-                            true => self.llvm_builder.build_ret(ret.expect(
-                                "Compiler broke, function returns broke. Everything's on fire",
-                            )),
+                            true => self.llvm_builder.build_ret(
+                                ret.expect(
+                                    "Compiler broke, function returns broke. Everything's on fire",
+                                )
+                                .0,
+                            ),
                             false => self.llvm_builder.build_ret_void(),
                         };
 
@@ -440,7 +468,7 @@ impl AatbeModule {
 
                 ret
             }
-            Expression::Atom(atom) => self.codegen_atom(atom).map(|atom| atom.0),
+            Expression::Atom(atom) => self.codegen_atom(atom),
             _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
         }
     }
@@ -451,7 +479,7 @@ impl AatbeModule {
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
                 .unwrap(),
-            AST::Expr(expr) => self.codegen_expr(expr),
+            AST::Expr(expr) => self.codegen_expr(expr).map(|e| e.val()),
             AST::Import(module) => {
                 let ast = self
                     .get_imported_ast(module)

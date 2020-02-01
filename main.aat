@@ -1,5 +1,3 @@
-use "prelude"
-
 @entry
 fn main () -> () = {
     val hw: i32 = "Hello World!"

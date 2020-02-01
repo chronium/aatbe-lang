@@ -1,5 +1,6 @@
 use crate::{
     codegen::{unit::Mutability, AatbeModule, CodegenUnit},
+    fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx},
 };
 
@@ -45,7 +46,11 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                     let val = module
                         .codegen_expr(e)
                         .expect(format!("Cannot codegen variable {} value", name).as_ref());
-                    module.llvm_builder_ref().build_store(val, var_ref);
+
+                    if val.prim() != ty.inner() {
+                        panic!("{:?} does not match type {}", value, ty.inner().fmt());
+                    }
+                    module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
             }
         }
@@ -68,7 +73,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
 
                 let gep = module
                     .llvm_builder_ref()
-                    .build_inbounds_gep(val, &mut [index]);
+                    .build_inbounds_gep(val, &mut [index.val()]);
 
                 module.llvm_builder_ref().build_load(gep)
             }
@@ -93,7 +98,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
                             .get_record(record)
                             .expect(format!("ICE could not find record {}", record).as_str()),
                         name,
-                        val_ref,
+                        val_ref.val(),
                     );
                 }
                 _ => panic!("ICE init_record unexpected {:?}", val),
@@ -127,7 +132,7 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
                 let load = module.llvm_builder_ref().build_load(val);
                 let gep = module
                     .llvm_builder_ref()
-                    .build_inbounds_gep(load, &mut [index]);
+                    .build_inbounds_gep(load, &mut [index.val()]);
 
                 gep
             }
@@ -140,5 +145,5 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
         .codegen_expr(value)
         .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
 
-    module.llvm_builder_ref().build_store(val, var)
+    module.llvm_builder_ref().build_store(val.val(), var)
 }

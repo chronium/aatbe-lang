@@ -82,6 +82,23 @@ pub enum PrimitiveType {
     Pointer(Box<PrimitiveType>),
 }
 
+impl PrimitiveType {
+    pub fn inner(&self) -> &PrimitiveType {
+        match self {
+            PrimitiveType::NamedType {
+                name: _,
+                ty: box ty,
+            } => ty,
+            PrimitiveType::Function {
+                ext: _,
+                ret_ty: _,
+                params: _,
+            } => panic!("ICE primty inner {:?}", self),
+            other => other,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AtomKind {
     SymbolLiteral(String),

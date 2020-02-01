@@ -7,4 +7,5 @@
 )]
 
 pub mod codegen;
+pub mod fmt;
 pub mod ty;
