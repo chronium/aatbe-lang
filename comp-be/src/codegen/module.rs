@@ -9,6 +9,7 @@ use crate::{
         },
         CodegenUnit, Scope,
     },
+    fmt::AatbeFmt,
     ty::{
         record::{store_named_field, Record},
         LLVMTyInCtx, TypeContext, TypeKind,
@@ -62,7 +63,11 @@ impl ValueTypePair {
 }
 
 pub enum CompileError {
-    RawError(String),
+    ExpectedType {
+        expected_ty: String,
+        found_ty: String,
+        value: String,
+    },
 }
 
 #[allow(dead_code)]
@@ -235,8 +240,8 @@ impl AatbeModule {
 
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
-            /*AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
-            AtomKind::Deref(path) => {
+            AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
+            /*AtomKind::Deref(path) => {
                 let acc = self.codegen_atom(path).expect("");
                 Some(self.llvm_builder_ref().build_load(acc))
             }
@@ -283,15 +288,21 @@ impl AatbeModule {
                 )
                     .into(),
             ),
-            //AtomKind::Expr(expr) => self.codegen_expr(expr),
+            AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
-            /*AtomKind::Unary(op, val) if op == &String::from("!") => {
+            AtomKind::Unary(op, val) if op == &String::from("!") => {
                 let value = self
                     .codegen_atom(val)
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
-                Some(self.llvm_builder.build_not(value))
+                Some(
+                    (
+                        self.llvm_builder.build_not(value.val()),
+                        TypeKind::Primitive(value.prim().clone()),
+                    )
+                        .into(),
+                )
             }
-            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),*/
+            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }
@@ -360,7 +371,7 @@ impl AatbeModule {
                         .into(),
                 )
             }
-            /*Expression::If {
+            Expression::If {
                 cond_expr,
                 then_expr,
                 else_expr,
@@ -376,10 +387,17 @@ impl AatbeModule {
                 let then_bb = func.append_basic_block(String::default());
                 let end_bb = func.append_basic_block(String::default());
 
-                let cond = self.codegen_expr(cond_expr);
+                let cond = self.codegen_expr(cond_expr).unwrap();
 
-                self.llvm_builder
-                    .build_cond_br(cond.unwrap(), then_bb, end_bb);
+                if *cond.prim().inner() != PrimitiveType::Bool {
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: cond.prim().fmt(),
+                        value: cond_expr.fmt(),
+                    });
+                }
+
+                self.llvm_builder.build_cond_br(cond.val(), then_bb, end_bb);
 
                 self.llvm_builder.position_at_end(then_bb);
                 self.codegen_expr(then_expr);
@@ -388,7 +406,7 @@ impl AatbeModule {
 
                 None
             }
-            Expression::Call { name, args } => {
+            /*Expression::Call { name, args } => {
                 let mut name = name.clone();
 
                 args.iter().for_each(|arg| match arg {
@@ -403,16 +421,20 @@ impl AatbeModule {
                         _ => self.codegen_atom(arg).map(|arg| arg.0),
                     })
                     .collect::<Vec<LLVMValueRef>>();
+
+                let func = self
+                    .get_func(&name)
+                    .expect(format!("Call to undefined function {}", name).as_str());
+
                 Some(
-                    self.llvm_builder.build_call(
-                        self.get_func(&name)
-                            .expect(format!("Call to undefined function {}", name).as_str())
-                            .into(),
-                        &mut args,
-                    ),
+                    (
+                        self.llvm_builder.build_call(func.into(), &mut args),
+                        TypeKind::Primitive(func.ret_ty()),
+                    )
+                        .into(),
                 )
-            }
-            Expression::Binary(lhs, op, rhs) => {
+            }*/
+            /*Expression::Binary(lhs, op, rhs) => {
                 let lh = self
                     .codegen_expr(lhs)
                     .expect("Binary op lhs must contain a value");
@@ -562,7 +584,7 @@ impl AatbeModule {
     pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
         let val_ref = self.get_in_scope(name);
         match val_ref {
-            Some(CodegenUnit::Function(_)) => val_ref,
+            Some(CodegenUnit::Function(_, _)) => val_ref,
             _ => None,
         }
     }

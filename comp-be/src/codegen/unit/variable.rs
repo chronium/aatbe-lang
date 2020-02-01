@@ -48,12 +48,11 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                         .expect(format!("Cannot codegen variable {} value", name).as_ref());
 
                     if val.prim() != ty.inner() {
-                        module.add_error(CompileError::RawError(format!(
-                            "Expected {} but got {}: {}",
-                            ty.inner().fmt(),
-                            val.prim().fmt(),
-                            value.as_ref().unwrap().fmt()
-                        )));
+                        module.add_error(CompileError::ExpectedType {
+                            expected_ty: ty.inner().fmt(),
+                            found_ty: val.prim().fmt(),
+                            value: value.as_ref().unwrap().fmt(),
+                        });
                     }
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }

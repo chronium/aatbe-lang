@@ -76,7 +76,11 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
-            CompileError::RawError(err) => error!("{}", err),
+            CompileError::ExpectedType {
+                found_ty,
+                expected_ty,
+                value,
+            } => error!("Expected {} but found {}: {}", expected_ty, found_ty, value),
         });
         std::process::exit(1);
     }

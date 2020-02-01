@@ -28,7 +28,7 @@ impl From<&BindType> for Mutability {
 
 #[derive(Debug)]
 pub enum CodegenUnit {
-    Function(Function),
+    Function(Function, PrimitiveType),
     FunctionArgument(LLVMValueRef, PrimitiveType),
     Variable {
         mutable: Mutability,
@@ -41,7 +41,7 @@ pub enum CodegenUnit {
 impl Into<LLVMValueRef> for &CodegenUnit {
     fn into(self) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func) => func.as_ref(),
+            CodegenUnit::Function(func, _) => func.as_ref(),
             CodegenUnit::FunctionArgument(arg, _) => *arg,
             CodegenUnit::Variable {
                 mutable: _,
@@ -54,6 +54,20 @@ impl Into<LLVMValueRef> for &CodegenUnit {
 }
 
 impl CodegenUnit {
+    pub fn ret_ty(&self) -> PrimitiveType {
+        match self {
+            CodegenUnit::Function(
+                _,
+                PrimitiveType::Function {
+                    ext: _,
+                    ret_ty: box ret_ty,
+                    params: _,
+                },
+            ) => ret_ty.clone(),
+            _ => panic!("ICE ret_ty {:?}", self),
+        }
+    }
+
     pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<u32> {
         match self {
             CodegenUnit::Variable {
@@ -75,14 +89,14 @@ impl CodegenUnit {
 
     pub fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
         match self {
-            CodegenUnit::Function(func) => func.append_basic_block(name.as_ref()),
+            CodegenUnit::Function(func, _) => func.append_basic_block(name.as_ref()),
             _ => panic!("Cannot append basic block on {:?}", self),
         }
     }
 
     fn get_param(&self, index: u32) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func) => func.get_param(index),
+            CodegenUnit::Function(func, _) => func.get_param(index),
             _ => panic!("Cannot get parameter from {:?}", self),
         }
     }

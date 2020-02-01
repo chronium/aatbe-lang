@@ -1,4 +1,7 @@
+use "libc"
+
 @entry
 fn main () -> () = {
-    val hw: i32 = "Hello World!"
+    if 1 {}
+    if false {}
 }

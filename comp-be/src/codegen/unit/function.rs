@@ -19,7 +19,7 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
                 .llvm_module_ref()
                 .get_or_add_function(&name, ty.llvm_ty_in_ctx(module));
 
-            module.push_in_scope(&name, CodegenUnit::Function(func));
+            module.push_in_scope(&name, CodegenUnit::Function(func, ty.clone()));
         }
         _ => panic!("Unimplemented declare_function {:?}", function),
     }
