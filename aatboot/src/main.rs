@@ -1,4 +1,4 @@
-use comp_be::codegen::AatbeModule;
+use comp_be::codegen::{AatbeModule, CompileError};
 use parser::{lexer::Lexer, parser::Parser};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
@@ -72,6 +72,14 @@ fn main() -> io::Result<()> {
     );
     module.decl_pass(&pt);
     module.codegen_pass(&pt);
+
+    if module.errors().len() > 0 {
+        warn!("Compilation failed. Errors were found");
+        module.errors().iter().for_each(|err| match err {
+            CompileError::RawError(err) => error!("{}", err),
+        });
+        std::process::exit(1);
+    }
 
     if let Some(llvm_out) = matches.value_of("LLVM_OUT") {
         module

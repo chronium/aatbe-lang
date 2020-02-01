@@ -61,6 +61,10 @@ impl ValueTypePair {
     }
 }
 
+pub enum CompileError {
+    RawError(String),
+}
+
 #[allow(dead_code)]
 pub struct AatbeModule {
     llvm_context: Context,
@@ -71,6 +75,7 @@ pub struct AatbeModule {
     imported: HashMap<String, AST>,
     current_function: Option<String>,
     typectx: TypeContext,
+    compile_errors: Vec<CompileError>,
 }
 
 impl AatbeModule {
@@ -90,6 +95,7 @@ impl AatbeModule {
             scope_stack: Vec::new(),
             current_function: None,
             typectx: TypeContext::new(),
+            compile_errors: Vec::new(),
         }
     }
 
@@ -593,6 +599,14 @@ impl AatbeModule {
 
     pub fn typectx_ref(&self) -> &TypeContext {
         &self.typectx
+    }
+
+    pub fn add_error(&mut self, error: CompileError) {
+        self.compile_errors.push(error);
+    }
+
+    pub fn errors(&self) -> &Vec<CompileError> {
+        &self.compile_errors
     }
 }
 

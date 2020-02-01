@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{unit::Mutability, AatbeModule, CodegenUnit},
+    codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError},
     fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx},
 };
@@ -48,7 +48,12 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                         .expect(format!("Cannot codegen variable {} value", name).as_ref());
 
                     if val.prim() != ty.inner() {
-                        panic!("{:?} does not match type {}", value, ty.inner().fmt());
+                        module.add_error(CompileError::RawError(format!(
+                            "Expected {} but got {}: {}",
+                            ty.inner().fmt(),
+                            val.prim().fmt(),
+                            value.as_ref().unwrap().fmt()
+                        )));
                     }
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
