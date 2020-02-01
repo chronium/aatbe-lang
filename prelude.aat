@@ -4,9 +4,9 @@ use "aatrt"
 rec String(buffer: str, length: i32, max_len: i32)
 
 fn new String, value: str -> String = {
-    val len: i32 = (strlen value)
+    val len: i32 = strlen value
     val buf: str = (malloc len) as str
-    (strncpy buf, value, len)
+    strncpy buf, value, len
 
     String {
         buffer: buf,

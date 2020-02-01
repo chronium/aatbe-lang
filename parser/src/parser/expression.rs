@@ -96,6 +96,7 @@ impl Parser {
     fn parse_ident(&mut self) -> Option<AtomKind> {
         if capture!(res parse_funcall, self)
             .or_else(|_| capture!(res parse_assign, self))
+            .or_else(|_| capture!(res parse_record_init, self))
             .is_ok()
         {
             None
@@ -122,7 +123,6 @@ impl Parser {
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
-            parse_record_init,
             parse_boolean,
             parse_number,
             parse_unit,
@@ -321,13 +321,13 @@ impl Parser {
         Ok(params)
     }
 
-    fn parse_record_init(&mut self) -> Option<AtomKind> {
-        let record = ident!(opt self);
-        sym!(LCurly, self);
+    fn parse_record_init(&mut self) -> ParseResult<Expression> {
+        let record = ident!(res self)?;
+        sym!(required LCurly, self);
         let values = self
             .parse_named_value_list(Symbol::RCurly)
             .expect(format!("Expected a named argument list at {}", record).as_str());
-        Some(AtomKind::RecordInit { record, values })
+        Ok(Expression::RecordInit { record, values })
     }
 
     pub fn parse_expression(&mut self) -> Option<Expression> {
@@ -339,6 +339,7 @@ impl Parser {
                         self.index = prev_ind;
 
                         capture!(res parse_funcall, self)
+                            .or_else(|_| capture!(res parse_record_init, self))
                             .or_else(|_| capture!(res parse_assign, self))
                             .or_else(|_| capture!(res parse_decl, self))
                             .or_else(|_| capture!(res parse_if_else, self))

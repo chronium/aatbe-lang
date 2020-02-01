@@ -570,7 +570,7 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                 AST::Expr(Expression::Function {
                     name: "rec_test".to_string(),
                     attributes: vec![],
-                    body: Some(box Expression::Atom(AtomKind::RecordInit {
+                    body: Some(box Expression::RecordInit {
                         record: "Record".to_string(),
                         values: vec![
                             AtomKind::NamedValue {
@@ -594,7 +594,7 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                                 ]))
                             }
                         ],
-                    })),
+                    }),
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,

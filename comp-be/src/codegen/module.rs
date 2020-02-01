@@ -210,7 +210,13 @@ impl AatbeModule {
                 Some(self.llvm_builder.build_not(value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            AtomKind::RecordInit { record, values } => {
+            _ => panic!("ICE codegen_atom {:?}", atom),
+        }
+    }
+
+    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
+        match expr {
+            Expression::RecordInit { record, values } => {
                 let rec = self.llvm_builder_ref().build_alloca(
                     self.typectx_ref()
                         .get_type(record)
@@ -233,22 +239,16 @@ impl AatbeModule {
                             val_ref,
                         );
                     }
-                    _ => panic!("ICE codegen_atom {:?}", atom),
+                    _ => panic!("ICE codegen_expr {:?}", expr),
                 });
 
                 Some(self.llvm_builder_ref().build_load(rec))
             }
-            _ => panic!("ICE codegen_atom {:?}", atom),
-        }
-    }
-
-    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
-        match expr {
             Expression::Assign { lval, value } => match value {
-                box Expression::Atom(AtomKind::RecordInit { record, values }) => Some(init_record(
+                box Expression::RecordInit { record, values } => Some(init_record(
                     self,
                     lval,
-                    &AtomKind::RecordInit {
+                    &Expression::RecordInit {
                         record: record.clone(),
                         values: values.to_vec(),
                     },

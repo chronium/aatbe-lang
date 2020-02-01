@@ -38,6 +38,10 @@ pub enum Expression {
         then_expr: Box<Expression>,
         else_expr: Option<Box<Expression>>,
     },
+    RecordInit {
+        record: String,
+        values: Vec<AtomKind>,
+    },
 }
 
 #[derive(Eq, PartialEq, Clone)]
@@ -94,14 +98,7 @@ pub enum AtomKind {
     Deref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
     Cast(Box<AtomKind>, PrimitiveType),
-    NamedValue {
-        name: String,
-        val: Box<Expression>,
-    },
-    RecordInit {
-        record: String,
-        values: Vec<AtomKind>,
-    },
+    NamedValue { name: String, val: Box<Expression> },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

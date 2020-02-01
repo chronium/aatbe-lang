@@ -32,11 +32,11 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
             );
 
             if let Some(e) = value {
-                if let box Expression::Atom(AtomKind::RecordInit { record, values }) = e {
+                if let box Expression::RecordInit { record, values } = e {
                     init_record(
                         module,
                         &LValue::Ident(name.clone()),
-                        &AtomKind::RecordInit {
+                        &Expression::RecordInit {
                             record: record.clone(),
                             values: values.to_vec(),
                         },
@@ -53,7 +53,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
     }
 }
 
-pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &AtomKind) -> LLVMValueRef {
+pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) -> LLVMValueRef {
     fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
         match lval {
             LValue::Ident(name) => match module.get_var(name) {
@@ -76,7 +76,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &AtomKind) -> L
     }
 
     match rec {
-        AtomKind::RecordInit { record, values } => {
+        Expression::RecordInit { record, values } => {
             let var: LLVMValueRef = get_lval(module, lval);
 
             values.iter().for_each(|val| match val {
