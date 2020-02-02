@@ -4,6 +4,12 @@ pub trait AatbeFmt {
     fn fmt(self) -> String;
 }
 
+impl AatbeFmt for PrimitiveType {
+    fn fmt(self) -> String {
+        (&self).fmt().clone()
+    }
+}
+
 impl AatbeFmt for &PrimitiveType {
     fn fmt(self) -> String {
         match self {
@@ -29,6 +35,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Bool(Boolean::True) => String::from("true"),
             AtomKind::Bool(Boolean::False) => String::from("false"),
             AtomKind::Ident(id) => format!("{}", id),
+            AtomKind::Unary(op, id) => format!("{}{}", op, id.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

@@ -107,6 +107,15 @@ fn main() -> io::Result<()> {
                 expected_ty,
                 value,
             } => error!("Expected {} but found {}: {}", expected_ty, found_ty, value),
+            CompileError::UnaryMismatch {
+                op,
+                found_ty,
+                expected_ty,
+                value,
+            } => error!(
+                "Cannot `{}{}` expected {} but found {}",
+                op, value, expected_ty, found_ty
+            ),
             CompileError::MismatchedArguments {
                 function,
                 expected_ty,

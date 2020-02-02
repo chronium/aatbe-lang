@@ -1,5 +1,9 @@
 use crate::{
-    codegen::{module::ValueTypePair, AatbeModule},
+    codegen::{
+        module::{CompileError, ValueTypePair},
+        AatbeModule,
+    },
+    fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind},
 };
 
@@ -103,10 +107,20 @@ impl AatbeModule {
                 let value = self
                     .codegen_atom(val)
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
+
+                if value.prim() != &PrimitiveType::Bool {
+                    self.add_error(CompileError::UnaryMismatch {
+                        op: op.clone(),
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: value.prim().fmt(),
+                        value: val.fmt(),
+                    })
+                }
+
                 Some(
                     (
                         self.llvm_builder_ref().build_not(value.val()),
-                        TypeKind::Primitive(value.prim().clone()),
+                        TypeKind::Primitive(PrimitiveType::Bool),
                     )
                         .into(),
                 )

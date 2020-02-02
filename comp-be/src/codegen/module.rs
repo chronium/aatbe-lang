@@ -17,7 +17,7 @@ use crate::{
 };
 
 use parser::{
-    ast::{AtomKind, Boolean, Expression, IntSize, PrimitiveType, AST},
+    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -72,6 +72,12 @@ pub enum CompileError {
         function: String,
         expected_ty: String,
         found_ty: String,
+    },
+    UnaryMismatch {
+        op: String,
+        expected_ty: String,
+        found_ty: String,
+        value: String,
     },
 }
 

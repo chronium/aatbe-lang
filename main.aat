@@ -2,7 +2,7 @@ use "libc"
 
 @entry
 fn main () -> () = {
-    val num: i32 = "Hello"
-    val hw: str = 123
-    printf num, hw
+    val num: i32 = 42
+
+    if !num puts "!false"
 }

@@ -96,22 +96,28 @@ impl Parser {
     fn parse_ident(&mut self) -> Option<AtomKind> {
         if self
             .peek_rel(-1)
-            .map(|t| {
-                t.kw()
-                    .map(|kw| match kw {
-                        Keyword::If => false,
-                        _ => true,
-                    })
-                    .unwrap_or(true)
-            })
+            .map(|t| !t.sym().is_some())
             .unwrap_or(true)
         {
-            if capture!(res parse_funcall, self)
-                .or_else(|_| capture!(res parse_assign, self))
-                .or_else(|_| capture!(res parse_record_init, self))
-                .is_ok()
+            if self
+                .peek_rel(-1)
+                .map(|t| {
+                    t.kw()
+                        .map(|kw| match kw {
+                            Keyword::If => false,
+                            _ => true,
+                        })
+                        .unwrap_or(true)
+                })
+                .unwrap_or(true)
             {
-                return None;
+                if capture!(res parse_funcall, self)
+                    .or_else(|_| capture!(res parse_assign, self))
+                    .or_else(|_| capture!(res parse_record_init, self))
+                    .is_ok()
+                {
+                    return None;
+                }
             }
         }
         ident!(res raw self)
@@ -135,14 +141,14 @@ impl Parser {
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
+            parse_ident,
             parse_boolean,
             parse_number,
             parse_unit,
             parse_string_lit,
             parse_char_lit,
             parse_atomized_expression,
-            parse_symbol_literal,
-            parse_ident
+            parse_symbol_literal
         ) {
             None => Err(ParseError::ExpectedAtom),
             Some(atom) => Ok(atom),
