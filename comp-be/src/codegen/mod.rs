@@ -1,3 +1,4 @@
+pub mod atom;
 pub mod mangle_v1;
 pub mod module;
 pub mod scope;

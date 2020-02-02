@@ -27,6 +27,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Bool(Boolean::True) => String::from("true"),
             AtomKind::Bool(Boolean::False) => String::from("false"),
+            AtomKind::Ident(id) => format!("{}", id),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

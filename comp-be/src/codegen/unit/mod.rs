@@ -114,6 +114,18 @@ impl CodegenUnit {
         }
     }
 
+    pub fn var_ty(&self) -> &PrimitiveType {
+        match self {
+            CodegenUnit::Variable {
+                mutable: _,
+                name: _,
+                ty: PrimitiveType::NamedType { name: _, ty },
+                value: _,
+            } => ty,
+            _ => panic!("Cannot var_ty non-variable"),
+        }
+    }
+
     pub fn get_mutability(&self) -> &Mutability {
         match self {
             CodegenUnit::Variable {
