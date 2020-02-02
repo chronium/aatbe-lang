@@ -3,12 +3,15 @@ use parser::{lexer::Lexer, parser::Parser};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
+    ffi::CString,
     fs::{File, OpenOptions},
     io,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use glob::glob;
+use llvm_sys::support::LLVMLoadLibraryPermanently;
 use log::{error, warn};
 use simplelog::*;
 
@@ -21,7 +24,8 @@ fn main() -> io::Result<()> {
     (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
     (@arg LLVM_JIT: --("jit") -j "JIT the code")
-    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode"))
+    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode")
+    (@arg lib: -l ... +takes_value "Link with library without prefix or extension"))
     .get_matches();
 
     if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
@@ -73,6 +77,28 @@ fn main() -> io::Result<()> {
     module.decl_pass(&pt);
     module.codegen_pass(&pt);
 
+    if let Some(libs) = matches.values_of("lib") {
+        for lib in libs {
+            let globs = glob(format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib).as_ref())
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect::<Vec<PathBuf>>();
+            if globs.len() < 1 {
+                error!("lib{}.so cannot be found", lib);
+            } else if globs.len() > 1 {
+                error!("-l{} found too many matches, please be more specific", lib);
+            } else {
+                unsafe {
+                    LLVMLoadLibraryPermanently(
+                        CString::new(globs[0].to_str().unwrap())
+                            .expect("cstring failed")
+                            .as_ptr(),
+                    );
+                }
+            }
+        }
+    }
+
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
@@ -81,6 +107,14 @@ fn main() -> io::Result<()> {
                 expected_ty,
                 value,
             } => error!("Expected {} but found {}: {}", expected_ty, found_ty, value),
+            CompileError::MismatchedArguments {
+                function,
+                expected_ty,
+                found_ty,
+            } => error!(
+                "Mismatched arguments for `{}` expected `{} {}` but found `{} {}`",
+                function, function, expected_ty, function, found_ty
+            ),
         });
         std::process::exit(1);
     }

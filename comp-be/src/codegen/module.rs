@@ -68,6 +68,11 @@ pub enum CompileError {
         found_ty: String,
         value: String,
     },
+    MismatchedArguments {
+        function: String,
+        expected_ty: String,
+        found_ty: String,
+    },
 }
 
 #[allow(dead_code)]
@@ -307,7 +312,7 @@ impl AatbeModule {
 
                 None
             }
-            /*Expression::Call { name, args } => {
+            Expression::Call { name, args } => {
                 let mut name = name.clone();
 
                 args.iter().for_each(|arg| match arg {
@@ -315,26 +320,62 @@ impl AatbeModule {
                     _ => {}
                 });
 
-                let mut args = args
+                let mut call_args = args
                     .iter()
                     .filter_map(|arg| match arg {
                         AtomKind::SymbolLiteral(_) => None,
-                        _ => self.codegen_atom(arg).map(|arg| arg.0),
+                        _ => self.codegen_atom(arg).map(|arg| arg),
                     })
-                    .collect::<Vec<LLVMValueRef>>();
+                    .collect::<Vec<ValueTypePair>>();
 
-                let func = self
-                    .get_func(&name)
+                let mut mismatch = false;
+
+                let params = self
+                    .get_params(&name)
                     .expect(format!("Call to undefined function {}", name).as_str());
+
+                for (i, fty) in params.iter().enumerate() {
+                    if fty == &PrimitiveType::Varargs {
+                        break;
+                    }
+
+                    if call_args[i].prim() != fty {
+                        mismatch = true;
+                    }
+                }
+
+                if mismatch {
+                    self.add_error(CompileError::MismatchedArguments {
+                        function: name.clone(),
+                        expected_ty: params
+                            .iter()
+                            .map(|p| p.fmt())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                        found_ty: call_args
+                            .iter()
+                            .map(|arg| arg.prim().fmt())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                    });
+                }
+
+                let func = self.get_func(&name).unwrap();
 
                 Some(
                     (
-                        self.llvm_builder.build_call(func.into(), &mut args),
+                        self.llvm_builder.build_call(
+                            func.into(),
+                            &mut call_args
+                                .iter_mut()
+                                .map(|arg| arg.val())
+                                .collect::<Vec<LLVMValueRef>>(),
+                        ),
                         TypeKind::Primitive(func.ret_ty()),
                     )
                         .into(),
                 )
-            }*/
+            }
             /*Expression::Binary(lhs, op, rhs) => {
                 let lh = self
                     .codegen_expr(lhs)
@@ -486,6 +527,14 @@ impl AatbeModule {
         let val_ref = self.get_in_scope(name);
         match val_ref {
             Some(CodegenUnit::Function(_, _)) => val_ref,
+            _ => None,
+        }
+    }
+
+    pub fn get_params(&self, name: &String) -> Option<Vec<PrimitiveType>> {
+        let val_ref = self.get_in_scope(name);
+        match val_ref {
+            Some(CodegenUnit::Function(_, _)) => val_ref.map(|fun| fun.param_types()),
             _ => None,
         }
     }

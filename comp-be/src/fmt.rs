@@ -15,6 +15,7 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits32 => String::from("i32"),
                 IntSize::Bits64 => String::from("i64"),
             },
+            PrimitiveType::Varargs => String::from("..."),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

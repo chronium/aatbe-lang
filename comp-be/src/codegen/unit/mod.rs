@@ -68,6 +68,20 @@ impl CodegenUnit {
         }
     }
 
+    pub fn param_types(&self) -> Vec<PrimitiveType> {
+        match self {
+            CodegenUnit::Function(
+                _,
+                PrimitiveType::Function {
+                    ext: _,
+                    ret_ty: _,
+                    params,
+                },
+            ) => params.clone(),
+            _ => panic!("ICE param_types {:?}", self),
+        }
+    }
+
     pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<u32> {
         match self {
             CodegenUnit::Variable {

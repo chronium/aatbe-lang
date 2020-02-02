@@ -2,6 +2,7 @@ use "libc"
 
 @entry
 fn main () -> () = {
-    val test: i32 = "hello world"
-    if test {}
+    val num: i32 = "Hello"
+    val hw: str = 123
+    printf num, hw
 }
