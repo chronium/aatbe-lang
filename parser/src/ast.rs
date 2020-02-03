@@ -25,7 +25,7 @@ pub enum Expression {
     },
     Call {
         name: String,
-        args: Vec<AtomKind>,
+        args: Vec<Expression>,
     },
     Function {
         name: String,
@@ -95,6 +95,17 @@ impl PrimitiveType {
                 params: _,
             } => panic!("ICE primty inner {:?}", self),
             other => other,
+        }
+    }
+
+    pub fn ext(&self) -> bool {
+        match self {
+            PrimitiveType::Function {
+                ext,
+                ret_ty: _,
+                params: _,
+            } => ext.clone(),
+            _ => panic!("ICE PrimitiveType ext {:?}", self),
         }
     }
 }

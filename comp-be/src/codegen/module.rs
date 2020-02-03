@@ -3,6 +3,7 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
     codegen::{
+        mangle_v1::NameMangler,
         unit::{
             alloc_variable, codegen_function, declare_function, init_record,
             inject_function_in_scope, store_value,
@@ -39,6 +40,7 @@ impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
 impl ValueTypePair {
     pub fn prim(&self) -> &PrimitiveType {
         match self {
+            ValueTypePair(_, TypeKind::Primitive(PrimitiveType::NamedType { name: _, ty })) => ty,
             ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
             _ => panic!("ICE prim {:?}"),
         }
@@ -318,27 +320,37 @@ impl AatbeModule {
 
                 None
             }
-            Expression::Call { name, args } => {
-                let mut name = name.clone();
-
-                args.iter().for_each(|arg| match arg {
-                    AtomKind::SymbolLiteral(symbol) => name.push_str(&format!("__{}", symbol)),
-                    _ => {}
-                });
-
+            Expression::Call {
+                name: raw_name,
+                args,
+            } => {
                 let mut call_args = args
                     .iter()
                     .filter_map(|arg| match arg {
-                        AtomKind::SymbolLiteral(_) => None,
-                        _ => self.codegen_atom(arg).map(|arg| arg),
+                        Expression::Atom(AtomKind::SymbolLiteral(_)) => panic!("ICE call_symbol"),
+                        _ => self.codegen_expr(arg).map(|arg| arg),
                     })
                     .collect::<Vec<ValueTypePair>>();
+
+                let name = if !self.is_extern(raw_name) && call_args.len() > 0 {
+                    format!(
+                        "{}A{}",
+                        raw_name,
+                        call_args
+                            .iter()
+                            .map(|arg| arg.prim().mangle())
+                            .collect::<Vec<String>>()
+                            .join(".")
+                    )
+                } else {
+                    raw_name.clone()
+                };
 
                 let mut mismatch = false;
 
                 let params = self
                     .get_params(&name)
-                    .expect(format!("Call to undefined function {}", name).as_str());
+                    .expect(format!("Call to undefined function {}", raw_name).as_str());
 
                 for (i, fty) in params.iter().enumerate() {
                     if fty == &PrimitiveType::Varargs {
@@ -352,7 +364,7 @@ impl AatbeModule {
 
                 if mismatch {
                     self.add_error(CompileError::MismatchedArguments {
-                        function: name.clone(),
+                        function: raw_name.clone(),
                         expected_ty: params
                             .iter()
                             .map(|p| p.fmt())
@@ -542,6 +554,14 @@ impl AatbeModule {
         match val_ref {
             Some(CodegenUnit::Function(_, _)) => val_ref.map(|fun| fun.param_types()),
             _ => None,
+        }
+    }
+
+    pub fn is_extern(&self, name: &String) -> bool {
+        let val_ref = self.get_in_scope(name);
+        match val_ref {
+            Some(CodegenUnit::Function(_, ty)) => ty.ext(),
+            _ => false,
         }
     }
 

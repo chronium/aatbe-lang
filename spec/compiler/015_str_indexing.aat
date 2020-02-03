@@ -4,7 +4,7 @@ extern fn printf str, ... -> i32
 
 @entry
 fn main() -> () = {
-    printf "\"Hello World\"[0] = %c\n" "Hello World"[0]
+    printf("\"Hello World\"[0] = %c\n", "Hello World"[0])
     val aloha: str = "Aloha"
-    printf "aloha[0] = %c\n" aloha[0]
+    printf("aloha[0] = %c\n", aloha[0])
 }

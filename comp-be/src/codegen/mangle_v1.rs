@@ -52,31 +52,19 @@ impl NameMangler for PrimitiveType {
                     .collect::<Vec<String>>()
                     .join(".");
                 if !params_mangled.is_empty() {
-                    format!("__{}", params_mangled)
+                    format!("A{}", params_mangled)
                 } else {
                     String::new()
                 }
             }
-            /* Leave out until type inference
-            PrimitiveType::Unit => String::from("U"),
+            // TODO: Handle Unit
+            PrimitiveType::Unit => String::new(),
             PrimitiveType::NamedType { name: _, ty } => ty.mangle(),
-            PrimitiveType::Str => String::from("str"),
+            PrimitiveType::Str => String::from("s"),
             PrimitiveType::Int(size) => format!("i{}", size.mangle()),
             PrimitiveType::UInt(size) => format!("u{}", size.mangle()),
-            PrimitiveType::Function {
-                ext: _,
-                ret_ty,
-                params,
-            } => {
-                let params_mangled = params
-                    .iter()
-                    .map(|p| p.mangle())
-                    .collect::<Vec<String>>()
-                    .join(".");
-                format!("{}_{}", params_mangled, ret_ty.mangle())
-            }*/
-            //_ => panic!("Cannot name mangle {:?}", self),
-            _ => String::new(),
+            PrimitiveType::Bool => String::from("b"),
+            _ => panic!("Cannot name mangle {:?}", self),
         }
     }
 }

@@ -74,6 +74,14 @@ impl Parser {
         peek!(self.tt, self.index)
     }
 
+    pub fn eof(&self) -> bool {
+        match peek!(self.tt, self.index) {
+            Some(tok) if tok.kind == TokenKind::EOF => true,
+            None => true,
+            _ => false,
+        }
+    }
+
     pub fn peek_ident(&mut self) -> Option<String> {
         self.peek().and_then(|t| t.ident())
     }

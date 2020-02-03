@@ -77,7 +77,19 @@ impl CodegenUnit {
                     ret_ty: _,
                     params,
                 },
-            ) => params.clone(),
+            ) => params
+                .iter()
+                .filter_map(|p| match p {
+                    //TODO: Handle Unit
+                    PrimitiveType::Unit => None,
+                    PrimitiveType::NamedType {
+                        name: _,
+                        ty: box ty,
+                    } => Some(ty.clone()),
+                    p => Some(p.clone()),
+                })
+                .collect::<Vec<PrimitiveType>>()
+                .clone(),
             _ => panic!("ICE param_types {:?}", self),
         }
     }
@@ -136,6 +148,7 @@ impl CodegenUnit {
                 ty: PrimitiveType::NamedType { name: _, ty },
                 value: _,
             } => ty,
+            CodegenUnit::FunctionArgument(_, ty) => ty,
             _ => panic!("Cannot var_ty non-variable"),
         }
     }

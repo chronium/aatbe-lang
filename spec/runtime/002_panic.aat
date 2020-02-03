@@ -5,11 +5,11 @@ extern fn puts str -> i32
 extern fn exit i32 -> ()
 
 fn panic msg: str -> () = {
-  puts msg
-  exit 1
+  puts(msg)
+  exit(1)
 }
 
 @entry
 fn main () -> () = {
-  panic "AAAA I'M ON FIRE"
+  panic("AAAA I'M ON FIRE")
 }

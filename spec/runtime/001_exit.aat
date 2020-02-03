@@ -4,5 +4,5 @@ extern fn exit i32 -> ()
 
 @entry
 fn main () -> () = {
-  exit 0
+  exit(0)
 }

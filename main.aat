@@ -1,8 +1,8 @@
 use "libc"
 
+fn test () -> () = {}
+
 @entry
 fn main () -> () = {
-    val num: i32 = 42
-
-    if !num puts "!false"
+    test()
 }

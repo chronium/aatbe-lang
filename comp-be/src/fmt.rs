@@ -22,6 +22,7 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits64 => String::from("i64"),
             },
             PrimitiveType::Varargs => String::from("..."),
+            PrimitiveType::NamedType { name: _, ty } => ty.clone().fmt(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

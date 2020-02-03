@@ -4,14 +4,14 @@ extern fn puts str -> i32
 
 @entry
 fn main () -> () = {
-  if true puts "true"
-  if false puts "false"
-  if true == true puts "true"
-  if true == false puts "false"
-  if 1 == 1 puts "1 == 1"
-  if 1 != 2 puts "1 != 2"
-  if 1 < 2 puts "1 < 2"
-  if 1 <= 1 puts "1 <= 1"
-  if 2 > 1 puts "2 > 1"
-  if 2 >= 2 puts "2 >= 2"
+  if true puts("true")
+  if false puts("false")
+  if true == true puts("true")
+  if true == false puts("false")
+  if 1 == 1 puts("1 == 1")
+  if 1 != 2 puts("1 != 2")
+  if 1 < 2 puts("1 < 2")
+  if 1 <= 1 puts("1 <= 1")
+  if 2 > 1 puts("2 > 1")
+  if 2 >= 2 puts("2 >= 2")
 }

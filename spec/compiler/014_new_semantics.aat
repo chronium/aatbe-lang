@@ -12,6 +12,6 @@ fn new String, value: str -> String = {
 
 @entry
 fn main () -> () = {
-    val msg: String = new :String, "Hello World"
-    puts msg.s
+    val msg: String = new(:String, "Hello World")
+    puts(msg.s)
 }

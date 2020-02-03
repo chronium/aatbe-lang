@@ -267,9 +267,9 @@ fn test s: str, i32, ... -> ()
 
 @entry
 fn main () -> () = {
-    puts \"Hello World\"
-    puts \"Hallo\"
-    test \"Test\", $1 + 2
+    puts(\"Hello World\")
+    puts(\"Hallo\")
+    test(\"Test\", 1 + 2)
 }
 ",
             "Function calls"
@@ -311,17 +311,21 @@ fn main () -> () = {
                     body: Some(box Expression::Block(vec![
                         Expression::Call {
                             name: "puts".to_string(),
-                            args: vec![AtomKind::StringLiteral("Hello World".to_string())],
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "Hello World".to_string()
+                            ))],
                         },
                         Expression::Call {
                             name: "puts".to_string(),
-                            args: vec![AtomKind::StringLiteral("Hallo".to_string())],
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "Hallo".to_string()
+                            ))],
                         },
                         Expression::Call {
                             name: "test".to_string(),
                             args: vec![
-                                AtomKind::StringLiteral("Test".to_string()),
-                                AtomKind::Expr(box Expression::Binary(
+                                Expression::Atom(AtomKind::StringLiteral("Test".to_string())),
+                                Expression::Binary(
                                     box Expression::Atom(AtomKind::Integer(
                                         1,
                                         PrimitiveType::Int(IntSize::Bits32)
@@ -331,7 +335,7 @@ fn main () -> () = {
                                         2,
                                         PrimitiveType::Int(IntSize::Bits32)
                                     )),
-                                ))
+                                )
                             ]
                         }
                     ])),
@@ -406,12 +410,12 @@ fn main () -> () = {
 @entry
 fn main () -> () = {
   if 1 == 2 {
-      foo \"bar\"
+      foo(\"bar\")
   } else {
-      bar \"foo\"
+      bar(\"foo\")
   }
 
-  if !(true != false) baz true
+  if !(true != false) baz(true)
   if !true false else true
 }
 ",
@@ -438,11 +442,15 @@ fn main () -> () = {
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
                             name: "foo".to_string(),
-                            args: vec![AtomKind::StringLiteral("bar".to_string())]
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "bar".to_string()
+                            ))]
                         }]),
                         else_expr: Some(box Expression::Block(vec![Expression::Call {
                             name: "bar".to_string(),
-                            args: vec![AtomKind::StringLiteral("foo".to_string())]
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "foo".to_string()
+                            ))]
                         }])),
                     },
                     Expression::If {
@@ -456,7 +464,7 @@ fn main () -> () = {
                         )),
                         then_expr: box Expression::Call {
                             name: "baz".to_string(),
-                            args: vec![AtomKind::Bool(Boolean::True)]
+                            args: vec![Expression::Atom(AtomKind::Bool(Boolean::True))]
                         },
                         else_expr: None,
                     },

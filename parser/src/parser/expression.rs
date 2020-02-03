@@ -94,33 +94,7 @@ impl Parser {
     }
 
     fn parse_ident(&mut self) -> Option<AtomKind> {
-        if self
-            .peek_rel(-1)
-            .map(|t| !t.sym().is_some())
-            .unwrap_or(true)
-        {
-            if self
-                .peek_rel(-1)
-                .map(|t| {
-                    t.kw()
-                        .map(|kw| match kw {
-                            Keyword::If => false,
-                            _ => true,
-                        })
-                        .unwrap_or(true)
-                })
-                .unwrap_or(true)
-            {
-                if capture!(res parse_funcall, self)
-                    .or_else(|_| capture!(res parse_assign, self))
-                    .or_else(|_| capture!(res parse_record_init, self))
-                    .is_ok()
-                {
-                    return None;
-                }
-            }
-        }
-        ident!(res raw self)
+        let id = ident!(res raw self)
             .map(|i| {
                 i.map(|id| match id.split_accessor() {
                     Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
@@ -129,7 +103,23 @@ impl Parser {
                 })
                 .unwrap()
             })
-            .ok()
+            .ok();
+
+        let prev_ind = self.index;
+        if sym!(bool RParen, self)
+            || sym!(bool Comma, self)
+            || sym!(bool RCurly, self)
+            || sym!(bool LBracket, self)
+            || sym!(bool RBracket, self)
+            || self.eof()
+            || sym!(bool At, self)
+            || kw!(bool Fn, self)
+        {
+            self.index = prev_ind;
+            id
+        } else {
+            None
+        }
     }
 
     fn parse_symbol_literal(&mut self) -> Option<AtomKind> {
@@ -220,26 +210,34 @@ impl Parser {
         let name = ident!(required self);
         let mut args = vec![];
 
-        match capture!(res parse_unary, self) {
-            Ok(expr) => args.push(expr),
-            Err(e) => return Err(e),
+        if sym!(bool Unit, self) {
+            return Ok(Expression::Call {
+                name,
+                args: vec![Expression::Atom(AtomKind::Unit)],
+            });
+        }
+
+        sym!(required LParen, self);
+        match capture!(self, parse_expression) {
+            Some(expr) => args.push(expr),
+            None => {}
         };
 
         loop {
             if !sym!(bool Comma, self) {
                 break;
             }
-            match capture!(res parse_unary, self) {
-                Ok(expr) => args.push(expr),
-                Err(_) => break,
+            match capture!(self, parse_expression) {
+                Some(expr) => args.push(expr),
+                None => break,
             }
         }
+        sym!(required RParen, self);
 
         if args.len() < 1 {
-            Err(ParseError::NotEnoughArguments(name))
-        } else {
-            Ok(Expression::Call { name, args })
+            args.push(Expression::Atom(AtomKind::Unit))
         }
+        Ok(Expression::Call { name, args })
     }
 
     fn parse_decl(&mut self) -> ParseResult<Expression> {
