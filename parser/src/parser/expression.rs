@@ -94,7 +94,7 @@ impl Parser {
     }
 
     fn parse_ident(&mut self) -> Option<AtomKind> {
-        let id = ident!(res raw self)
+        ident!(res raw self)
             .map(|i| {
                 i.map(|id| match id.split_accessor() {
                     Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
@@ -103,23 +103,7 @@ impl Parser {
                 })
                 .unwrap()
             })
-            .ok();
-
-        let prev_ind = self.index;
-        if sym!(bool RParen, self)
-            || sym!(bool Comma, self)
-            || sym!(bool RCurly, self)
-            || sym!(bool LBracket, self)
-            || sym!(bool RBracket, self)
-            || self.eof()
-            || sym!(bool At, self)
-            || kw!(bool Fn, self)
-        {
-            self.index = prev_ind;
-            id
-        } else {
-            None
-        }
+            .ok()
     }
 
     fn parse_symbol_literal(&mut self) -> Option<AtomKind> {
@@ -210,14 +194,6 @@ impl Parser {
         let name = ident!(required self);
         let mut args = vec![];
 
-        if sym!(bool Unit, self) {
-            return Ok(Expression::Call {
-                name,
-                args: vec![Expression::Atom(AtomKind::Unit)],
-            });
-        }
-
-        sym!(required LParen, self);
         match capture!(self, parse_expression) {
             Some(expr) => args.push(expr),
             None => {}
@@ -232,12 +208,12 @@ impl Parser {
                 None => break,
             }
         }
-        sym!(required RParen, self);
 
         if args.len() < 1 {
-            args.push(Expression::Atom(AtomKind::Unit))
+            Err(ParseError::ExpectedExpression)
+        } else {
+            Ok(Expression::Call { name, args })
         }
-        Ok(Expression::Call { name, args })
     }
 
     fn parse_decl(&mut self) -> ParseResult<Expression> {
@@ -348,22 +324,13 @@ impl Parser {
 
     pub fn parse_expression(&mut self) -> Option<Expression> {
         match self.peek_symbol(Symbol::LCurly) {
-            Some(false) => {
-                let prev_ind = self.index;
-                match self.parse_expr(0) {
-                    Err(_) => {
-                        self.index = prev_ind;
-
-                        capture!(res parse_funcall, self)
-                            .or_else(|_| capture!(res parse_record_init, self))
-                            .or_else(|_| capture!(res parse_assign, self))
-                            .or_else(|_| capture!(res parse_decl, self))
-                            .or_else(|_| capture!(res parse_if_else, self))
-                            .ok()
-                    }
-                    Ok(val) => Some(val),
-                }
-            }
+            Some(false) => capture!(res parse_record_init, self)
+                .or_else(|_| capture!(res parse_funcall, self))
+                .or_else(|_| capture!(res parse_assign, self))
+                .or_else(|_| capture!(res parse_decl, self))
+                .or_else(|_| capture!(res parse_if_else, self))
+                .or_else(|_| self.parse_expr(0))
+                .ok(),
             Some(true) => {
                 self.next();
                 let mut block = vec![];

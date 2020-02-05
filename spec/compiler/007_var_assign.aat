@@ -5,7 +5,7 @@ extern fn puts str -> i32
 @entry
 fn main () -> () = {
   var test: str = "Hello"
-  puts(test)
+  puts test
   test = "World"
-  puts(test)
+  puts test
 }

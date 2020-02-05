@@ -10,5 +10,5 @@ rec Nested(m: String)
 fn main () -> () = {
     val msg: String = String { s: "Hello World" }
     val nessie: Nested = Nested { m: msg }
-    puts(nessie.m.s)
+    puts nessie.m.s
 }

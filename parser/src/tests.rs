@@ -267,9 +267,9 @@ fn test s: str, i32, ... -> ()
 
 @entry
 fn main () -> () = {
-    puts(\"Hello World\")
-    puts(\"Hallo\")
-    test(\"Test\", 1 + 2)
+    puts \"Hello World\"
+    puts \"Hallo\"
+    test \"Test\", 1 + 2
 }
 ",
             "Function calls"
@@ -410,12 +410,12 @@ fn main () -> () = {
 @entry
 fn main () -> () = {
   if 1 == 2 {
-      foo(\"bar\")
+      foo \"bar\"
   } else {
-      bar(\"foo\")
+      bar \"foo\"
   }
 
-  if !(true != false) baz(true)
+  if !(true != false) baz true
   if !true false else true
 }
 ",
