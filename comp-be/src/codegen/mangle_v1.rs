@@ -64,6 +64,7 @@ impl NameMangler for PrimitiveType {
             PrimitiveType::Int(size) => format!("i{}", size.mangle()),
             PrimitiveType::UInt(size) => format!("u{}", size.mangle()),
             PrimitiveType::Bool => String::from("b"),
+            PrimitiveType::Char => String::from("c"),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }

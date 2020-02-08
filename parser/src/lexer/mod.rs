@@ -26,11 +26,6 @@ impl<'c> Lexer<'c> {
     }
 
     fn read(&mut self) -> Option<char> {
-        if let Some('\n') = self.chars.peek() {
-            self.col = 1;
-            self.row += 1;
-        }
-
         self.col += 1;
         self.chars.next()
     }
@@ -107,6 +102,28 @@ impl<'c> Lexer<'c> {
 
     pub fn lex(&mut self) {
         loop {
+            match self.chars.peek() {
+                Some('\n') => {
+                    self.advance();
+                    let pos = (self.col, self.row);
+                    self.col = 1;
+                    self.row += 1;
+                    self.push_token(TokenKind::EOL, pos);
+                }
+                Some('\r') => {
+                    if let Some('\n') = self.chars.peek() {
+                        self.advance();
+                        let pos = (self.col, self.row);
+                        self.col = 1;
+                        self.row += 1;
+                        self.push_token(TokenKind::EOL, pos);
+                    } else {
+                        let pos = (self.col, self.row);
+                        panic!("Expected \\n after \\r at {:?}", pos);
+                    }
+                }
+                _ => {}
+            }
             self.eat_whitespace();
             let pos = (self.col, self.row);
 

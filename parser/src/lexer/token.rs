@@ -20,6 +20,7 @@ pub enum TokenKind {
     Type(Type),
     StringLiteral(String),
     CharLiteral(char),
+    EOL,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -102,6 +103,7 @@ pub enum Keyword {
     Bool,
     Record,
     As,
+    Then,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -226,6 +228,7 @@ impl FromStr for Keyword {
             "bool" => Ok(Self::Bool),
             "rec" => Ok(Self::Record),
             "as" => Ok(Self::As),
+            "then" => Ok(Self::Then),
             _ => Err(()),
         }
     }

@@ -192,6 +192,9 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
+        if self.nl() || sym!(bool Comma, self) {
+            return Err(ParseError::Continue);
+        }
         let mut args = vec![];
 
         match capture!(self, parse_expression) {

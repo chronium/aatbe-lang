@@ -10,6 +10,7 @@ impl Parser {
 
         let cond_expr =
             box capture!(self, parse_expression).ok_or(ParseError::ExpectedCondition)?;
+        kw!(bool Then, self);
         let then_expr =
             box capture!(self, parse_expression).ok_or(ParseError::ExpectedThenExpression)?;
         let mut else_expr = None;

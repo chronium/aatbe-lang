@@ -20,6 +20,6 @@ fn print value: String -> () = {
 }
 
 fn put_char_at value: String, ind: i32, c: char -> () = {
-    if ind >= value.length panic "Index out of bounds"
+    if ind >= value.length then panic "Index out of bounds"
     value.buffer[ind] = c
 }

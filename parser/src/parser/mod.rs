@@ -24,6 +24,7 @@ pub enum ParseError {
     ExpectedThenExpression,
     ExpectedPath,
     ExpectedLValue,
+    Continue,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -68,7 +69,12 @@ impl Parser {
         loop {
             match peek!(self.tt, self.index).map_or(None, |t| t.comm()) {
                 Some(_) => self.index += 1,
-                None => break,
+                None => {}
+            }
+
+            match peek!(self.tt, self.index).map_or(false, |t| t.kind == TokenKind::EOL) {
+                true => self.index += 1,
+                false => break,
             }
         }
         peek!(self.tt, self.index)
@@ -77,6 +83,17 @@ impl Parser {
     pub fn eof(&self) -> bool {
         match peek!(self.tt, self.index) {
             Some(tok) if tok.kind == TokenKind::EOF => true,
+            None => true,
+            _ => false,
+        }
+    }
+
+    pub fn nl(&mut self) -> bool {
+        match peek!(self.tt, self.index) {
+            Some(tok) if tok.kind == TokenKind::EOL => {
+                self.index += 1;
+                true
+            }
             None => true,
             _ => false,
         }
