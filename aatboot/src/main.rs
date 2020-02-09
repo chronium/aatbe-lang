@@ -102,6 +102,7 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::Handled => {}
             CompileError::ExpectedType {
                 found_ty,
                 expected_ty,
@@ -123,6 +124,14 @@ fn main() -> io::Result<()> {
             } => error!(
                 "Mismatched arguments for `{}` expected `{} {}` but found `{} {}`",
                 function, function, expected_ty, function, found_ty
+            ),
+            CompileError::BinaryMismatch { op, values, types } => error!(
+                "Mismatched types at `{} {} {}`. Types found are {}, {}",
+                values.0, op, values.1, types.0, types.1
+            ),
+            CompileError::OpMismatch { op, values, types } => error!(
+                "Cannot `{} {} {}` for types {}, {}",
+                values.0, op, values.1, types.0, types.1
             ),
         });
         std::process::exit(1);

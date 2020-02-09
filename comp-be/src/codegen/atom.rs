@@ -1,8 +1,5 @@
 use crate::{
-    codegen::{
-        module::{CompileError, ValueTypePair},
-        AatbeModule,
-    },
+    codegen::{AatbeModule, CompileError, ValueTypePair},
     fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind},
 };
@@ -46,11 +43,18 @@ impl AatbeModule {
             /*AtomKind::Deref(path) => {
                 let acc = self.codegen_atom(path).expect("");
                 Some(self.llvm_builder_ref().build_load(acc))
+            }*/
+            AtomKind::Access(path) => {
+                let int = self.get_interior_pointer(path.to_vec());
+                Some(
+                    (
+                        self.llvm_builder_ref()
+                            .build_load_with_name(int.val(), path.join(".").as_str()),
+                        int.ty(),
+                    )
+                        .into(),
+                )
             }
-            AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
-                self.get_interior_pointer(path.to_vec()),
-                path.join(".").as_str(),
-            )),*/
             AtomKind::Ident(name) => {
                 let var_ref = self.get_var(name);
 

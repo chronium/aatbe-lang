@@ -3,12 +3,13 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
     codegen::{
+        codegen_binary,
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, codegen_function, declare_function, init_record,
             inject_function_in_scope, store_value,
         },
-        CodegenUnit, Scope,
+        CodegenUnit, CompileError, Scope,
     },
     fmt::AatbeFmt,
     ty::{
@@ -46,6 +47,10 @@ impl ValueTypePair {
         }
     }
 
+    pub fn ty(&self) -> TypeKind {
+        TypeKind::Primitive(self.prim().clone())
+    }
+
     pub fn val(&self) -> LLVMValueRef {
         self.0
     }
@@ -62,25 +67,6 @@ impl ValueTypePair {
             _ => None,
         }
     }
-}
-
-pub enum CompileError {
-    ExpectedType {
-        expected_ty: String,
-        found_ty: String,
-        value: String,
-    },
-    MismatchedArguments {
-        function: String,
-        expected_ty: String,
-        found_ty: String,
-    },
-    UnaryMismatch {
-        op: String,
-        expected_ty: String,
-        found_ty: String,
-        value: String,
-    },
 }
 
 #[allow(dead_code)]
@@ -178,7 +164,7 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> LLVMValueRef {
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> ValueTypePair {
         if let ([rec_ref], tail) = parts.split_at(1) {
             match self.get_var(&rec_ref) {
                 None => panic!("Could not find record {}", rec_ref),
@@ -212,7 +198,7 @@ impl AatbeModule {
 
                     self.typectx_ref()
                         .get_record(&rec_type)
-                        .expect("ICE get_access variable without type")
+                        .expect("ICE get_record variable without type")
                         .read_field(self, rec.into(), rec_ref, tail.to_vec())
                 }
             }
@@ -301,7 +287,10 @@ impl AatbeModule {
                 let then_bb = func.append_basic_block(String::default());
                 let end_bb = func.append_basic_block(String::default());
 
-                let cond = self.codegen_expr(cond_expr).unwrap();
+                let cond = match self.codegen_expr(cond_expr) {
+                    Some(cond) => cond,
+                    None => return None,
+                };
 
                 if *cond.prim().inner() != PrimitiveType::Bool {
                     self.add_error(CompileError::ExpectedType {
@@ -394,17 +383,15 @@ impl AatbeModule {
                         .into(),
                 )
             }
-            /*Expression::Binary(lhs, op, rhs) => {
-                let lh = self
-                    .codegen_expr(lhs)
-                    .expect("Binary op lhs must contain a value");
-                let rh = self
-                    .codegen_expr(rhs)
-                    .expect("Binary op rhs must contain a value");
-                Some(self.codegen_binary_op(op, lh, rh))
-            }*/
+            Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
+                Ok(val) => Some(val),
+                Err(err) => {
+                    self.add_error(err);
+                    None
+                }
+            },
             Expression::Function {
-                name,
+                name: _,
                 ty,
                 body,
                 attributes: _,
@@ -416,9 +403,9 @@ impl AatbeModule {
                         ext: true,
                     } => None,
                     _ => {
-                        codegen_function(self, expr);
+                        let name = codegen_function(self, expr);
                         self.current_function = Some(name.clone());
-                        self.start_scope_with_name(name);
+                        self.start_scope_with_name(&name);
                         inject_function_in_scope(self, expr);
                         let ret = self.codegen_expr(
                             &body
@@ -488,12 +475,6 @@ impl AatbeModule {
             "*" => self.llvm_builder.build_mul(x, y),
             "/" => self.llvm_builder.build_sdiv(x, y),
             "%" => self.llvm_builder.build_srem(x, y),
-            "==" => self.llvm_builder.build_icmp_eq(x, y),
-            "!=" => self.llvm_builder.build_icmp_ne(x, y),
-            "<" => self.llvm_builder.build_icmp_slt(x, y),
-            ">" => self.llvm_builder.build_icmp_sgt(x, y),
-            "<=" => self.llvm_builder.build_icmp_sle(x, y),
-            ">=" => self.llvm_builder.build_icmp_sge(x, y),
             _ => panic!("Cannot binary op {:?}", op),
         }
     }

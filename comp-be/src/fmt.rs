@@ -23,6 +23,8 @@ impl AatbeFmt for &PrimitiveType {
             },
             PrimitiveType::Varargs => String::from("..."),
             PrimitiveType::NamedType { name: _, ty } => ty.clone().fmt(),
+            PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
+            PrimitiveType::Char => String::from("char"),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

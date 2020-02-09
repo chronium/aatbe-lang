@@ -69,7 +69,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => var.into(),
             },
-            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
@@ -81,6 +81,7 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
 
                 module.llvm_builder_ref().build_load(gep)
             }
+            _ => panic!("ICE init_record {:?}", lval),
         }
     }
 
@@ -127,7 +128,7 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
                     var.into()
                 }
             },
-            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
@@ -140,6 +141,7 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
 
                 gep
             }
+            _ => panic!("ICE st_val {:?}", lval),
         }
     }
 

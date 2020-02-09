@@ -1,4 +1,7 @@
-use crate::{codegen::AatbeModule, ty::LLVMTyInCtx};
+use crate::{
+    codegen::{AatbeModule, ValueTypePair},
+    ty::{LLVMTyInCtx, TypeKind},
+};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef, Struct};
@@ -37,7 +40,7 @@ impl Record {
         reference: LLVMValueRef,
         record: &String,
         fields: Vec<String>,
-    ) -> LLVMValueRef {
+    ) -> ValueTypePair {
         if let ([member], rest) = fields.split_at(1) {
             let ty = self
                 .types
@@ -57,7 +60,7 @@ impl Record {
                     .get_record(&typeref)
                     .expect(format!("ICE no type associated with {}", typeref).as_str())
                     .read_field(module, gep, &member, rest.to_vec()),
-                _ => gep,
+                _ => (gep, TypeKind::Primitive(ty.clone())).into(),
             }
         } else {
             unreachable!()

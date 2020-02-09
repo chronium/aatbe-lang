@@ -25,15 +25,16 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     }
 }
 
-pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
+pub fn codegen_function(module: &mut AatbeModule, function: &Expression) -> String {
     match function {
         Expression::Function {
-            name,
+            name: _,
             ty: _,
             attributes,
             body: _,
         } => {
-            let func = module.get_func(&function.mangle()).unwrap();
+            let name = &function.mangle();
+            let func = module.get_func(name).unwrap();
 
             if !attributes.is_empty() {
                 for attr in attributes {
@@ -49,6 +50,8 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
                     .llvm_builder_ref()
                     .position_at_end(func.append_basic_block(String::default()));
             }
+
+            return name.clone();
         }
         _ => unreachable!(),
     }
