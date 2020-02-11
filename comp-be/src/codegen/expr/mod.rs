@@ -4,11 +4,14 @@ use eqne::codegen_eq_ne;
 mod compare;
 use compare::{codegen_compare_signed, codegen_compare_unsigned};
 
+mod math;
+use math::{codegen_signed_ops, codegen_unsigned_ops};
+
 use crate::{
     codegen::{AatbeModule, CompileError, GenRes, ValueTypePair},
     fmt::AatbeFmt,
 };
-use parser::ast::{Expression, PrimitiveType};
+use parser::ast::{Expression, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
 
@@ -29,8 +32,10 @@ fn dispatch_signed(
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
+    int_size: IntSize,
 ) -> Option<ValueTypePair> {
     match op.as_str() {
+        "+" | "-" | "*" | "/" | "%" => Some(codegen_signed_ops(module, op, lhs, rhs, int_size)),
         ">" | "<" | ">=" | "<=" => Some(codegen_compare_signed(module, op, lhs, rhs)),
         "==" | "!=" => Some(codegen_eq_ne(module, op, lhs, rhs)),
         _ => None,
@@ -42,8 +47,10 @@ fn dispatch_unsigned(
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
+    int_size: IntSize,
 ) -> Option<ValueTypePair> {
     match op.as_str() {
+        "+" | "-" | "*" | "/" | "%" => Some(codegen_unsigned_ops(module, op, lhs, rhs, int_size)),
         ">" | "<" | ">=" | "<=" => Some(codegen_compare_unsigned(module, op, lhs, rhs)),
         "==" | "!=" => Some(codegen_eq_ne(module, op, lhs, rhs)),
         _ => None,
@@ -74,8 +81,8 @@ pub fn codegen_binary(
                 }),
             }
         }
-        (PrimitiveType::UInt(_), PrimitiveType::UInt(_)) => {
-            match dispatch_unsigned(module, op, lhs.val(), rhs.val()) {
+        (PrimitiveType::UInt(lsz), PrimitiveType::UInt(rsz)) if lsz == rsz => {
+            match dispatch_unsigned(module, op, lhs.val(), rhs.val(), lsz.clone()) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),
@@ -84,8 +91,8 @@ pub fn codegen_binary(
                 }),
             }
         }
-        (PrimitiveType::Int(_), PrimitiveType::Int(_)) => {
-            match dispatch_signed(module, op, lhs.val(), rhs.val()) {
+        (PrimitiveType::Int(lsz), PrimitiveType::Int(rsz)) if lsz == rsz => {
+            match dispatch_signed(module, op, lhs.val(), rhs.val(), lsz.clone()) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),

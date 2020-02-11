@@ -468,17 +468,6 @@ impl AatbeModule {
         }
     }
 
-    pub fn codegen_binary_op(&self, op: &String, x: LLVMValueRef, y: LLVMValueRef) -> LLVMValueRef {
-        match op.as_str() {
-            "+" => self.llvm_builder.build_add(x, y),
-            "-" => self.llvm_builder.build_sub(x, y),
-            "*" => self.llvm_builder.build_mul(x, y),
-            "/" => self.llvm_builder.build_sdiv(x, y),
-            "%" => self.llvm_builder.build_srem(x, y),
-            _ => panic!("Cannot binary op {:?}", op),
-        }
-    }
-
     pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
         match ty {
             PrimitiveType::Int(IntSize::Bits8) => self.llvm_context.SInt8(val),

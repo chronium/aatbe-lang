@@ -39,6 +39,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Bool(Boolean::False) => String::from("false"),
             AtomKind::Ident(id) => format!("{}", id),
             AtomKind::Unary(op, id) => format!("{}{}", op, id.fmt()),
+            AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -47,6 +48,7 @@ impl AatbeFmt for &AtomKind {
 impl AatbeFmt for &Expression {
     fn fmt(self) -> String {
         match self {
+            Expression::Binary(lhs, op, rhs) => format!("{} {} {}", lhs.fmt(), op, rhs.fmt()),
             Expression::Atom(atom) => atom.fmt(),
             _ => panic!("ICE fmt {:?}", self),
         }
