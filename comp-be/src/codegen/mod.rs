@@ -39,5 +39,17 @@ pub enum CompileError {
         types: (String, String),
         values: (String, String),
     },
+    AssignMismatch {
+        expected_ty: String,
+        found_ty: String,
+        value: String,
+        var: String,
+    },
+    StoreMismatch {
+        expected_ty: String,
+        found_ty: String,
+        value: String,
+        lval: String,
+    },
     Handled,
 }

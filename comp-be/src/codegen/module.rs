@@ -221,7 +221,8 @@ impl AatbeModule {
                         let val_ref = self
                             .codegen_expr(val)
                             .expect(format!("ICE could not codegen {:?}", val).as_str());
-                        store_named_field(
+                        let val_ty = val_ref.prim().fmt();
+                        match store_named_field(
                             self,
                             rec,
                             record,
@@ -229,8 +230,16 @@ impl AatbeModule {
                                 .get_record(record)
                                 .expect(format!("ICE could not find record {}", record).as_str()),
                             name,
-                            val_ref.0,
-                        );
+                            val_ref,
+                        ) {
+                            Ok(_) => {}
+                            Err(expected) => self.add_error(CompileError::StoreMismatch {
+                                expected_ty: expected.fmt(),
+                                found_ty: val_ty,
+                                value: val.fmt(),
+                                lval: record.clone(),
+                            }),
+                        };
                     }
                     _ => panic!("ICE codegen_expr {:?}", expr),
                 });
@@ -243,19 +252,17 @@ impl AatbeModule {
                         .into(),
                 )
             }
-            /*Expression::Assign { lval, value } => match value {
-                box Expression::RecordInit { record, values } => Some(init_record(
+            Expression::Assign { lval, value } => match value {
+                box Expression::RecordInit { record, values } => init_record(
                     self,
                     lval,
                     &Expression::RecordInit {
                         record: record.clone(),
                         values: values.to_vec(),
                     },
-                )),
-                _ => {
-                    Some(store_value(self, lval, value))
-                },
-            },*/
+                ),
+                _ => store_value(self, lval, value),
+            },
             Expression::Decl {
                 ty: PrimitiveType::NamedType { name, ty },
                 value: _,

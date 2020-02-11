@@ -1,12 +1,10 @@
 use crate::{
-    codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError},
+    codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError, ValueTypePair},
     fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx},
 };
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
-
-use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
     match variable {
@@ -34,6 +32,13 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
 
             if let Some(e) = value {
                 if let box Expression::RecordInit { record, values } = e {
+                    if ty.inner() != &PrimitiveType::TypeRef(record.clone()) {
+                        module.add_error(CompileError::ExpectedType {
+                            expected_ty: ty.inner().fmt(),
+                            found_ty: record.clone(),
+                            value: value.as_ref().unwrap().fmt(),
+                        });
+                    }
                     init_record(
                         module,
                         &LValue::Ident(name.clone()),
@@ -62,14 +67,18 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
     }
 }
 
-pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) -> LLVMValueRef {
-    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+pub fn init_record(
+    module: &mut AatbeModule,
+    lval: &LValue,
+    rec: &Expression,
+) -> Option<ValueTypePair> {
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> ValueTypePair {
         match lval {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => var.into(),
             },
-            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
@@ -77,46 +86,66 @@ pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) ->
 
                 let gep = module
                     .llvm_builder_ref()
-                    .build_inbounds_gep(val, &mut [index.val()]);
+                    .build_inbounds_gep(val.val(), &mut [index.val()]);
 
-                module.llvm_builder_ref().build_load(gep)
+                (module.llvm_builder_ref().build_load(gep), val.ty()).into()
             }
-            _ => panic!("ICE init_record {:?}", lval),
         }
     }
 
     match rec {
         Expression::RecordInit { record, values } => {
-            let var: LLVMValueRef = get_lval(module, lval);
+            let var = get_lval(module, lval);
+
+            let mut err = false;
 
             values.iter().for_each(|val| match val {
                 AtomKind::NamedValue { name, val } => {
                     let val_ref = module
                         .codegen_expr(val)
                         .expect(format!("ICE could not codegen {:?}", val).as_str());
-                    store_named_field(
+                    let val_ty = val_ref.prim().fmt();
+                    match store_named_field(
                         module,
-                        var,
+                        var.val(),
                         &lval.into(),
                         module
                             .typectx_ref()
                             .get_record(record)
                             .expect(format!("ICE could not find record {}", record).as_str()),
                         name,
-                        val_ref.val(),
-                    );
+                        val_ref,
+                    ) {
+                        Ok(_) => {}
+                        Err(expected) => {
+                            err = true;
+                            module.add_error(CompileError::StoreMismatch {
+                                expected_ty: expected.fmt(),
+                                found_ty: val_ty,
+                                value: val.fmt(),
+                                lval: lval.fmt(),
+                            })
+                        }
+                    };
                 }
                 _ => panic!("ICE init_record unexpected {:?}", val),
             });
 
-            var
+            match err {
+                false => Some(var),
+                true => None,
+            }
         }
         _ => unreachable!(),
     }
 }
 
-pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) -> LLVMValueRef {
-    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+pub fn store_value(
+    module: &mut AatbeModule,
+    lval: &LValue,
+    value: &Expression,
+) -> Option<ValueTypePair> {
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> ValueTypePair {
         match lval {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
@@ -128,28 +157,43 @@ pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) 
                     var.into()
                 }
             },
-            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE store_value index");
 
-                let load = module.llvm_builder_ref().build_load(val);
+                let load = module.llvm_builder_ref().build_load(val.val());
                 let gep = module
                     .llvm_builder_ref()
                     .build_inbounds_gep(load, &mut [index.val()]);
 
-                gep
+                (gep, val.ty()).into()
             }
-            _ => panic!("ICE st_val {:?}", lval),
         }
     }
 
-    let var: LLVMValueRef = get_lval(module, lval);
+    let var = get_lval(module, lval);
 
     let val = module
         .codegen_expr(value)
         .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
+    if var.prim() != val.prim().inner() {
+        module.add_error(CompileError::AssignMismatch {
+            expected_ty: var.prim().fmt(),
+            found_ty: val.prim().fmt(),
+            value: value.fmt(),
+            var: lval.fmt(),
+        });
 
-    module.llvm_builder_ref().build_store(val.val(), var)
+        None
+    } else {
+        Some(
+            (
+                module.llvm_builder_ref().build_store(val.val(), var.val()),
+                var.ty(),
+            )
+                .into(),
+        )
+    }
 }

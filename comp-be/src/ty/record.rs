@@ -6,6 +6,7 @@ use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef, Struct};
 use std::collections::HashMap;
+use tuple_combinator::TupleCombinator;
 
 pub struct Record {
     name: String,
@@ -50,8 +51,9 @@ impl Record {
 
             let gep = module.llvm_builder_ref().build_struct_gep_with_name(
                 reference,
-                self.get_field_index(&member)
-                    .expect(format!("Cannot find field {}.{}", record, &member).as_str()),
+                self.get_field_index_ty(&member)
+                    .expect(format!("Cannot find field {}.{}", record, &member).as_str())
+                    .0,
                 format!("{}.{}\0", record, member).as_str(),
             );
             match ty {
@@ -76,8 +78,12 @@ impl Record {
         self.inner.set_body(&mut types, false);
     }
 
-    pub fn get_field_index(&self, name: &String) -> Option<u32> {
-        self.body.get(name).map(|i| *i)
+    pub fn get_field_index_ty(&self, name: &String) -> Option<(u32, PrimitiveType)> {
+        (
+            self.body.get(name).map(|i| *i),
+            self.types.get(name).map(|i| i.clone()),
+        )
+            .transpose()
     }
 }
 
@@ -87,19 +93,24 @@ pub fn store_named_field(
     rec_name: &String,
     rec: &Record,
     name: &String,
-    value: LLVMValueRef,
-) {
+    value: ValueTypePair,
+) -> Result<(), PrimitiveType> {
     let index = rec
-        .get_field_index(name)
+        .get_field_index_ty(name)
         .expect(format!("Cannot find field {:?} in {:?}\0", name, rec.name).as_str());
 
     let gep = module.llvm_builder_ref().build_struct_gep_with_name(
         struct_ref,
-        index,
+        index.0,
         format!("{}.{}", rec_name, name).as_str(),
     );
 
-    module.llvm_builder_ref().build_store(value, gep);
+    if value.prim() != &index.1 {
+        Err(index.1)
+    } else {
+        module.llvm_builder_ref().build_store(value.val(), gep);
+        Ok(())
+    }
 }
 
 impl LLVMTyInCtx for &Record {

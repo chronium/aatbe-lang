@@ -1,6 +1,9 @@
 use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 
-use crate::codegen::AatbeModule;
+use crate::{
+    codegen::{AatbeModule, ValueTypePair},
+    ty::TypeKind,
+};
 use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
@@ -36,6 +39,25 @@ pub enum CodegenUnit {
         ty: PrimitiveType,
         value: LLVMValueRef,
     },
+}
+
+impl Into<ValueTypePair> for &CodegenUnit {
+    fn into(self) -> ValueTypePair {
+        match self {
+            CodegenUnit::Function(func, ty) => {
+                (func.as_ref(), TypeKind::Primitive(ty.clone())).into()
+            }
+            CodegenUnit::FunctionArgument(arg, ty) => {
+                (*arg, TypeKind::Primitive(ty.clone())).into()
+            }
+            CodegenUnit::Variable {
+                mutable: _,
+                name: _,
+                ty,
+                value,
+            } => (*value, TypeKind::Primitive(ty.clone())).into(),
+        }
+    }
 }
 
 impl Into<LLVMValueRef> for &CodegenUnit {
@@ -94,7 +116,7 @@ impl CodegenUnit {
         }
     }
 
-    pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<u32> {
+    pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<(u32, PrimitiveType)> {
         match self {
             CodegenUnit::Variable {
                 mutable: _,
@@ -106,7 +128,7 @@ impl CodegenUnit {
                     },
                 value: _,
             } => match module.typectx_ref().get_record(record) {
-                Ok(rec) => rec.get_field_index(name),
+                Ok(rec) => rec.get_field_index_ty(name),
                 _ => panic!("Cannot get index from {:?}", self),
             },
             _ => panic!("Cannot get index from {:?}", self),

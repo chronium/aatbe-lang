@@ -103,6 +103,24 @@ fn main() -> io::Result<()> {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
             CompileError::Handled => {}
+            CompileError::StoreMismatch {
+                expected_ty,
+                found_ty,
+                value,
+                lval,
+            } => error!(
+                "Cannot store {}: {} as {} is of type {}",
+                found_ty, value, lval, expected_ty,
+            ),
+            CompileError::AssignMismatch {
+                expected_ty,
+                found_ty,
+                value,
+                var,
+            } => error!(
+                "Cannot assign {}: {} as {} is of type {}",
+                found_ty, value, var, expected_ty
+            ),
             CompileError::ExpectedType {
                 found_ty,
                 expected_ty,

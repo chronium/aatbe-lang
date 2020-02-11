@@ -1,6 +1,11 @@
 use "libc"
 
+rec Test1(t: str)
+rec Test2(t: i32)
+
 @entry
 fn main () -> () = {
-    printf "%d\n", (1 + 2) % 2
+    var hw: Test2 = Test1 {
+        t: 123
+    }
 }

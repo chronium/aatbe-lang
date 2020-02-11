@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Boolean, Expression, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, Expression, IntSize, LValue, PrimitiveType};
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
@@ -25,6 +25,7 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::NamedType { name: _, ty } => ty.clone().fmt(),
             PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
             PrimitiveType::Char => String::from("char"),
+            PrimitiveType::TypeRef(ty) => ty.clone(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -40,6 +41,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Ident(id) => format!("{}", id),
             AtomKind::Unary(op, id) => format!("{}{}", op, id.fmt()),
             AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
+            AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -50,7 +52,27 @@ impl AatbeFmt for &Expression {
         match self {
             Expression::Binary(lhs, op, rhs) => format!("{} {} {}", lhs.fmt(), op, rhs.fmt()),
             Expression::Atom(atom) => atom.fmt(),
+            Expression::RecordInit { record, values } => format!(
+                "{} {{ {} }}",
+                record,
+                values
+                    .iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             _ => panic!("ICE fmt {:?}", self),
+        }
+    }
+}
+
+impl AatbeFmt for &LValue {
+    fn fmt(self) -> String {
+        match self {
+            LValue::Ident(ident) => ident.clone(),
+            LValue::Accessor(access) => access.join("."),
+            LValue::Deref(lval) => format!("*{}", lval.fmt()),
+            LValue::Index(lval, expr) => format!("{}[{}]", lval.fmt(), expr.fmt()),
         }
     }
 }
