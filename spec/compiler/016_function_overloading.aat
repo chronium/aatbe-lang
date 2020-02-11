@@ -1,0 +1,12 @@
+// spector:name Function overloading
+
+extern fn printf str, ... -> i32
+
+fn overload s: str -> () = printf "%s\n", s
+fn overload i: i32 -> () = printf "%d\n", i
+
+@entry
+fn main() -> () = {
+    overload "Hello"
+    overload 42
+}
