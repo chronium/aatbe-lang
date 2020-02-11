@@ -1,9 +1,9 @@
-use crate::{codegen::AatbeModule, ty::record::Record};
+use crate::{codegen::AatbeModule, fmt::AatbeFmt, ty::record::Record};
 use parser::ast::{IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 pub mod record;
 
@@ -17,6 +17,15 @@ pub type TypeResult<T> = Result<T, TypeError>;
 pub enum TypeKind {
     RecordType(Record),
     Primitive(PrimitiveType),
+}
+
+impl fmt::Debug for TypeKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TypeKind::Primitive(prim) => write!(f, "Primitive({})", AatbeFmt::fmt(prim)),
+            TypeKind::RecordType(rec) => write!(f, "RecordType({})", rec.name()),
+        }
+    }
 }
 
 impl LLVMTyInCtx for TypeKind {
@@ -34,10 +43,6 @@ impl TypeKind {
             TypeKind::RecordType(record) => Some(record),
             TypeKind::Primitive(_) => None,
         }
-    }
-
-    pub fn prim(primitive: PrimitiveType) -> TypeKind {
-        TypeKind::Primitive(primitive)
     }
 }
 

@@ -19,7 +19,7 @@ impl AatbeModule {
                     (
                         self.llvm_builder_ref()
                             .build_bitcast(val, ty.llvm_ty_in_ctx(self)),
-                        TypeKind::prim(ty.clone()),
+                        TypeKind::Primitive(ty.clone()),
                     )
                         .into(),
                 )
@@ -36,6 +36,13 @@ impl AatbeModule {
                 let gep = self
                     .llvm_builder_ref()
                     .build_inbounds_gep(val, &mut [index.val()]);
+
+                let ty = match ty {
+                    TypeKind::Primitive(PrimitiveType::Str) => {
+                        TypeKind::Primitive(PrimitiveType::Char)
+                    }
+                    _ => panic!("ICE ty[] {:?}", ty),
+                };
 
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
@@ -73,35 +80,35 @@ impl AatbeModule {
                 (
                     self.llvm_builder_ref()
                         .build_global_string_ptr(string.as_str()),
-                    TypeKind::prim(PrimitiveType::Str),
+                    TypeKind::Primitive(PrimitiveType::Str),
                 )
                     .into(),
             ),
             AtomKind::CharLiteral(ch) => Some(
                 (
                     self.llvm_context_ref().SInt8(*ch as u64),
-                    TypeKind::prim(PrimitiveType::Str),
+                    TypeKind::Primitive(PrimitiveType::Str),
                 )
                     .into(),
             ),
             AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => Some(
                 (
                     self.llvm_context_ref().SInt32(*val),
-                    TypeKind::prim(prim.clone()),
+                    TypeKind::Primitive(prim.clone()),
                 )
                     .into(),
             ),
             AtomKind::Bool(Boolean::True) => Some(
                 (
                     self.llvm_context_ref().SInt1(1),
-                    TypeKind::prim(PrimitiveType::Bool),
+                    TypeKind::Primitive(PrimitiveType::Bool),
                 )
                     .into(),
             ),
             AtomKind::Bool(Boolean::False) => Some(
                 (
                     self.llvm_context_ref().SInt1(0),
-                    TypeKind::prim(PrimitiveType::Bool),
+                    TypeKind::Primitive(PrimitiveType::Bool),
                 )
                     .into(),
             ),

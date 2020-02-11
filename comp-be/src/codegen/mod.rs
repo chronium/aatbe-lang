@@ -51,5 +51,9 @@ pub enum CompileError {
         value: String,
         lval: String,
     },
+    NotIndexable {
+        ty: String,
+        lval: String,
+    },
     Handled,
 }

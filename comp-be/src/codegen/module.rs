@@ -320,21 +320,29 @@ impl AatbeModule {
                 name: raw_name,
                 args,
             } => {
+                let mut call_types = vec![];
+
                 let mut call_args = args
                     .iter()
                     .filter_map(|arg| match arg {
-                        Expression::Atom(AtomKind::SymbolLiteral(_)) => panic!("ICE call_symbol"),
-                        _ => self.codegen_expr(arg).map(|arg| arg),
+                        Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
+                            call_types.push(PrimitiveType::TypeRef(sym.clone()));
+                            None
+                        }
+                        _ => self.codegen_expr(arg).map_or(None, |arg| {
+                            call_types.push(arg.prim().clone());
+                            Some(arg.val())
+                        }),
                     })
-                    .collect::<Vec<ValueTypePair>>();
+                    .collect::<Vec<LLVMValueRef>>();
 
-                let name = if !self.is_extern(raw_name) && call_args.len() > 0 {
+                let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
                         "{}A{}",
                         raw_name,
-                        call_args
+                        call_types
                             .iter()
-                            .map(|arg| arg.prim().mangle())
+                            .map(|arg| arg.mangle())
                             .collect::<Vec<String>>()
                             .join(".")
                     )
@@ -353,7 +361,7 @@ impl AatbeModule {
                         break;
                     }
 
-                    if call_args[i].prim() != fty {
+                    if &call_types[i] != fty {
                         mismatch = true;
                     }
                 }
@@ -366,9 +374,9 @@ impl AatbeModule {
                             .map(|p| p.fmt())
                             .collect::<Vec<String>>()
                             .join(", "),
-                        found_ty: call_args
+                        found_ty: call_types
                             .iter()
-                            .map(|arg| arg.prim().fmt())
+                            .map(|arg| arg.fmt())
                             .collect::<Vec<String>>()
                             .join(", "),
                     });
@@ -378,13 +386,7 @@ impl AatbeModule {
 
                 Some(
                     (
-                        self.llvm_builder.build_call(
-                            func.into(),
-                            &mut call_args
-                                .iter_mut()
-                                .map(|arg| arg.val())
-                                .collect::<Vec<LLVMValueRef>>(),
-                        ),
+                        self.llvm_builder.build_call(func.into(), &mut call_args),
                         TypeKind::Primitive(func.ret_ty()),
                     )
                         .into(),

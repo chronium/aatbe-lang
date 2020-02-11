@@ -1,7 +1,7 @@
 use crate::{
     codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError, ValueTypePair},
     fmt::AatbeFmt,
-    ty::{record::store_named_field, LLVMTyInCtx},
+    ty::{record::store_named_field, LLVMTyInCtx, TypeKind},
 };
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
@@ -72,70 +72,91 @@ pub fn init_record(
     lval: &LValue,
     rec: &Expression,
 ) -> Option<ValueTypePair> {
-    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> ValueTypePair {
-        match lval {
+    fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
+        match lvalue {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
-                Some(var) => var.into(),
+                Some(var) => Some(var.into()),
             },
-            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE init_record index");
 
-                let gep = module
-                    .llvm_builder_ref()
-                    .build_inbounds_gep(val.val(), &mut [index.val()]);
+                if let Some(val) = val {
+                    match val.ty() {
+                        TypeKind::Primitive(PrimitiveType::Str) => {
+                            let gep = module
+                                .llvm_builder_ref()
+                                .build_inbounds_gep(val.val(), &mut [index.val()]);
 
-                (module.llvm_builder_ref().build_load(gep), val.ty()).into()
+                            Some(
+                                (
+                                    module.llvm_builder_ref().build_load(gep),
+                                    TypeKind::Primitive(PrimitiveType::Char),
+                                )
+                                    .into(),
+                            )
+                        }
+                        _ => {
+                            module.add_error(CompileError::NotIndexable {
+                                ty: val.prim().fmt(),
+                                lval: lvalue.fmt(),
+                            });
+                            None
+                        }
+                    }
+                } else {
+                    None
+                }
             }
         }
     }
 
     match rec {
-        Expression::RecordInit { record, values } => {
-            let var = get_lval(module, lval);
+        Expression::RecordInit { record, values } => get_lval(module, lval)
+            .map(|var| {
+                let mut err = false;
 
-            let mut err = false;
+                values.iter().for_each(|val| match val {
+                    AtomKind::NamedValue { name, val } => {
+                        let val_ref = module
+                            .codegen_expr(val)
+                            .expect(format!("ICE could not codegen {:?}", val).as_str());
+                        let val_ty = val_ref.prim().fmt();
+                        match store_named_field(
+                            module,
+                            var.val(),
+                            &lval.into(),
+                            module
+                                .typectx_ref()
+                                .get_record(record)
+                                .expect(format!("ICE could not find record {}", record).as_str()),
+                            name,
+                            val_ref,
+                        ) {
+                            Ok(_) => {}
+                            Err(expected) => {
+                                err = true;
+                                module.add_error(CompileError::StoreMismatch {
+                                    expected_ty: expected.fmt(),
+                                    found_ty: val_ty,
+                                    value: val.fmt(),
+                                    lval: lval.fmt(),
+                                })
+                            }
+                        };
+                    }
+                    _ => panic!("ICE init_record unexpected {:?}", val),
+                });
 
-            values.iter().for_each(|val| match val {
-                AtomKind::NamedValue { name, val } => {
-                    let val_ref = module
-                        .codegen_expr(val)
-                        .expect(format!("ICE could not codegen {:?}", val).as_str());
-                    let val_ty = val_ref.prim().fmt();
-                    match store_named_field(
-                        module,
-                        var.val(),
-                        &lval.into(),
-                        module
-                            .typectx_ref()
-                            .get_record(record)
-                            .expect(format!("ICE could not find record {}", record).as_str()),
-                        name,
-                        val_ref,
-                    ) {
-                        Ok(_) => {}
-                        Err(expected) => {
-                            err = true;
-                            module.add_error(CompileError::StoreMismatch {
-                                expected_ty: expected.fmt(),
-                                found_ty: val_ty,
-                                value: val.fmt(),
-                                lval: lval.fmt(),
-                            })
-                        }
-                    };
+                match err {
+                    false => Some(var),
+                    true => None,
                 }
-                _ => panic!("ICE init_record unexpected {:?}", val),
-            });
-
-            match err {
-                false => Some(var),
-                true => None,
-            }
-        }
+            })
+            .flatten(),
         _ => unreachable!(),
     }
 }
@@ -145,8 +166,8 @@ pub fn store_value(
     lval: &LValue,
     value: &Expression,
 ) -> Option<ValueTypePair> {
-    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> ValueTypePair {
-        match lval {
+    fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
+        match lvalue {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => {
@@ -154,46 +175,63 @@ pub fn store_value(
                         Mutability::Mutable => {}
                         _ => panic!("Cannot reassign to immutable/constant {}", name),
                     };
-                    var.into()
+                    Some(var.into())
                 }
             },
-            LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())),
             LValue::Deref(_) => unimplemented!(),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE store_value index");
 
-                let load = module.llvm_builder_ref().build_load(val.val());
-                let gep = module
-                    .llvm_builder_ref()
-                    .build_inbounds_gep(load, &mut [index.val()]);
+                if let Some(val) = val {
+                    match val.ty() {
+                        TypeKind::Primitive(PrimitiveType::Str) => {
+                            let load = module.llvm_builder_ref().build_load(val.val());
+                            let gep = module
+                                .llvm_builder_ref()
+                                .build_inbounds_gep(load, &mut [index.val()]);
 
-                (gep, val.ty()).into()
+                            Some((gep, TypeKind::Primitive(PrimitiveType::Char)).into())
+                        }
+                        _ => {
+                            module.add_error(CompileError::NotIndexable {
+                                ty: val.prim().fmt(),
+                                lval: lvalue.fmt(),
+                            });
+                            None
+                        }
+                    }
+                } else {
+                    None
+                }
             }
         }
     }
 
-    let var = get_lval(module, lval);
+    get_lval(module, lval)
+        .map(|var| {
+            let val = module
+                .codegen_expr(value)
+                .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
+            if var.prim() != val.prim().inner() {
+                module.add_error(CompileError::AssignMismatch {
+                    expected_ty: var.prim().fmt(),
+                    found_ty: val.prim().fmt(),
+                    value: value.fmt(),
+                    var: lval.fmt(),
+                });
 
-    let val = module
-        .codegen_expr(value)
-        .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
-    if var.prim() != val.prim().inner() {
-        module.add_error(CompileError::AssignMismatch {
-            expected_ty: var.prim().fmt(),
-            found_ty: val.prim().fmt(),
-            value: value.fmt(),
-            var: lval.fmt(),
-        });
-
-        None
-    } else {
-        Some(
-            (
-                module.llvm_builder_ref().build_store(val.val(), var.val()),
-                var.ty(),
-            )
-                .into(),
-        )
-    }
+                None
+            } else {
+                Some(
+                    (
+                        module.llvm_builder_ref().build_store(val.val(), var.val()),
+                        var.ty(),
+                    )
+                        .into(),
+                )
+            }
+        })
+        .flatten()
 }

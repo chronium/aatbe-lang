@@ -85,6 +85,10 @@ impl Record {
         )
             .transpose()
     }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }
 
 pub fn store_named_field(
@@ -102,7 +106,7 @@ pub fn store_named_field(
     let gep = module.llvm_builder_ref().build_struct_gep_with_name(
         struct_ref,
         index.0,
-        format!("{}.{}", rec_name, name).as_str(),
+        format!("{}.{}\0", rec_name, name).as_str(),
     );
 
     if value.prim() != &index.1 {

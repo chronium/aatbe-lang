@@ -103,6 +103,9 @@ fn main() -> io::Result<()> {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
             CompileError::Handled => {}
+            CompileError::NotIndexable { ty, lval } => {
+                error!("Cannot index `{}`. Type {} is not indexable", lval, ty)
+            }
             CompileError::StoreMismatch {
                 expected_ty,
                 found_ty,
