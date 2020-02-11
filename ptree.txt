@@ -1,58 +1,137 @@
-File(
-    [
-        Import(
-            "libc",
-        ),
-        Assign(
-            Function {
-                name: "ident",
-                ty: FunctionType {
-                    ret_type: Str,
-                    param: NamedType {
-                        name: "x",
-                        ty: Str,
-                    },
-                    ext: false,
-                },
-                attributes: [],
-            },
-            Ref(
-                "x",
+Some(
+    File(
+        [
+            Import(
+                "libc",
             ),
-        ),
-        Assign(
-            Function {
-                name: "main",
-                ty: FunctionType {
-                    ret_type: TupleType(
-                        [],
-                    ),
-                    param: TupleType(
-                        [],
-                    ),
-                    ext: false,
-                },
-                attributes: [
-                    "entry",
-                ],
-            },
-            Block(
-                [
-                    Call {
-                        name: "puts",
-                        arg: Tuple(
+            Expr(
+                Function {
+                    name: "main",
+                    ty: Function {
+                        ext: false,
+                        ret_ty: Unit,
+                        params: [
+                            Unit,
+                        ],
+                    },
+                    body: Some(
+                        Block(
                             [
-                                Call {
-                                    name: "ident",
-                                    arg: StringLiteral(
-                                        "Hello",
+                                Decl {
+                                    ty: NamedType {
+                                        name: "len",
+                                        ty: Int(
+                                            Bits32,
+                                        ),
+                                    },
+                                    value: Some(
+                                        Call {
+                                            name: "strlen",
+                                            args: [
+                                                StringLiteral(
+                                                    "Hello World\n",
+                                                ),
+                                            ],
+                                        },
                                     ),
+                                    exterior_bind: Immutable,
+                                },
+                                Decl {
+                                    ty: NamedType {
+                                        name: "hw",
+                                        ty: Str,
+                                    },
+                                    value: Some(
+                                        Atom(
+                                            Cast(
+                                                Parenthesized(
+                                                    Call {
+                                                        name: "malloc",
+                                                        args: [
+                                                            Ident(
+                                                                "len",
+                                                            ),
+                                                        ],
+                                                    },
+                                                ),
+                                                Str,
+                                            ),
+                                        ),
+                                    ),
+                                    exterior_bind: Mutable,
+                                },
+                                Call {
+                                    name: "strncpy",
+                                    args: [
+                                        Ident(
+                                            "hw",
+                                        ),
+                                        StringLiteral(
+                                            "Hello World\n",
+                                        ),
+                                        Ident(
+                                            "len",
+                                        ),
+                                    ],
+                                },
+                                Call {
+                                    name: "printf",
+                                    args: [
+                                        Ident(
+                                            "hw",
+                                        ),
+                                    ],
+                                },
+                                Assign {
+                                    lval: hw[],
+                                    value: Atom(
+                                        CharLiteral(
+                                            'J',
+                                        ),
+                                    ),
+                                },
+                                Call {
+                                    name: "printf",
+                                    args: [
+                                        Ident(
+                                            "hw",
+                                        ),
+                                    ],
                                 },
                             ],
                         ),
-                    },
-                ],
+                    ),
+                    attributes: [
+                        "entry",
+                    ],
+                },
             ),
-        ),
-    ],
+        ],
+    ),
+)
+                             ),
+                                            ),
+                                        },
+                                    ],
+                                },
+                                Call {
+                                    name: "printf",
+                                    args: [
+                                        Atom(
+                                            Ident(
+                                                "hw",
+                                            ),
+                                        ),
+                                    ],
+                                },
+                            ],
+                        ),
+                    ),
+                    attributes: [
+                        "entry",
+                    ],
+                },
+            ),
+        ],
+    ),
 )

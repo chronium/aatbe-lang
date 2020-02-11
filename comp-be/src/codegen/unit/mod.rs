@@ -28,8 +28,8 @@ impl From<&BindType> for Mutability {
 
 #[derive(Debug)]
 pub enum CodegenUnit {
-    Function(Function),
-    FunctionArgument(LLVMValueRef),
+    Function(Function, PrimitiveType),
+    FunctionArgument(LLVMValueRef, PrimitiveType),
     Variable {
         mutable: Mutability,
         name: String,
@@ -41,8 +41,8 @@ pub enum CodegenUnit {
 impl Into<LLVMValueRef> for &CodegenUnit {
     fn into(self) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func) => func.as_ref(),
-            CodegenUnit::FunctionArgument(arg) => *arg,
+            CodegenUnit::Function(func, _) => func.as_ref(),
+            CodegenUnit::FunctionArgument(arg, _) => *arg,
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
@@ -54,6 +54,46 @@ impl Into<LLVMValueRef> for &CodegenUnit {
 }
 
 impl CodegenUnit {
+    pub fn ret_ty(&self) -> PrimitiveType {
+        match self {
+            CodegenUnit::Function(
+                _,
+                PrimitiveType::Function {
+                    ext: _,
+                    ret_ty: box ret_ty,
+                    params: _,
+                },
+            ) => ret_ty.clone(),
+            _ => panic!("ICE ret_ty {:?}", self),
+        }
+    }
+
+    pub fn param_types(&self) -> Vec<PrimitiveType> {
+        match self {
+            CodegenUnit::Function(
+                _,
+                PrimitiveType::Function {
+                    ext: _,
+                    ret_ty: _,
+                    params,
+                },
+            ) => params
+                .iter()
+                .filter_map(|p| match p {
+                    //TODO: Handle Unit
+                    PrimitiveType::Unit => None,
+                    PrimitiveType::NamedType {
+                        name: _,
+                        ty: box ty,
+                    } => Some(ty.clone()),
+                    p => Some(p.clone()),
+                })
+                .collect::<Vec<PrimitiveType>>()
+                .clone(),
+            _ => panic!("ICE param_types {:?}", self),
+        }
+    }
+
     pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<u32> {
         match self {
             CodegenUnit::Variable {
@@ -65,8 +105,8 @@ impl CodegenUnit {
                         ty: box PrimitiveType::TypeRef(record),
                     },
                 value: _,
-            } => match module.typectx_ref().get_type(record) {
-                Some(rec) => rec.get_field_index(name),
+            } => match module.typectx_ref().get_record(record) {
+                Ok(rec) => rec.get_field_index(name),
                 _ => panic!("Cannot get index from {:?}", self),
             },
             _ => panic!("Cannot get index from {:?}", self),
@@ -75,14 +115,14 @@ impl CodegenUnit {
 
     pub fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
         match self {
-            CodegenUnit::Function(func) => func.append_basic_block(name.as_ref()),
+            CodegenUnit::Function(func, _) => func.append_basic_block(name.as_ref()),
             _ => panic!("Cannot append basic block on {:?}", self),
         }
     }
 
     fn get_param(&self, index: u32) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func) => func.get_param(index),
+            CodegenUnit::Function(func, _) => func.get_param(index),
             _ => panic!("Cannot get parameter from {:?}", self),
         }
     }
@@ -95,8 +135,21 @@ impl CodegenUnit {
                 ty: _,
                 value: _,
             } => builder.build_load(self.into()),
-            CodegenUnit::FunctionArgument(_arg) => self.into(),
+            CodegenUnit::FunctionArgument(_, _) => self.into(),
             _ => panic!("Cannot load non-variable"),
+        }
+    }
+
+    pub fn var_ty(&self) -> &PrimitiveType {
+        match self {
+            CodegenUnit::Variable {
+                mutable: _,
+                name: _,
+                ty: PrimitiveType::NamedType { name: _, ty },
+                value: _,
+            } => ty,
+            CodegenUnit::FunctionArgument(_, ty) => ty,
+            _ => panic!("Cannot var_ty non-variable"),
         }
     }
 

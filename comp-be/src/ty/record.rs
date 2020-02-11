@@ -1,4 +1,7 @@
-use crate::{codegen::AatbeModule, ty::LLVMTyInCtx};
+use crate::{
+    codegen::{AatbeModule, ValueTypePair},
+    ty::{LLVMTyInCtx, TypeKind},
+};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef, Struct};
@@ -37,27 +40,27 @@ impl Record {
         reference: LLVMValueRef,
         record: &String,
         fields: Vec<String>,
-    ) -> LLVMValueRef {
+    ) -> ValueTypePair {
         if let ([member], rest) = fields.split_at(1) {
-            let gep = module.llvm_builder_ref().build_struct_gep_with_name(
-                reference,
-                self.get_field_index(&member)
-                    .expect(format!("Cannot find field {}.{}", record, &member).as_str()),
-                format!("{}.{}\0", record, member).as_str(),
-            );
             let ty = self
                 .types
                 .get(member)
                 .expect("ICE read_field found field externally but not internally")
                 .clone();
 
+            let gep = module.llvm_builder_ref().build_struct_gep_with_name(
+                reference,
+                self.get_field_index(&member)
+                    .expect(format!("Cannot find field {}.{}", record, &member).as_str()),
+                format!("{}.{}\0", record, member).as_str(),
+            );
             match ty {
-                PrimitiveType::TypeRef(typeref) => module
+                PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
                     .typectx_ref()
-                    .get_type(&typeref)
+                    .get_record(&typeref)
                     .expect(format!("ICE no type associated with {}", typeref).as_str())
                     .read_field(module, gep, &member, rest.to_vec()),
-                _ => gep,
+                _ => (gep, TypeKind::Primitive(ty.clone())).into(),
             }
         } else {
             unreachable!()

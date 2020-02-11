@@ -6,5 +6,5 @@ fn ident s: str -> str = s
 
 @entry
 fn main () -> () = {
-  puts (ident "Hello")
+  puts ident "Hello"
 }

@@ -3,20 +3,71 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
     codegen::{
+        codegen_binary,
+        mangle_v1::NameMangler,
         unit::{
             alloc_variable, codegen_function, declare_function, init_record,
             inject_function_in_scope, store_value,
         },
-        CodegenUnit, Scope,
+        CodegenUnit, CompileError, Scope,
     },
-    ty::{record::Record, TypeContext},
+    fmt::AatbeFmt,
+    ty::{
+        record::{store_named_field, Record},
+        LLVMTyInCtx, TypeContext, TypeKind,
+    },
 };
 
 use parser::{
-    ast::{AtomKind, Boolean, Expression, IntSize, PrimitiveType, AST},
+    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
+
+pub struct ValueTypePair(LLVMValueRef, TypeKind);
+
+impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, TypeKind)) -> ValueTypePair {
+        ValueTypePair(val, ty)
+    }
+}
+
+impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
+    fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
+        (vtp.0, vtp.1)
+    }
+}
+
+impl ValueTypePair {
+    pub fn prim(&self) -> &PrimitiveType {
+        match self {
+            ValueTypePair(_, TypeKind::Primitive(PrimitiveType::NamedType { name: _, ty })) => ty,
+            ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
+            _ => panic!("ICE prim {:?}"),
+        }
+    }
+
+    pub fn ty(&self) -> TypeKind {
+        TypeKind::Primitive(self.prim().clone())
+    }
+
+    pub fn val(&self) -> LLVMValueRef {
+        self.0
+    }
+
+    pub fn indexable(&self) -> Option<ValueTypePair> {
+        match &self {
+            ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
+                prim @ PrimitiveType::Str => Some((*val, TypeKind::Primitive(prim.clone())).into()),
+                PrimitiveType::Pointer(box ty) => {
+                    Some((self.0, TypeKind::Primitive(ty.clone())).into())
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
 
 #[allow(dead_code)]
 pub struct AatbeModule {
@@ -28,6 +79,7 @@ pub struct AatbeModule {
     imported: HashMap<String, AST>,
     current_function: Option<String>,
     typectx: TypeContext,
+    compile_errors: Vec<CompileError>,
 }
 
 impl AatbeModule {
@@ -47,6 +99,7 @@ impl AatbeModule {
             scope_stack: Vec::new(),
             current_function: None,
             typectx: TypeContext::new(),
+            compile_errors: Vec::new(),
         }
     }
 
@@ -90,8 +143,8 @@ impl AatbeModule {
         match ast {
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
-                self.typectx.push_type(name, rec);
-                self.typectx.get_type(name).unwrap().set_body(self, types);
+                self.typectx.push_type(name, TypeKind::RecordType(rec));
+                self.typectx.get_record(name).unwrap().set_body(self, types);
             }
             AST::File(nodes) => nodes
                 .iter()
@@ -111,7 +164,7 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> LLVMValueRef {
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> ValueTypePair {
         if let ([rec_ref], tail) = parts.split_at(1) {
             match self.get_var(&rec_ref) {
                 None => panic!("Could not find record {}", rec_ref),
@@ -133,12 +186,19 @@ impl AatbeModule {
                                 },
                             value: _,
                         } => rec.clone(),
-                        _ => unreachable!(),
+                        CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
+                            rec.clone()
+                        }
+                        CodegenUnit::FunctionArgument(
+                            _arg,
+                            PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
+                        ) => rec.clone(),
+                        _ => panic!("ICE get_interior_pointer {:?}", rec),
                     };
 
                     self.typectx_ref()
-                        .get_type(&rec_type)
-                        .expect("ICE get_access variable without type")
+                        .get_record(&rec_type)
+                        .expect("ICE get_record variable without type")
                         .read_field(self, rec.into(), rec_ref, tail.to_vec())
                 }
             }
@@ -147,62 +207,69 @@ impl AatbeModule {
         }
     }
 
-    pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<LLVMValueRef> {
-        match atom {
-            AtomKind::Access(path) => Some(self.llvm_builder_ref().build_load_with_name(
-                self.get_interior_pointer(path.to_vec()),
-                path.join(".").as_str(),
-            )),
-            AtomKind::Ident(name) => {
-                let var_ref = self.get_var(name);
-
-                match var_ref {
-                    None => panic!("Cannot find variable {}", name),
-                    Some(var) => Some(var.load_var(self.llvm_builder_ref())),
-                }
-            }
-            AtomKind::StringLiteral(string) => {
-                Some(self.llvm_builder.build_global_string_ptr(string.as_str()))
-            }
-            AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)) => {
-                Some(self.llvm_context.SInt32(*val))
-            }
-            AtomKind::Bool(Boolean::True) => Some(self.llvm_context.SInt1(1)),
-            AtomKind::Bool(Boolean::False) => Some(self.llvm_context.SInt1(0)),
-            AtomKind::Expr(expr) => self.codegen_expr(expr),
-            AtomKind::Unit => None,
-            AtomKind::Unary(op, val) if op == &String::from("!") => {
-                let value = self
-                    .codegen_atom(val)
-                    .expect(format!("ICE Cannot negate {:?}", val).as_str());
-                Some(self.llvm_builder.build_not(value))
-            }
-            AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            _ => panic!("ICE codegen_atom {:?}", atom),
-        }
-    }
-
-    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<LLVMValueRef> {
+    pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
-            Expression::Assign { name, value } => match value {
-                box Expression::Atom(AtomKind::RecordInit { record, values }) => Some(init_record(
+            Expression::RecordInit { record, values } => {
+                let rec = self.llvm_builder_ref().build_alloca(
+                    self.typectx_ref()
+                        .get_type(record)
+                        .expect(format!("ICE could not find record {}", record).as_str())
+                        .llvm_ty_in_ctx(self),
+                );
+                values.iter().for_each(|val| match val {
+                    AtomKind::NamedValue { name, val } => {
+                        let val_ref = self
+                            .codegen_expr(val)
+                            .expect(format!("ICE could not codegen {:?}", val).as_str());
+                        store_named_field(
+                            self,
+                            rec,
+                            record,
+                            self.typectx_ref()
+                                .get_record(record)
+                                .expect(format!("ICE could not find record {}", record).as_str()),
+                            name,
+                            val_ref.0,
+                        );
+                    }
+                    _ => panic!("ICE codegen_expr {:?}", expr),
+                });
+
+                Some(
+                    (
+                        self.llvm_builder_ref().build_load(rec),
+                        TypeKind::Primitive(PrimitiveType::TypeRef(record.clone())),
+                    )
+                        .into(),
+                )
+            }
+            /*Expression::Assign { lval, value } => match value {
+                box Expression::RecordInit { record, values } => Some(init_record(
                     self,
-                    name,
-                    &AtomKind::RecordInit {
+                    lval,
+                    &Expression::RecordInit {
                         record: record.clone(),
                         values: values.to_vec(),
                     },
                 )),
-                _ => Some(store_value(self, name, value)),
-            },
+                _ => {
+                    Some(store_value(self, lval, value))
+                },
+            },*/
             Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: PrimitiveType::NamedType { name, ty },
                 value: _,
                 exterior_bind: _,
             } => {
                 alloc_variable(self, expr);
 
-                Some(self.get_var(name).expect("Compiler crapped out.").into())
+                Some(
+                    (
+                        self.get_var(name).expect("Compiler crapped out.").into(),
+                        TypeKind::Primitive(*ty.clone()),
+                    )
+                        .into(),
+                )
             }
             Expression::If {
                 cond_expr,
@@ -220,10 +287,20 @@ impl AatbeModule {
                 let then_bb = func.append_basic_block(String::default());
                 let end_bb = func.append_basic_block(String::default());
 
-                let cond = self.codegen_expr(cond_expr);
+                let cond = match self.codegen_expr(cond_expr) {
+                    Some(cond) => cond,
+                    None => return None,
+                };
 
-                self.llvm_builder
-                    .build_cond_br(cond.unwrap(), then_bb, end_bb);
+                if *cond.prim().inner() != PrimitiveType::Bool {
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: cond.prim().fmt(),
+                        value: cond_expr.fmt(),
+                    });
+                }
+
+                self.llvm_builder.build_cond_br(cond.val(), then_bb, end_bb);
 
                 self.llvm_builder.position_at_end(then_bb);
                 self.codegen_expr(then_expr);
@@ -232,31 +309,89 @@ impl AatbeModule {
 
                 None
             }
-            Expression::Call { name, args } => {
-                let mut args = args
+            Expression::Call {
+                name: raw_name,
+                args,
+            } => {
+                let mut call_args = args
                     .iter()
-                    .filter_map(|arg| self.codegen_atom(arg))
-                    .collect::<Vec<LLVMValueRef>>();
+                    .filter_map(|arg| match arg {
+                        Expression::Atom(AtomKind::SymbolLiteral(_)) => panic!("ICE call_symbol"),
+                        _ => self.codegen_expr(arg).map(|arg| arg),
+                    })
+                    .collect::<Vec<ValueTypePair>>();
+
+                let name = if !self.is_extern(raw_name) && call_args.len() > 0 {
+                    format!(
+                        "{}A{}",
+                        raw_name,
+                        call_args
+                            .iter()
+                            .map(|arg| arg.prim().mangle())
+                            .collect::<Vec<String>>()
+                            .join(".")
+                    )
+                } else {
+                    raw_name.clone()
+                };
+
+                let mut mismatch = false;
+
+                let params = self
+                    .get_params(&name)
+                    .expect(format!("Call to undefined function {}", raw_name).as_str());
+
+                for (i, fty) in params.iter().enumerate() {
+                    if fty == &PrimitiveType::Varargs {
+                        break;
+                    }
+
+                    if call_args[i].prim() != fty {
+                        mismatch = true;
+                    }
+                }
+
+                if mismatch {
+                    self.add_error(CompileError::MismatchedArguments {
+                        function: raw_name.clone(),
+                        expected_ty: params
+                            .iter()
+                            .map(|p| p.fmt())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                        found_ty: call_args
+                            .iter()
+                            .map(|arg| arg.prim().fmt())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                    });
+                }
+
+                let func = self.get_func(&name).unwrap();
+
                 Some(
-                    self.llvm_builder.build_call(
-                        self.get_func(name)
-                            .expect(format!("Call to undefined function {}", name).as_str())
-                            .into(),
-                        &mut args,
-                    ),
+                    (
+                        self.llvm_builder.build_call(
+                            func.into(),
+                            &mut call_args
+                                .iter_mut()
+                                .map(|arg| arg.val())
+                                .collect::<Vec<LLVMValueRef>>(),
+                        ),
+                        TypeKind::Primitive(func.ret_ty()),
+                    )
+                        .into(),
                 )
             }
-            Expression::Binary(lhs, op, rhs) => {
-                let lh = self
-                    .codegen_expr(lhs)
-                    .expect("Binary op lhs must contain a value");
-                let rh = self
-                    .codegen_expr(rhs)
-                    .expect("Binary op rhs must contain a value");
-                Some(self.codegen_binary_op(op, lh, rh))
-            }
+            Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
+                Ok(val) => Some(val),
+                Err(err) => {
+                    self.add_error(err);
+                    None
+                }
+            },
             Expression::Function {
-                name,
+                name: _,
                 ty,
                 body,
                 attributes: _,
@@ -268,9 +403,9 @@ impl AatbeModule {
                         ext: true,
                     } => None,
                     _ => {
-                        codegen_function(self, expr);
+                        let name = codegen_function(self, expr);
                         self.current_function = Some(name.clone());
-                        self.start_scope_with_name(name);
+                        self.start_scope_with_name(&name);
                         inject_function_in_scope(self, expr);
                         let ret = self.codegen_expr(
                             &body
@@ -280,9 +415,12 @@ impl AatbeModule {
 
                         // TODO: Typechecks
                         match has_return_type(ty) {
-                            true => self.llvm_builder.build_ret(ret.expect(
-                                "Compiler broke, function returns broke. Everything's on fire",
-                            )),
+                            true => self.llvm_builder.build_ret(
+                                ret.expect(
+                                    "Compiler broke, function returns broke. Everything's on fire",
+                                )
+                                .0,
+                            ),
                             false => self.llvm_builder.build_ret_void(),
                         };
 
@@ -316,7 +454,7 @@ impl AatbeModule {
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
                 .unwrap(),
-            AST::Expr(expr) => self.codegen_expr(expr),
+            AST::Expr(expr) => self.codegen_expr(expr).map(|e| e.val()),
             AST::Import(module) => {
                 let ast = self
                     .get_imported_ast(module)
@@ -337,12 +475,6 @@ impl AatbeModule {
             "*" => self.llvm_builder.build_mul(x, y),
             "/" => self.llvm_builder.build_sdiv(x, y),
             "%" => self.llvm_builder.build_srem(x, y),
-            "==" => self.llvm_builder.build_icmp_eq(x, y),
-            "!=" => self.llvm_builder.build_icmp_ne(x, y),
-            "<" => self.llvm_builder.build_icmp_slt(x, y),
-            ">" => self.llvm_builder.build_icmp_sgt(x, y),
-            "<=" => self.llvm_builder.build_icmp_sle(x, y),
-            ">=" => self.llvm_builder.build_icmp_sge(x, y),
             _ => panic!("Cannot binary op {:?}", op),
         }
     }
@@ -393,8 +525,24 @@ impl AatbeModule {
     pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
         let val_ref = self.get_in_scope(name);
         match val_ref {
-            Some(CodegenUnit::Function(_)) => val_ref,
+            Some(CodegenUnit::Function(_, _)) => val_ref,
             _ => None,
+        }
+    }
+
+    pub fn get_params(&self, name: &String) -> Option<Vec<PrimitiveType>> {
+        let val_ref = self.get_in_scope(name);
+        match val_ref {
+            Some(CodegenUnit::Function(_, _)) => val_ref.map(|fun| fun.param_types()),
+            _ => None,
+        }
+    }
+
+    pub fn is_extern(&self, name: &String) -> bool {
+        let val_ref = self.get_in_scope(name);
+        match val_ref {
+            Some(CodegenUnit::Function(_, ty)) => ty.ext(),
+            _ => false,
         }
     }
 
@@ -407,7 +555,7 @@ impl AatbeModule {
                 ty: _,
                 value: _,
             }) => val_ref,
-            Some(CodegenUnit::FunctionArgument(_arg)) => val_ref,
+            Some(CodegenUnit::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
         }
     }
@@ -430,6 +578,14 @@ impl AatbeModule {
 
     pub fn typectx_ref(&self) -> &TypeContext {
         &self.typectx
+    }
+
+    pub fn add_error(&mut self, error: CompileError) {
+        self.compile_errors.push(error);
+    }
+
+    pub fn errors(&self) -> &Vec<CompileError> {
+        &self.compile_errors
     }
 }
 

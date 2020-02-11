@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     use crate::{
-        ast::{AtomKind, BindType, Boolean, IntSize},
+        ast::{AtomKind, BindType, Boolean, IntSize, LValue},
         lexer::{token::Token, Lexer},
         Expression, ParseError, Parser, PrimitiveType, AST,
     };
@@ -269,7 +269,7 @@ fn test s: str, i32, ... -> ()
 fn main () -> () = {
     puts \"Hello World\"
     puts \"Hallo\"
-    test \"Test\" $ 1 + 2
+    test \"Test\", 1 + 2
 }
 ",
             "Function calls"
@@ -311,17 +311,21 @@ fn main () -> () = {
                     body: Some(box Expression::Block(vec![
                         Expression::Call {
                             name: "puts".to_string(),
-                            args: vec![AtomKind::StringLiteral("Hello World".to_string())],
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "Hello World".to_string()
+                            ))],
                         },
                         Expression::Call {
                             name: "puts".to_string(),
-                            args: vec![AtomKind::StringLiteral("Hallo".to_string())],
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "Hallo".to_string()
+                            ))],
                         },
                         Expression::Call {
                             name: "test".to_string(),
                             args: vec![
-                                AtomKind::StringLiteral("Test".to_string()),
-                                AtomKind::Expr(box Expression::Binary(
+                                Expression::Atom(AtomKind::StringLiteral("Test".to_string())),
+                                Expression::Binary(
                                     box Expression::Atom(AtomKind::Integer(
                                         1,
                                         PrimitiveType::Int(IntSize::Bits32)
@@ -331,7 +335,7 @@ fn main () -> () = {
                                         2,
                                         PrimitiveType::Int(IntSize::Bits32)
                                     )),
-                                ))
+                                )
                             ]
                         }
                     ])),
@@ -384,7 +388,7 @@ fn main () -> () = {
                         exterior_bind: BindType::Immutable,
                     },
                     Expression::Assign {
-                        name: "var_t".to_string(),
+                        lval: LValue::Ident("var_t".to_string()),
                         value: box Expression::Atom(AtomKind::StringLiteral(String::from(
                             "Aloha honua"
                         ))),
@@ -438,11 +442,15 @@ fn main () -> () = {
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
                             name: "foo".to_string(),
-                            args: vec![AtomKind::StringLiteral("bar".to_string())]
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "bar".to_string()
+                            ))]
                         }]),
                         else_expr: Some(box Expression::Block(vec![Expression::Call {
                             name: "bar".to_string(),
-                            args: vec![AtomKind::StringLiteral("foo".to_string())]
+                            args: vec![Expression::Atom(AtomKind::StringLiteral(
+                                "foo".to_string()
+                            ))]
                         }])),
                     },
                     Expression::If {
@@ -456,7 +464,7 @@ fn main () -> () = {
                         )),
                         then_expr: box Expression::Call {
                             name: "baz".to_string(),
-                            args: vec![AtomKind::Bool(Boolean::True)]
+                            args: vec![Expression::Atom(AtomKind::Bool(Boolean::True))]
                         },
                         else_expr: None,
                     },
@@ -570,7 +578,7 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                 AST::Expr(Expression::Function {
                     name: "rec_test".to_string(),
                     attributes: vec![],
-                    body: Some(box Expression::Atom(AtomKind::RecordInit {
+                    body: Some(box Expression::RecordInit {
                         record: "Record".to_string(),
                         values: vec![
                             AtomKind::NamedValue {
@@ -594,7 +602,7 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                                 ]))
                             }
                         ],
-                    })),
+                    }),
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,

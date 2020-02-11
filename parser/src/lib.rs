@@ -1,4 +1,4 @@
-#![feature(box_syntax)]
+#![feature(box_syntax, box_patterns)]
 #![allow(dead_code)]
 
 pub mod ast;
@@ -18,38 +18,49 @@ use crate::parser::{ParseError, ParseResult, Parser};
 impl Parser {
     fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
         let token = self.next();
-        if let Some(tok) = token {
+        let ty = if let Some(tok) = token {
             match tok.sym() {
-                Some(Symbol::Unit) => return Ok(PrimitiveType::Unit),
-                Some(Symbol::GoDot) => return Ok(PrimitiveType::Varargs),
-                _ => {}
-            };
-
-            match tok.kw() {
-                Some(Keyword::Bool) => return Ok(PrimitiveType::Bool),
-                _ => {}
+                Some(Symbol::Unit) => Some(PrimitiveType::Unit),
+                Some(Symbol::GoDot) => Some(PrimitiveType::Varargs),
+                Some(Symbol::Ampersand) => match capture!(res parse_type, self) {
+                    Err(_) => None,
+                    Ok(ty) => Some(PrimitiveType::Ref(box ty)),
+                },
+                _ => None,
             }
+            .or_else(|| match tok.kw() {
+                Some(Keyword::Bool) => Some(PrimitiveType::Bool),
+                _ => None,
+            })
+            .or_else(|| match tok.ty() {
+                Some(Type::Str) => Some(PrimitiveType::Str),
+                Some(Type::Char) => Some(PrimitiveType::Char),
+                Some(Type::I8) => Some(PrimitiveType::Int(IntSize::Bits8)),
+                Some(Type::I16) => Some(PrimitiveType::Int(IntSize::Bits16)),
+                Some(Type::I32) => Some(PrimitiveType::Int(IntSize::Bits32)),
+                Some(Type::I64) => Some(PrimitiveType::Int(IntSize::Bits64)),
+                Some(Type::U8) => Some(PrimitiveType::UInt(IntSize::Bits8)),
+                Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
+                Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
+                Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
+                _ => None,
+            })
+            .or_else(|| match tok.ident() {
+                Some(s) => Some(PrimitiveType::TypeRef(s)),
+                None => None,
+            })
+        } else {
+            None
+        };
 
-            match tok.ty() {
-                Some(Type::Str) => return Ok(PrimitiveType::Str),
-                Some(Type::I8) => return Ok(PrimitiveType::Int(IntSize::Bits8)),
-                Some(Type::I16) => return Ok(PrimitiveType::Int(IntSize::Bits16)),
-                Some(Type::I32) => return Ok(PrimitiveType::Int(IntSize::Bits32)),
-                Some(Type::I64) => return Ok(PrimitiveType::Int(IntSize::Bits64)),
-                Some(Type::U8) => return Ok(PrimitiveType::UInt(IntSize::Bits8)),
-                Some(Type::U16) => return Ok(PrimitiveType::UInt(IntSize::Bits16)),
-                Some(Type::U32) => return Ok(PrimitiveType::UInt(IntSize::Bits32)),
-                Some(Type::U64) => return Ok(PrimitiveType::UInt(IntSize::Bits64)),
-                _ => {}
-            }
-
-            match tok.ident() {
-                Some(s) => return Ok(PrimitiveType::TypeRef(s)),
-                None => {}
-            }
+        if ty.is_none() {
+            Err(ParseError::ExpectedType)
+        } else {
+            Ok(match sym!(bool Star, self) {
+                true => PrimitiveType::Pointer(box ty.unwrap()),
+                false => ty.unwrap(),
+            })
         }
-
-        Err(ParseError::ExpectedType)
     }
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {

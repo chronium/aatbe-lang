@@ -23,6 +23,8 @@ pub enum ParseError {
     ExpectedCondition,
     ExpectedThenExpression,
     ExpectedPath,
+    ExpectedLValue,
+    Continue,
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
@@ -56,14 +58,45 @@ impl Parser {
         }
     }
 
+    pub fn peek_rel(&self, offs: isize) -> Option<&Token> {
+        if self.index as isize + offs < 0 {
+            panic!("Peek relative < 0");
+        }
+        peek!(self.tt, (self.index as isize + offs) as usize)
+    }
+
     pub fn peek(&mut self) -> Option<&Token> {
         loop {
             match peek!(self.tt, self.index).map_or(None, |t| t.comm()) {
                 Some(_) => self.index += 1,
-                None => break,
+                None => {}
+            }
+
+            match peek!(self.tt, self.index).map_or(false, |t| t.kind == TokenKind::EOL) {
+                true => self.index += 1,
+                false => break,
             }
         }
         peek!(self.tt, self.index)
+    }
+
+    pub fn eof(&self) -> bool {
+        match peek!(self.tt, self.index) {
+            Some(tok) if tok.kind == TokenKind::EOF => true,
+            None => true,
+            _ => false,
+        }
+    }
+
+    pub fn nl(&mut self) -> bool {
+        match peek!(self.tt, self.index) {
+            Some(tok) if tok.kind == TokenKind::EOL => {
+                self.index += 1;
+                true
+            }
+            None => true,
+            _ => false,
+        }
     }
 
     pub fn peek_ident(&mut self) -> Option<String> {
@@ -93,7 +126,7 @@ impl Parser {
                 capture!(res parse_use, self)
                     .or_else(|_| capture!(res parse_function, self))
                     .or_else(|_| capture!(res parse_record, self))
-                    .unwrap_or_else(|r| panic!("{:?}", r)),
+                    .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
             );
         };
 

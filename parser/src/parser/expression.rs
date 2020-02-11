@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Boolean, Expression, IntSize, PrimitiveType},
+    ast::{AtomKind, BindType, Boolean, Expression, IntSize, LValue, PrimitiveType},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token},
@@ -61,6 +61,16 @@ impl Parser {
         None
     }
 
+    fn parse_char_lit(&mut self) -> Option<AtomKind> {
+        let token = self.next();
+        if let Some(tok) = token {
+            if let Some(val) = tok.ch() {
+                return Some(AtomKind::CharLiteral(val));
+            }
+        }
+        None
+    }
+
     fn parse_unit(&mut self) -> Option<AtomKind> {
         let token = self.next();
         if let Some(tok) = token {
@@ -84,35 +94,35 @@ impl Parser {
     }
 
     fn parse_ident(&mut self) -> Option<AtomKind> {
-        if capture!(res parse_funcall, self)
-            .or_else(|_| capture!(res parse_assign, self))
-            .is_ok()
-        {
-            None
-        } else {
-            ident!(res raw self)
-                .map(|i| {
-                    i.map(|id| match id.split_accessor() {
-                        Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
-                        Some(parts) => AtomKind::Access(parts),
-                        None => unreachable!(),
-                    })
-                    .unwrap()
+        ident!(res raw self)
+            .map(|i| {
+                i.map(|id| match id.split_accessor() {
+                    Some(parts) if parts.len() == 1 => AtomKind::Ident(parts[0].clone()),
+                    Some(parts) => AtomKind::Access(parts),
+                    None => unreachable!(),
                 })
-                .ok()
-        }
+                .unwrap()
+            })
+            .ok()
+    }
+
+    fn parse_symbol_literal(&mut self) -> Option<AtomKind> {
+        sym!(Colon, self);
+        let symbol = ident!(opt self);
+        Some(AtomKind::SymbolLiteral(symbol))
     }
 
     fn parse_atom(&mut self) -> ParseResult<AtomKind> {
         match capture!(
             self,
-            parse_record_init,
+            parse_ident,
             parse_boolean,
             parse_number,
             parse_unit,
             parse_string_lit,
+            parse_char_lit,
             parse_atomized_expression,
-            parse_ident
+            parse_symbol_literal
         ) {
             None => Err(ParseError::ExpectedAtom),
             Some(atom) => Ok(atom),
@@ -120,7 +130,7 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<AtomKind> {
-        if sym!(bool Minus, self) {
+        let res = if sym!(bool Minus, self) {
             Ok(AtomKind::Unary(
                 String::from("-"),
                 box capture!(res parse_unary, self)?,
@@ -135,8 +145,27 @@ impl Parser {
                 box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
             sym!(required RParen, self);
             Ok(AtomKind::Parenthesized(expr))
+        } else if sym!(bool Star, self) {
+            Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
         } else {
             capture!(res parse_atom, self)
+        };
+
+        let index = if sym!(bool LBracket, self) && res.is_ok() {
+            let index =
+                box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+            sym!(required RBracket, self);
+            Ok(AtomKind::Index(box res.unwrap(), index))
+        } else {
+            res
+        };
+
+        if kw!(bool As, self) && index.is_ok() {
+            let ty = capture!(res parse_type, self)?;
+
+            Ok(AtomKind::Cast(box index.unwrap(), ty))
+        } else {
+            index
         }
     }
 
@@ -163,17 +192,28 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
+        if self.nl() || sym!(bool Comma, self) {
+            return Err(ParseError::Continue);
+        }
         let mut args = vec![];
 
+        match capture!(self, parse_expression) {
+            Some(expr) => args.push(expr),
+            None => {}
+        };
+
         loop {
-            match capture!(res parse_unary, self) {
-                Ok(expr) => args.push(expr),
-                Err(_) => break,
+            if !sym!(bool Comma, self) {
+                break;
+            }
+            match capture!(self, parse_expression) {
+                Some(expr) => args.push(expr),
+                None => break,
             }
         }
 
         if args.len() < 1 {
-            Err(ParseError::NotEnoughArguments(name))
+            Err(ParseError::ExpectedExpression)
         } else {
             Ok(Expression::Call { name, args })
         }
@@ -206,13 +246,47 @@ impl Parser {
         })
     }
 
+    fn parse_lval_ident(&mut self) -> Option<LValue> {
+        ident!(raw self).map(|i| {
+            i.map(|id| match id.split_accessor() {
+                Some(parts) if parts.len() == 1 => LValue::Ident(parts[0].clone()),
+                Some(parts) => LValue::Accessor(parts),
+                None => unreachable!(),
+            })
+            .unwrap()
+        })
+    }
+
+    fn parse_lval_deref(&mut self) -> Option<LValue> {
+        sym!(Star, self);
+
+        match capture!(res parse_lvalue, self) {
+            Err(_) => None,
+            Ok(lval) => Some(LValue::Deref(box lval)),
+        }
+    }
+
+    fn parse_lvalue(&mut self) -> ParseResult<LValue> {
+        let lval =
+            capture!(self, parse_lval_ident, parse_lval_deref).ok_or(ParseError::ExpectedLValue);
+
+        if sym!(bool LBracket, self) && lval.is_ok() {
+            let index =
+                box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
+            sym!(required RBracket, self);
+            Ok(LValue::Index(box lval.unwrap(), index))
+        } else {
+            lval
+        }
+    }
+
     fn parse_assign(&mut self) -> ParseResult<Expression> {
-        let name = ident!(required self);
+        let lval = capture!(res parse_lvalue, self)?;
         sym!(required Assign, self);
 
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
-        Ok(Expression::Assign { name, value })
+        Ok(Expression::Assign { lval, value })
     }
 
     fn parse_named_value(&mut self) -> ParseResult<AtomKind> {
@@ -242,32 +316,24 @@ impl Parser {
         Ok(params)
     }
 
-    fn parse_record_init(&mut self) -> Option<AtomKind> {
-        let record = ident!(opt self);
-        sym!(LCurly, self);
+    fn parse_record_init(&mut self) -> ParseResult<Expression> {
+        let record = ident!(res self)?;
+        sym!(required LCurly, self);
         let values = self
             .parse_named_value_list(Symbol::RCurly)
             .expect(format!("Expected a named argument list at {}", record).as_str());
-        Some(AtomKind::RecordInit { record, values })
+        Ok(Expression::RecordInit { record, values })
     }
 
     pub fn parse_expression(&mut self) -> Option<Expression> {
         match self.peek_symbol(Symbol::LCurly) {
-            Some(false) => {
-                let prev_ind = self.index;
-                match self.parse_expr(0) {
-                    Err(_) => {
-                        self.index = prev_ind;
-
-                        capture!(res parse_funcall, self)
-                            .or_else(|_| capture!(res parse_assign, self))
-                            .or_else(|_| capture!(res parse_decl, self))
-                            .or_else(|_| capture!(res parse_if_else, self))
-                            .ok()
-                    }
-                    Ok(val) => Some(val),
-                }
-            }
+            Some(false) => capture!(res parse_record_init, self)
+                .or_else(|_| capture!(res parse_funcall, self))
+                .or_else(|_| capture!(res parse_assign, self))
+                .or_else(|_| capture!(res parse_decl, self))
+                .or_else(|_| capture!(res parse_if_else, self))
+                .or_else(|_| self.parse_expr(0))
+                .ok(),
             Some(true) => {
                 self.next();
                 let mut block = vec![];
@@ -279,7 +345,7 @@ impl Parser {
                         }
                         Some(false) => match capture!(self, parse_expression) {
                             Some(expr) => block.push(expr),
-                            None => panic!("Broken Expression"),
+                            None => panic!("Broken Expression {:?}", self.peek()),
                         },
                         None => panic!("Expected RCurly"),
                     }

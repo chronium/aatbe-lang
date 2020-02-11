@@ -1,14 +1,17 @@
-use comp_be::codegen::AatbeModule;
+use comp_be::codegen::{AatbeModule, CompileError};
 use parser::{lexer::Lexer, parser::Parser};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
+    ffi::CString,
     fs::{File, OpenOptions},
     io,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use glob::glob;
+use llvm_sys::support::LLVMLoadLibraryPermanently;
 use log::{error, warn};
 use simplelog::*;
 
@@ -20,7 +23,9 @@ fn main() -> io::Result<()> {
     (@arg INPUT: +required "The file to compile")
     (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
-    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode"))
+    (@arg LLVM_JIT: --("jit") -j "JIT the code")
+    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode")
+    (@arg lib: -l ... +takes_value "Link with library without prefix or extension"))
     .get_matches();
 
     if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
@@ -72,24 +77,86 @@ fn main() -> io::Result<()> {
     module.decl_pass(&pt);
     module.codegen_pass(&pt);
 
+    if let Some(libs) = matches.values_of("lib") {
+        for lib in libs {
+            let globs = glob(format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib).as_ref())
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect::<Vec<PathBuf>>();
+            if globs.len() < 1 {
+                error!("lib{}.so cannot be found", lib);
+            } else if globs.len() > 1 {
+                error!("-l{} found too many matches, please be more specific", lib);
+            } else {
+                unsafe {
+                    LLVMLoadLibraryPermanently(
+                        CString::new(globs[0].to_str().unwrap())
+                            .expect("cstring failed")
+                            .as_ptr(),
+                    );
+                }
+            }
+        }
+    }
+
+    if module.errors().len() > 0 {
+        warn!("Compilation failed. Errors were found");
+        module.errors().iter().for_each(|err| match err {
+            CompileError::Handled => {}
+            CompileError::ExpectedType {
+                found_ty,
+                expected_ty,
+                value,
+            } => error!("Expected {} but found {}: {}", expected_ty, found_ty, value),
+            CompileError::UnaryMismatch {
+                op,
+                found_ty,
+                expected_ty,
+                value,
+            } => error!(
+                "Cannot `{}{}` expected {} but found {}",
+                op, value, expected_ty, found_ty
+            ),
+            CompileError::MismatchedArguments {
+                function,
+                expected_ty,
+                found_ty,
+            } => error!(
+                "Mismatched arguments for `{}` expected `{} {}` but found `{} {}`",
+                function, function, expected_ty, function, found_ty
+            ),
+            CompileError::BinaryMismatch { op, values, types } => error!(
+                "Mismatched types at `{} {} {}`. Types found are {}, {}",
+                values.0, op, values.1, types.0, types.1
+            ),
+            CompileError::OpMismatch { op, values, types } => error!(
+                "Cannot `{} {} {}` for types {}, {}",
+                values.0, op, values.1, types.0, types.1
+            ),
+        });
+        std::process::exit(1);
+    }
+
     if let Some(llvm_out) = matches.value_of("LLVM_OUT") {
         module
             .llvm_module_ref()
             .print_module_to_file(
                 Path::new(llvm_out)
-                    .with_extension("lli")
+                    .with_extension("ll")
                     .to_str()
-                    .expect("Could not create .lli file path"),
+                    .expect("Could not create .ll file path"),
             )
-            .expect("Could not write .lli file");
+            .expect("Could not write .ll file");
     }
 
     match module.llvm_module_ref().verify() {
         Ok(_) => {
-            let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
-            let named_function = module.llvm_module_ref().named_function("main");
-            let mut params = [];
-            let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
+            if matches.is_present("LLVM_JIT") {
+                let interpreter = module.llvm_module_ref().create_jit_engine().unwrap();
+                let named_function = module.llvm_module_ref().named_function("main");
+                let mut params = [];
+                let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
+            }
             Ok(())
         }
         Err(err) => panic!(err),

@@ -1,0 +1,17 @@
+// spector:name New semantics
+
+extern fn puts str -> i32
+
+rec String(s: str)
+
+fn new String, value: str -> String = {
+    String {
+        s: value
+    }
+}
+
+@entry
+fn main () -> () = {
+    val msg: String = new :String, "Hello World"
+    puts msg.s
+}

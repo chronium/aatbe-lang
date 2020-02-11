@@ -7,8 +7,42 @@ use std::collections::HashMap;
 
 pub mod record;
 
+#[derive(Debug)]
+pub enum TypeError {
+    NotRecord(String),
+}
+
+pub type TypeResult<T> = Result<T, TypeError>;
+
+pub enum TypeKind {
+    RecordType(Record),
+    Primitive(PrimitiveType),
+}
+
+impl LLVMTyInCtx for TypeKind {
+    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
+        match self {
+            TypeKind::RecordType(record) => record.llvm_ty_in_ctx(module),
+            TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
+        }
+    }
+}
+
+impl TypeKind {
+    fn record(&self) -> Option<&Record> {
+        match self {
+            TypeKind::RecordType(record) => Some(record),
+            TypeKind::Primitive(_) => None,
+        }
+    }
+
+    pub fn prim(primitive: PrimitiveType) -> TypeKind {
+        TypeKind::Primitive(primitive)
+    }
+}
+
 pub struct TypeContext {
-    types: HashMap<String, Record>,
+    types: HashMap<String, TypeKind>,
 }
 
 impl TypeContext {
@@ -18,16 +52,24 @@ impl TypeContext {
         }
     }
 
-    pub fn push_type(&mut self, name: &String, record: Record) {
+    pub fn push_type(&mut self, name: &String, ty: TypeKind) {
         if self.types.contains_key(name) {
             panic!("Type {} already in context", name);
         } else {
-            self.types.insert(name.clone(), record);
+            self.types.insert(name.clone(), ty);
         }
     }
 
-    pub fn get_type(&self, name: &String) -> Option<&Record> {
+    pub fn get_type(&self, name: &String) -> Option<&TypeKind> {
         self.types.get(name)
+    }
+
+    pub fn get_record(&self, name: &String) -> TypeResult<&Record> {
+        self.types
+            .get(name)
+            .map(|ty| ty.record())
+            .flatten()
+            .ok_or(TypeError::NotRecord(name.clone()))
     }
 }
 
@@ -55,12 +97,20 @@ impl LLVMTyInCtx for PrimitiveType {
                 ctx.Int64Type()
             }
             PrimitiveType::Str => ctx.CharPointerType(),
+            PrimitiveType::Char => ctx.Int8Type(),
             PrimitiveType::NamedType { name: _, ty } => ty.llvm_ty_in_ctx(module),
             PrimitiveType::TypeRef(name) => module
                 .typectx_ref()
                 .get_type(name)
                 .expect(format!("Type {} is not declared", name).as_str())
                 .llvm_ty_in_ctx(module),
+            PrimitiveType::Pointer(ty) => match ty {
+                box PrimitiveType::Char => ctx.CharPointerType(),
+                tr @ box PrimitiveType::TypeRef(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
+                tr @ box PrimitiveType::UInt(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
+                tr @ box PrimitiveType::Int(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
+                _ => panic!("llvm_ty_in_ctx {:?}", ty),
+            },
             PrimitiveType::Function {
                 ext: _,
                 ret_ty,
@@ -71,6 +121,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 let mut param_types = params
                     .iter()
                     .filter_map(|t| match t {
+                        PrimitiveType::TypeRef(_name) => None,
                         PrimitiveType::Unit => None,
                         PrimitiveType::Varargs => {
                             varargs = true;

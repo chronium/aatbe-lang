@@ -6,5 +6,5 @@ fn should_return () -> str = "test"
 
 @entry
 fn main () -> () = {
-  puts $ should_return()
+  puts should_return()
 }

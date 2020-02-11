@@ -19,6 +19,8 @@ pub enum TokenKind {
     Keyword(Keyword),
     Type(Type),
     StringLiteral(String),
+    CharLiteral(char),
+    EOL,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
@@ -28,6 +30,8 @@ pub enum Symbol {
     Arrow,
     LCurly,
     RCurly,
+    LBracket,
+    RBracket,
     At,
     Unit,
     Assign,
@@ -98,10 +102,13 @@ pub enum Keyword {
     Use,
     Bool,
     Record,
+    As,
+    Then,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Type {
+    Char,
     Str,
     I8,
     I16,
@@ -139,11 +146,9 @@ impl Token {
     pub fn new(kind: TokenKind, position: Position) -> Self {
         Self { kind, position }
     }
-
     to_tok!(keyword, Keyword, Keyword);
     to_tok!(boolean, BooleanLiteral, Boolean);
     to_tok!(r#type, Type, Type);
-
     pub fn op(&self) -> Option<Symbol> {
         if let TokenKind::Symbol(sym) = self.kind {
             return match sym {
@@ -167,10 +172,8 @@ impl Token {
                 _ => None,
             };
         }
-
         None
     }
-
     pub fn split_accessor(&self) -> Option<Vec<String>> {
         match &self.kind {
             TokenKind::Identifier(accessor) => {
@@ -181,7 +184,6 @@ impl Token {
             _ => None,
         }
     }
-
     from_tok!(kw, Keyword, Keyword);
     from_tok!(bl, BooleanLiteral, Boolean);
     from_tok!(sym, Symbol, Symbol);
@@ -190,13 +192,14 @@ impl Token {
     from_tok!(ty, Type, Type);
     from_tok!(st, StringLiteral, String);
     from_tok!(comm, Comment, String);
+    from_tok!(ch, CharLiteral, char);
 }
 
 impl FromStr for Type {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "char" => Ok(Self::Char),
             "str" => Ok(Self::Str),
             "i8" => Ok(Self::I8),
             "i16" => Ok(Self::I16),
@@ -213,7 +216,6 @@ impl FromStr for Type {
 
 impl FromStr for Keyword {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "fn" => Ok(Self::Fn),
@@ -225,6 +227,8 @@ impl FromStr for Keyword {
             "use" => Ok(Self::Use),
             "bool" => Ok(Self::Bool),
             "rec" => Ok(Self::Record),
+            "as" => Ok(Self::As),
+            "then" => Ok(Self::Then),
             _ => Err(()),
         }
     }
@@ -232,7 +236,6 @@ impl FromStr for Keyword {
 
 impl FromStr for Boolean {
     type Err = ();
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "true" => Ok(Self::True),

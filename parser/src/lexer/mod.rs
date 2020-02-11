@@ -26,11 +26,6 @@ impl<'c> Lexer<'c> {
     }
 
     fn read(&mut self) -> Option<char> {
-        if let Some('\n') = self.chars.peek() {
-            self.col = 1;
-            self.row += 1;
-        }
-
         self.col += 1;
         self.chars.next()
     }
@@ -90,8 +85,45 @@ impl<'c> Lexer<'c> {
         }
     }
 
+    pub fn escape_char(&mut self) -> char {
+        match self.chars.peek() {
+            Some('n') => {
+                self.advance();
+                '\n'
+            }
+            Some('"') => {
+                self.advance();
+                '"'
+            }
+            Some(c) => *c,
+            None => '\\',
+        }
+    }
+
     pub fn lex(&mut self) {
         loop {
+            match self.chars.peek() {
+                Some('\n') => {
+                    self.advance();
+                    let pos = (self.col, self.row);
+                    self.col = 1;
+                    self.row += 1;
+                    self.push_token(TokenKind::EOL, pos);
+                }
+                Some('\r') => {
+                    if let Some('\n') = self.chars.peek() {
+                        self.advance();
+                        let pos = (self.col, self.row);
+                        self.col = 1;
+                        self.row += 1;
+                        self.push_token(TokenKind::EOL, pos);
+                    } else {
+                        let pos = (self.col, self.row);
+                        panic!("Expected \\n after \\r at {:?}", pos);
+                    }
+                }
+                _ => {}
+            }
             self.eat_whitespace();
             let pos = (self.col, self.row);
 
@@ -119,6 +151,12 @@ impl<'c> Lexer<'c> {
                 }
                 '}' => {
                     self.push_symbol(Symbol::RCurly, pos);
+                }
+                '[' => {
+                    self.push_symbol(Symbol::LBracket, pos);
+                }
+                ']' => {
+                    self.push_symbol(Symbol::RBracket, pos);
                 }
                 '.' => match self.chars.peek() {
                     Some('.') => {
@@ -212,6 +250,17 @@ impl<'c> Lexer<'c> {
                     }
                     _ => self.push_symbol(Symbol::Slash, pos),
                 },
+                '\'' => {
+                    let c = self.escape_char();
+                    self.advance();
+                    match self.chars.peek() {
+                        Some('\'') => {
+                            self.advance();
+                            self.push_token(TokenKind::CharLiteral(c), pos);
+                        }
+                        _ => panic!("Expected ' at {:?}", pos),
+                    }
+                }
                 '"' => {
                     let mut buf = String::default();
                     loop {
@@ -223,14 +272,7 @@ impl<'c> Lexer<'c> {
                             Some(c) => match c {
                                 '\\' => {
                                     self.advance();
-                                    match self.chars.peek() {
-                                        Some('n') => {
-                                            buf.push('\n');
-                                            self.advance();
-                                        }
-                                        Some(c) => buf.push(*c),
-                                        None => buf.push('\\'),
-                                    }
+                                    buf.push(self.escape_char());
                                 }
                                 _ => {
                                     buf.push(*c);
@@ -342,8 +384,9 @@ mod lexer_tests {
 
     #[test]
     fn symbols() {
-        let mut lexer =
-            Lexer::new("@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ...");
+        let mut lexer = Lexer::new(
+            "@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ... [ ]",
+        );
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -379,6 +422,8 @@ mod lexer_tests {
             Symbol::Dot,
             Symbol::DoDot,
             Symbol::GoDot,
+            Symbol::LBracket,
+            Symbol::RBracket,
         ]
         .into_iter()
         .map(|t| Some(t));

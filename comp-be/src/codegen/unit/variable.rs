@@ -1,9 +1,10 @@
 use crate::{
-    codegen::{unit::Mutability, AatbeModule, CodegenUnit},
+    codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError},
+    fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx},
 };
 
-use parser::ast::{AtomKind, Expression, PrimitiveType};
+use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
 
@@ -32,11 +33,11 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
             );
 
             if let Some(e) = value {
-                if let box Expression::Atom(AtomKind::RecordInit { record, values }) = e {
+                if let box Expression::RecordInit { record, values } = e {
                     init_record(
                         module,
-                        name,
-                        &AtomKind::RecordInit {
+                        &LValue::Ident(name.clone()),
+                        &Expression::RecordInit {
                             record: record.clone(),
                             values: values.to_vec(),
                         },
@@ -45,7 +46,15 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                     let val = module
                         .codegen_expr(e)
                         .expect(format!("Cannot codegen variable {} value", name).as_ref());
-                    module.llvm_builder_ref().build_store(val, var_ref);
+
+                    if val.prim() != ty.inner() {
+                        module.add_error(CompileError::ExpectedType {
+                            expected_ty: ty.inner().fmt(),
+                            found_ty: val.prim().fmt(),
+                            value: value.as_ref().unwrap().fmt(),
+                        });
+                    }
+                    module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
             }
         }
@@ -53,13 +62,32 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
     }
 }
 
-pub fn init_record(module: &mut AatbeModule, ref_name: &String, rec: &AtomKind) -> LLVMValueRef {
+pub fn init_record(module: &mut AatbeModule, lval: &LValue, rec: &Expression) -> LLVMValueRef {
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+        match lval {
+            LValue::Ident(name) => match module.get_var(name) {
+                None => panic!("Cannot find variable {}", name),
+                Some(var) => var.into(),
+            },
+            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Deref(_) => unimplemented!(),
+            LValue::Index(lval, index) => {
+                let val = get_lval(module, lval);
+                let index = module.codegen_expr(index).expect("ICE init_record index");
+
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_inbounds_gep(val, &mut [index.val()]);
+
+                module.llvm_builder_ref().build_load(gep)
+            }
+            _ => panic!("ICE init_record {:?}", lval),
+        }
+    }
+
     match rec {
-        AtomKind::RecordInit { record, values } => {
-            let var_ref = module
-                .get_var(ref_name)
-                .expect(format!("ICE Cannot find record {} instance {}", record, ref_name).as_str())
-                .into();
+        Expression::RecordInit { record, values } => {
+            let var: LLVMValueRef = get_lval(module, lval);
 
             values.iter().for_each(|val| match val {
                 AtomKind::NamedValue { name, val } => {
@@ -68,52 +96,60 @@ pub fn init_record(module: &mut AatbeModule, ref_name: &String, rec: &AtomKind) 
                         .expect(format!("ICE could not codegen {:?}", val).as_str());
                     store_named_field(
                         module,
-                        var_ref,
-                        ref_name,
+                        var,
+                        &lval.into(),
                         module
                             .typectx_ref()
-                            .get_type(record)
+                            .get_record(record)
                             .expect(format!("ICE could not find record {}", record).as_str()),
                         name,
-                        val_ref,
+                        val_ref.val(),
                     );
                 }
                 _ => panic!("ICE init_record unexpected {:?}", val),
             });
 
-            var_ref
+            var
         }
         _ => unreachable!(),
     }
 }
 
-pub fn store_value(module: &mut AatbeModule, name: &String, value: &Expression) -> LLVMValueRef {
-    let parts = name
-        .split('.')
-        .collect::<Vec<&str>>()
-        .iter()
-        .map(|s| String::from(*s))
-        .collect::<Vec<String>>();
+pub fn store_value(module: &mut AatbeModule, lval: &LValue, value: &Expression) -> LLVMValueRef {
+    fn get_lval(module: &mut AatbeModule, lval: &LValue) -> LLVMValueRef {
+        match lval {
+            LValue::Ident(name) => match module.get_var(name) {
+                None => panic!("Cannot find variable {}", name),
+                Some(var) => {
+                    match var.get_mutability() {
+                        Mutability::Mutable => {}
+                        _ => panic!("Cannot reassign to immutable/constant {}", name),
+                    };
+                    var.into()
+                }
+            },
+            //LValue::Accessor(parts) => module.get_interior_pointer(parts.clone()),
+            LValue::Deref(_) => unimplemented!(),
+            LValue::Index(lval, index) => {
+                let val = get_lval(module, lval);
+                let index = module.codegen_expr(index).expect("ICE store_value index");
 
-    let var: LLVMValueRef = if parts.len() == 1 {
-        let var_ref = module.get_var(name);
-        match var_ref {
-            None => panic!("Cannot find variable {}", name),
-            Some(var) => {
-                match var.get_mutability() {
-                    Mutability::Mutable => {}
-                    _ => panic!("Cannot reassign to immutable/constant {}", name),
-                };
-                var.into()
+                let load = module.llvm_builder_ref().build_load(val);
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_inbounds_gep(load, &mut [index.val()]);
+
+                gep
             }
+            _ => panic!("ICE st_val {:?}", lval),
         }
-    } else {
-        module.get_interior_pointer(parts)
-    };
+    }
+
+    let var: LLVMValueRef = get_lval(module, lval);
 
     let val = module
         .codegen_expr(value)
-        .expect(format!("Cannot codegen assignment for {} value", name).as_ref());
+        .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
 
-    module.llvm_builder_ref().build_store(val, var)
+    module.llvm_builder_ref().build_store(val.val(), var)
 }
