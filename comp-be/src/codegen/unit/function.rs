@@ -83,7 +83,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                         match ty {
                             PrimitiveType::NamedType {
                                 name,
-                                ty: box PrimitiveType::TypeRef(_),
+                                ty: Some(box PrimitiveType::TypeRef(_)),
                             } => {
                                 let arg = module
                                     .get_func(&fun_name)
@@ -104,7 +104,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     },
                                 );
                             }
-                            PrimitiveType::NamedType { name, ty } => {
+                            PrimitiveType::NamedType { name, ty: Some(ty) } => {
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::FunctionArgument(

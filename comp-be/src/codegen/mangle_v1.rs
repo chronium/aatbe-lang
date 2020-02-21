@@ -59,7 +59,10 @@ impl NameMangler for PrimitiveType {
             }
             // TODO: Handle Unit
             PrimitiveType::Unit => String::new(),
-            PrimitiveType::NamedType { name: _, ty } => ty.mangle(),
+            PrimitiveType::NamedType {
+                name: _,
+                ty: Some(ty),
+            } => ty.mangle(),
             PrimitiveType::Str => String::from("s"),
             PrimitiveType::Int(size) => format!("i{}", size.mangle()),
             PrimitiveType::UInt(size) => format!("u{}", size.mangle()),

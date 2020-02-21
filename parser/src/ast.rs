@@ -76,7 +76,7 @@ pub enum PrimitiveType {
     },
     NamedType {
         name: String,
-        ty: Box<PrimitiveType>,
+        ty: Option<Box<PrimitiveType>>,
     },
     Ref(Box<PrimitiveType>),
     Pointer(Box<PrimitiveType>),
@@ -87,7 +87,7 @@ impl PrimitiveType {
         match self {
             PrimitiveType::NamedType {
                 name: _,
-                ty: box ty,
+                ty: Some(box ty),
             } => ty,
             PrimitiveType::Function {
                 ext: _,

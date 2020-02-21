@@ -103,6 +103,10 @@ fn main() -> io::Result<()> {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
             CompileError::Handled => {}
+            CompileError::ExpectedValue { name } => error!(
+                "Cannot infer type for `{}` without specifying a value",
+                name
+            ),
             CompileError::NotIndexable { ty, lval } => {
                 error!("Cannot index `{}`. Type {} is not indexable", lval, ty)
             }

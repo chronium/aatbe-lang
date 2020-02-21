@@ -22,7 +22,10 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits64 => String::from("i64"),
             },
             PrimitiveType::Varargs => String::from("..."),
-            PrimitiveType::NamedType { name: _, ty } => ty.clone().fmt(),
+            PrimitiveType::NamedType {
+                name: _,
+                ty: Some(ty),
+            } => ty.clone().fmt(),
             PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
             PrimitiveType::Char => String::from("char"),
             PrimitiveType::TypeRef(ty) => ty.clone(),

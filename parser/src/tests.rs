@@ -298,7 +298,7 @@ fn main () -> () = {
                         params: vec![
                             PrimitiveType::NamedType {
                                 name: "s".to_string(),
-                                ty: box PrimitiveType::Str
+                                ty: Some(box PrimitiveType::Str)
                             },
                             PrimitiveType::Int(IntSize::Bits32),
                             PrimitiveType::Varargs,
@@ -357,6 +357,7 @@ fn main () -> () = {
 fn main () -> () = {
     var var_t: str = \"Hello World\"
     val val_t: str
+    val infer
     var_t = \"Aloha honua\"
 }
 ",
@@ -372,7 +373,7 @@ fn main () -> () = {
                     Expression::Decl {
                         ty: PrimitiveType::NamedType {
                             name: "var_t".to_string(),
-                            ty: box PrimitiveType::Str,
+                            ty: Some(box PrimitiveType::Str),
                         },
                         value: Some(box Expression::Atom(AtomKind::StringLiteral(String::from(
                             "Hello World"
@@ -382,7 +383,15 @@ fn main () -> () = {
                     Expression::Decl {
                         ty: PrimitiveType::NamedType {
                             name: "val_t".to_string(),
-                            ty: box PrimitiveType::Str,
+                            ty: Some(box PrimitiveType::Str),
+                        },
+                        value: None,
+                        exterior_bind: BindType::Immutable,
+                    },
+                    Expression::Decl {
+                        ty: PrimitiveType::NamedType {
+                            name: "infer".to_string(),
+                            ty: None,
                         },
                         value: None,
                         exterior_bind: BindType::Immutable,
@@ -535,11 +544,11 @@ rec Unit()
                     vec![
                         PrimitiveType::NamedType {
                             name: "msg".to_string(),
-                            ty: box PrimitiveType::Str,
+                            ty: Some(box PrimitiveType::Str),
                         },
                         PrimitiveType::NamedType {
                             name: "time".to_string(),
-                            ty: box PrimitiveType::Int(IntSize::Bits64),
+                            ty: Some(box PrimitiveType::Int(IntSize::Bits64)),
                         }
                     ]
                 ),
@@ -567,11 +576,11 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                     vec![
                         PrimitiveType::NamedType {
                             name: "msg".to_string(),
-                            ty: box PrimitiveType::Str,
+                            ty: Some(box PrimitiveType::Str),
                         },
                         PrimitiveType::NamedType {
                             name: "time".to_string(),
-                            ty: box PrimitiveType::Int(IntSize::Bits32),
+                            ty: Some(box PrimitiveType::Int(IntSize::Bits32)),
                         }
                     ]
                 ),

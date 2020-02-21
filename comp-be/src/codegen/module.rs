@@ -41,7 +41,13 @@ impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
 impl ValueTypePair {
     pub fn prim(&self) -> &PrimitiveType {
         match self {
-            ValueTypePair(_, TypeKind::Primitive(PrimitiveType::NamedType { name: _, ty })) => ty,
+            ValueTypePair(
+                _,
+                TypeKind::Primitive(PrimitiveType::NamedType {
+                    name: _,
+                    ty: Some(ty),
+                }),
+            ) => ty,
             ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
             _ => panic!("ICE prim {:?}"),
         }
@@ -182,7 +188,7 @@ impl AatbeModule {
                             ty:
                                 PrimitiveType::NamedType {
                                     name: _,
-                                    ty: box PrimitiveType::TypeRef(rec),
+                                    ty: Some(box PrimitiveType::TypeRef(rec)),
                                 },
                             value: _,
                         } => rec.clone(),
@@ -264,7 +270,7 @@ impl AatbeModule {
                 _ => store_value(self, lval, value),
             },
             Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty },
+                ty: PrimitiveType::NamedType { name, ty: Some(ty) },
                 value: _,
                 exterior_bind: _,
             } => {
@@ -274,6 +280,26 @@ impl AatbeModule {
                     (
                         self.get_var(name).expect("Compiler crapped out.").into(),
                         TypeKind::Primitive(*ty.clone()),
+                    )
+                        .into(),
+                )
+            }
+            Expression::Decl {
+                ty: PrimitiveType::NamedType { name, ty: None },
+                value,
+                exterior_bind: _,
+            } => {
+                if value.is_none() {
+                    self.add_error(CompileError::ExpectedValue { name: name.clone() });
+                    return None;
+                }
+
+                let ty = alloc_variable(self, expr);
+
+                Some(
+                    (
+                        self.get_var(name).expect("Compiler crapped out.").into(),
+                        TypeKind::Primitive(ty),
                     )
                         .into(),
                 )

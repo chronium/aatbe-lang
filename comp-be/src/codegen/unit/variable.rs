@@ -6,13 +6,34 @@ use crate::{
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
-pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
+pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> PrimitiveType {
     match variable {
         Expression::Decl {
             ty: PrimitiveType::NamedType { name, ty },
             value,
             exterior_bind,
         } => {
+            let mut vtp = None;
+            let ty = match ty {
+                Some(ty) => ty.clone(),
+                None => box PrimitiveType::NamedType {
+                    name: name.clone(),
+                    ty: Some(box if let Some(e) = value {
+                        if let box Expression::RecordInit { record, values: _ } = e {
+                            PrimitiveType::TypeRef(record.clone())
+                        } else {
+                            let pair = module
+                                .codegen_expr(e)
+                                .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                            let ty = pair.prim().clone();
+                            vtp = Some(pair);
+                            ty
+                        }
+                    } else {
+                        unreachable!();
+                    }),
+                },
+            };
             let var_ref = module
                 .llvm_builder_ref()
                 .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
@@ -24,7 +45,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                     name: name.clone(),
                     ty: PrimitiveType::NamedType {
                         name: name.clone(),
-                        ty: ty.clone(),
+                        ty: Some(ty.clone()),
                     },
                     value: var_ref,
                 },
@@ -48,19 +69,29 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) {
                         },
                     );
                 } else {
-                    let val = module
-                        .codegen_expr(e)
-                        .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                    let val = if vtp.is_none() {
+                        let val = module
+                            .codegen_expr(e)
+                            .expect(format!("Cannot codegen variable {} value", name).as_ref());
 
-                    if val.prim() != ty.inner() {
-                        module.add_error(CompileError::ExpectedType {
-                            expected_ty: ty.inner().fmt(),
-                            found_ty: val.prim().fmt(),
-                            value: value.as_ref().unwrap().fmt(),
-                        });
-                    }
+                        if val.prim() != ty.inner() {
+                            module.add_error(CompileError::ExpectedType {
+                                expected_ty: ty.inner().fmt(),
+                                found_ty: val.prim().fmt(),
+                                value: value.as_ref().unwrap().fmt(),
+                            });
+                        };
+                        val
+                    } else {
+                        vtp.unwrap()
+                    };
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
+            }
+
+            PrimitiveType::NamedType {
+                name: name.clone(),
+                ty: Some(ty.clone()),
             }
         }
         _ => unreachable!(),

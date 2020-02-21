@@ -103,7 +103,10 @@ impl LLVMTyInCtx for PrimitiveType {
             }
             PrimitiveType::Str => ctx.CharPointerType(),
             PrimitiveType::Char => ctx.Int8Type(),
-            PrimitiveType::NamedType { name: _, ty } => ty.llvm_ty_in_ctx(module),
+            PrimitiveType::NamedType {
+                name: _,
+                ty: Some(ty),
+            } => ty.llvm_ty_in_ctx(module),
             PrimitiveType::TypeRef(name) => module
                 .typectx_ref()
                 .get_type(name)

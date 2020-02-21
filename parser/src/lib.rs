@@ -32,6 +32,10 @@ impl Parser {
                 Some(Keyword::Bool) => Some(PrimitiveType::Bool),
                 _ => None,
             })
+            .or_else(|| match tok.ident() {
+                Some(s) => Some(PrimitiveType::TypeRef(s)),
+                None => None,
+            })
             .or_else(|| match tok.ty() {
                 Some(Type::Str) => Some(PrimitiveType::Str),
                 Some(Type::Char) => Some(PrimitiveType::Char),
@@ -44,10 +48,6 @@ impl Parser {
                 Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
                 Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
                 _ => None,
-            })
-            .or_else(|| match tok.ident() {
-                Some(s) => Some(PrimitiveType::TypeRef(s)),
-                None => None,
             })
         } else {
             None
@@ -65,8 +65,14 @@ impl Parser {
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
         let name = ident!(required self);
-        sym!(required Colon, self);
-        let ty = box capture!(res parse_type, self)?;
+        if sym!(bool Comma, self) {
+            return Err(ParseError::Continue);
+        };
+        let ty = if sym!(bool Colon, self) {
+            Some(box capture!(res parse_type, self)?)
+        } else {
+            None
+        };
         Ok(PrimitiveType::NamedType { name, ty })
     }
 

@@ -106,7 +106,7 @@ impl CodegenUnit {
                     PrimitiveType::Unit => None,
                     PrimitiveType::NamedType {
                         name: _,
-                        ty: box ty,
+                        ty: Some(box ty),
                     } => Some(ty.clone()),
                     p => Some(p.clone()),
                 })
@@ -124,7 +124,7 @@ impl CodegenUnit {
                 ty:
                     PrimitiveType::NamedType {
                         name: _,
-                        ty: box PrimitiveType::TypeRef(record),
+                        ty: Some(box PrimitiveType::TypeRef(record)),
                     },
                 value: _,
             } => match module.typectx_ref().get_record(record) {
@@ -167,7 +167,11 @@ impl CodegenUnit {
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
-                ty: PrimitiveType::NamedType { name: _, ty },
+                ty:
+                    PrimitiveType::NamedType {
+                        name: _,
+                        ty: Some(ty),
+                    },
                 value: _,
             } => ty,
             CodegenUnit::FunctionArgument(_, ty) => ty,

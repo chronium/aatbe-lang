@@ -55,5 +55,8 @@ pub enum CompileError {
         ty: String,
         lval: String,
     },
+    ExpectedValue {
+        name: String,
+    },
     Handled,
 }

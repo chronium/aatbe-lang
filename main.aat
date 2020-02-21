@@ -2,5 +2,8 @@ use "prelude"
 
 @entry
 fn main () -> () = {
-    var hw: String = new :String, "Hello World!"
+    val hw = "Hello World!"
+    val len = strlen hw
+
+    printf "strlen \"%s\" = %d\n", hw, len
 }

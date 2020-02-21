@@ -20,11 +20,11 @@ impl Record {
         let mut body = HashMap::new();
         let mut types_map = HashMap::new();
         types.iter().enumerate().for_each(|(index, ty)| match ty {
-            PrimitiveType::NamedType { name, ty } => {
+            PrimitiveType::NamedType { name, ty: Some(ty) } => {
                 body.insert(name.clone(), index as u32);
                 types_map.insert(name.clone(), *ty.clone());
             }
-            _ => {}
+            _ => panic!("ICE rec new {:?}", ty),
         });
 
         Self {
