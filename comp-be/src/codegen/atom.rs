@@ -10,10 +10,23 @@ impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
             AtomKind::Cast(box val, ty) => {
-                let (val, _) = self
+                let (val, val_ty) = self
                     .codegen_atom(val)
                     .expect("ICE codegen_atom cast val")
                     .into();
+                match (val_ty, ty) {
+                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Pointer(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
+                                TypeKind::Primitive(ty.clone()),
+                            )
+                                .into(),
+                        )
+                    }
+                    _ => {}
+                };
 
                 Some(
                     (
