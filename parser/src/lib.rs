@@ -15,6 +15,8 @@ use lexer::{
 
 use crate::parser::{ParseError, ParseResult, Parser};
 
+use std::path::PathBuf;
+
 impl Parser {
     fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
         let token = self.next();
@@ -85,7 +87,15 @@ impl Parser {
         kw!(Use, self);
         if let Some(path) = self.peek_str() {
             self.next();
-            Ok(AST::Import(path))
+
+            let pb = PathBuf::from(self.path.clone())
+                .parent()
+                .expect("ICE parse_use parent")
+                .join(PathBuf::from(path));
+
+            Ok(AST::Import(
+                pb.to_str().expect("ICE parse_use pb.to_str").to_string(),
+            ))
         } else {
             Err(ParseError::ExpectedPath)
         }

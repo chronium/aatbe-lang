@@ -1,9 +1,15 @@
-use "prelude"
+use "aatlib/prelude"
 
 @entry
 fn main () -> () = {
     val hw = "Hello World!"
     val len = strlen hw
 
-    printf "strlen \"%s\" = %d\n", hw, len
+    println hw
+    println len
+    println true
+    println false
+
+    print "> "
+    println "Hello"
 }

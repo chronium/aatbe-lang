@@ -1,0 +1,31 @@
+use "../libc"
+
+fn println s: str -> () = printf "%s\n", s
+fn println b: bool -> () = {
+    if b then printf "%s\n", "true"
+    else printf "%s\n", "false"
+}
+
+fn println i: i8 -> () = printf "%d\n", i
+fn println i: i16 -> () = printf "%d\n", i
+fn println i: i32 -> () = printf "%d\n", i
+fn println i: i64 -> () = printf "%d\n", i
+fn println u: u8 -> () = printf "%d\n", u
+fn println u: u16 -> () = printf "%d\n", u
+fn println u: u32 -> () = printf "%d\n", u
+fn println u: u64 -> () = printf "%d\n", u
+
+fn print s: str -> () = printf "%s", s
+fn print b: bool -> () = {
+    if b then printf "%s", "true"
+    else printf "%s", "false"
+}
+
+fn print i: i8 -> () = printf "%d", i
+fn print i: i16 -> () = printf "%d", i
+fn print i: i32 -> () = printf "%d", i
+fn print i: i64 -> () = printf "%d", i
+fn print u: u8 -> () = printf "%d", u
+fn print u: u16 -> () = printf "%d", u
+fn print u: u32 -> () = printf "%d", u
+fn print u: u64 -> () = printf "%d", u

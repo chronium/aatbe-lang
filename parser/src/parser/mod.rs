@@ -31,14 +31,16 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser {
     pub tt: Vec<Token>,
+    pub path: String,
     pub pt: Option<AST>,
     pub index: usize,
 }
 
 impl Parser {
-    pub fn new(tt: Vec<Token>) -> Self {
+    pub fn new(tt: Vec<Token>, path: String) -> Self {
         Self {
             tt,
+            path,
             pt: None,
             index: 0usize,
         }

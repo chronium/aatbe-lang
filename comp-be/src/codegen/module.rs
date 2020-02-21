@@ -118,7 +118,7 @@ impl AatbeModule {
         let mut lexer = Lexer::new(code.as_str());
         lexer.lex();
 
-        let mut parser = Parser::new(lexer.tt());
+        let mut parser = Parser::new(lexer.tt(), format!("{}.aat", module));
         match parser.parse() {
             Ok(_) => {}
             Err(err) => panic!(format!("{:#?}", err)),
@@ -309,15 +309,16 @@ impl AatbeModule {
                 then_expr,
                 else_expr,
             } => {
-                else_expr
-                    .as_ref()
-                    .expect_none("Else conditions not supported");
-
                 let func = self
                     .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
                     .expect("Must be in a function for if statement");
 
                 let then_bb = func.append_basic_block(String::default());
+                let else_bb = if let Some(_) = else_expr {
+                    Some(func.append_basic_block(String::default()))
+                } else {
+                    None
+                };
                 let end_bb = func.append_basic_block(String::default());
 
                 let cond = match self.codegen_expr(cond_expr) {
@@ -333,10 +334,20 @@ impl AatbeModule {
                     });
                 }
 
-                self.llvm_builder.build_cond_br(cond.val(), then_bb, end_bb);
+                self.llvm_builder
+                    .build_cond_br(cond.val(), then_bb, else_bb.unwrap_or(end_bb));
 
                 self.llvm_builder.position_at_end(then_bb);
                 self.codegen_expr(then_expr);
+                else_bb.map(|bb| {
+                    self.llvm_builder.build_br(end_bb);
+                    self.llvm_builder.position_at_end(bb);
+                    if let Some(else_expr) = else_expr {
+                        self.codegen_expr(&*else_expr);
+                    } else {
+                        unreachable!();
+                    }
+                });
                 self.llvm_builder.build_br(end_bb);
                 self.llvm_builder.position_at_end(end_bb);
 

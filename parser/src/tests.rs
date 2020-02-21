@@ -19,7 +19,7 @@ mod parser_tests {
 
     macro_rules! parse_test {
         ($tt:expr, $name:expr) => {{
-            let mut parser = Parser::new(tt($tt));
+            let mut parser = Parser::new(tt($tt), String::new());
             let res = parser.parse();
             let pt = parser.pt().as_ref().expect($name);
 
@@ -31,7 +31,7 @@ mod parser_tests {
 
     #[test]
     fn invalid_eof() {
-        let mut parser = Parser::new(vec![]);
+        let mut parser = Parser::new(vec![], String::new());
         let res = parser.parse();
         assert_eq!(
             res.expect_err("Expected InvalidEOF"),
@@ -41,7 +41,7 @@ mod parser_tests {
 
     #[test]
     fn eof() {
-        let mut parser = Parser::new(tt(""));
+        let mut parser = Parser::new(tt(""), String::new());
         let res = parser.parse();
 
         assert_eq!(res, Ok(()))

@@ -47,7 +47,7 @@ fn main() -> io::Result<()> {
     let mut lexer = Lexer::new(code.as_str());
     lexer.lex();
 
-    let mut parser = Parser::new(lexer.tt());
+    let mut parser = Parser::new(lexer.tt(), input_path.to_str().unwrap().to_string());
     match parser.parse() {
         Ok(_) => {}
         Err(err) => panic!(format!("{:#?}", err)),
