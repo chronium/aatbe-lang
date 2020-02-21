@@ -45,6 +45,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Ident(id) => format!("{}", id),
             AtomKind::Unary(op, id) => format!("{}{}", op, id.fmt()),
             AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
+            AtomKind::Cast(val, ty) => format!("{} as {}", val.fmt(), ty.fmt()),
             AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }

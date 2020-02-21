@@ -44,7 +44,9 @@ impl Parser {
         let token = self.next();
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
-                return Some(AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)));
+                let ty =
+                    capture!(res parse_type, self).unwrap_or(PrimitiveType::Int(IntSize::Bits32));
+                return Some(AtomKind::Integer(val, ty));
             }
         }
 

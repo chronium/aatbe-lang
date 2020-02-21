@@ -25,6 +25,16 @@ impl AatbeModule {
                                 .into(),
                         )
                     }
+                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Str) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
+                                TypeKind::Primitive(ty.clone()),
+                            )
+                                .into(),
+                        )
+                    }
                     _ => {}
                 };
 
@@ -104,9 +114,58 @@ impl AatbeModule {
                 )
                     .into(),
             ),
+            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits8)) => Some(
+                (
+                    self.llvm_context_ref().SInt8(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits16)) => Some(
+                (
+                    self.llvm_context_ref().SInt16(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
             AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => Some(
                 (
                     self.llvm_context_ref().SInt32(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits64)) => Some(
+                (
+                    self.llvm_context_ref().SInt64(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits8)) => Some(
+                (
+                    self.llvm_context_ref().UInt8(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits16)) => Some(
+                (
+                    self.llvm_context_ref().UInt8(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits32)) => Some(
+                (
+                    self.llvm_context_ref().UInt8(*val),
+                    TypeKind::Primitive(prim.clone()),
+                )
+                    .into(),
+            ),
+            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => Some(
+                (
+                    self.llvm_context_ref().UInt8(*val),
                     TypeKind::Primitive(prim.clone()),
                 )
                     .into(),

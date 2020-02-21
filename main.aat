@@ -2,9 +2,6 @@ use "aatlib/prelude"
 
 @entry
 fn main () -> () = {
-    val hw = "Hello World!"
-
-    println hw[0]
-    var asd = (malloc 10) as str
-    asd[0] = 'a'
+    val a = 'a' as i8
+    println a as char
 }
