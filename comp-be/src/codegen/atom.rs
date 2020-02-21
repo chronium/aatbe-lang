@@ -87,7 +87,7 @@ impl AatbeModule {
             AtomKind::CharLiteral(ch) => Some(
                 (
                     self.llvm_context_ref().SInt8(*ch as u64),
-                    TypeKind::Primitive(PrimitiveType::Str),
+                    TypeKind::Primitive(PrimitiveType::Char),
                 )
                     .into(),
             ),

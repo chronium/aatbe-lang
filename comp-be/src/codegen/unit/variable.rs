@@ -15,8 +15,8 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
         } => {
             let mut vtp = None;
             let ty = match ty {
-                Some(ty) => ty.clone(),
-                None => box PrimitiveType::NamedType {
+                Some(ty) => *ty.clone(),
+                None => PrimitiveType::NamedType {
                     name: name.clone(),
                     ty: Some(box if let Some(e) = value {
                         if let box Expression::RecordInit { record, values: _ } = e {
@@ -43,10 +43,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                 CodegenUnit::Variable {
                     mutable: Mutability::from(exterior_bind),
                     name: name.clone(),
-                    ty: PrimitiveType::NamedType {
-                        name: name.clone(),
-                        ty: Some(ty.clone()),
-                    },
+                    ty: ty.clone(),
                     value: var_ref,
                 },
             );
@@ -88,11 +85,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
             }
-
-            PrimitiveType::NamedType {
-                name: name.clone(),
-                ty: Some(ty.clone()),
-            }
+            ty.clone()
         }
         _ => unreachable!(),
     }

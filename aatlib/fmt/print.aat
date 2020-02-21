@@ -1,6 +1,7 @@
 use "../libc"
 
 fn println s: str -> () = printf "%s\n", s
+fn println c: char -> () = printf "%c\n", c
 fn println b: bool -> () = {
     if b then printf "%s\n", "true"
     else printf "%s\n", "false"
@@ -16,6 +17,7 @@ fn println u: u32 -> () = printf "%d\n", u
 fn println u: u64 -> () = printf "%d\n", u
 
 fn print s: str -> () = printf "%s", s
+fn print c: char -> () = printf "%c", c
 fn print b: bool -> () = {
     if b then printf "%s", "true"
     else printf "%s", "false"

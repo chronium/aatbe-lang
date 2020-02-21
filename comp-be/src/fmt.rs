@@ -37,7 +37,8 @@ impl AatbeFmt for &PrimitiveType {
 impl AatbeFmt for &AtomKind {
     fn fmt(self) -> String {
         match self {
-            AtomKind::StringLiteral(lit) => format!("{:?}", lit),
+            AtomKind::StringLiteral(lit) => format!("{}", lit),
+            AtomKind::CharLiteral(lit) => format!("{}", lit),
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Bool(Boolean::True) => String::from("true"),
             AtomKind::Bool(Boolean::False) => String::from("false"),

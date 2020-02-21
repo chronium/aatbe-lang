@@ -3,13 +3,8 @@ use "aatlib/prelude"
 @entry
 fn main () -> () = {
     val hw = "Hello World!"
-    val len = strlen hw
 
-    println hw
-    println len
-    println true
-    println false
-
-    print "> "
-    println "Hello"
+    println hw[0]
+    var asd = (malloc 10) as str
+    asd[0] = 'a'
 }
