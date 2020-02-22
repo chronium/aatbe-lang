@@ -35,6 +35,26 @@ impl AatbeModule {
                                 .into(),
                         )
                     }
+                    (TypeKind::Primitive(PrimitiveType::Pointer(_)), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
+                                TypeKind::Primitive(ty.clone()),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Str), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
+                                TypeKind::Primitive(ty.clone()),
+                            )
+                                .into(),
+                        )
+                    }
                     _ => {}
                 };
 

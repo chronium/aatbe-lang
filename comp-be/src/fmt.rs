@@ -47,6 +47,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
             AtomKind::Cast(val, ty) => format!("{} as {}", val.fmt(), ty.fmt()),
             AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
+            AtomKind::Index(lval, ind) => format!("{}[{}]", lval.fmt(), ind.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

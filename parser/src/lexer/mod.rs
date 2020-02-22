@@ -95,7 +95,15 @@ impl<'c> Lexer<'c> {
                 self.advance();
                 '"'
             }
-            Some(c) => *c,
+            Some('0') => {
+                self.advance();
+                '\0'
+            }
+            Some(c) => {
+                let c = c.clone();
+                self.advance();
+                c
+            }
             None => '\\',
         }
     }
@@ -251,8 +259,18 @@ impl<'c> Lexer<'c> {
                     _ => self.push_symbol(Symbol::Slash, pos),
                 },
                 '\'' => {
-                    let c = self.escape_char();
-                    self.advance();
+                    let c = match self.chars.peek() {
+                        Some('\\') => {
+                            self.advance();
+                            self.escape_char()
+                        }
+                        Some(c) => {
+                            let c = c.clone();
+                            self.advance();
+                            c
+                        }
+                        _ => panic!(),
+                    };
                     match self.chars.peek() {
                         Some('\'') => {
                             self.advance();

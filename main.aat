@@ -1,6 +1,13 @@
 use "aatlib/prelude"
 
+fn puta s: str, i: i32 -> () = {
+    print s[i]
+
+    val si = s[i] as i8
+    if si != 0i8 puta s, i + 1
+}
+
 @entry
 fn main () -> () = {
-    if true println "hello"
+    puta "hello", 0
 }
