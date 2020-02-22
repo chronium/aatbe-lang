@@ -7,6 +7,8 @@ use compare::{codegen_compare_signed, codegen_compare_unsigned};
 mod math;
 use math::{codegen_signed_ops, codegen_unsigned_ops};
 
+pub mod const_expr;
+
 use crate::{
     codegen::{AatbeModule, CompileError, GenRes, ValueTypePair},
     fmt::AatbeFmt,

@@ -7,6 +7,10 @@ pub enum AST {
     Expr(Expression),
     Import(String),
     Record(String, Vec<PrimitiveType>),
+    Constant {
+        ty: PrimitiveType,
+        value: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

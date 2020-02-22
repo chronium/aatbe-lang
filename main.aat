@@ -1,14 +1,10 @@
-fn putc c: char, i: i32 -> () = {
-    var screen = 753664 as str
-    screen[i] = c
-    screen[i + 1] = 31i8 as char
-}
+use "aatlib/prelude"
+
+const TEN: i32 = 10
+const HELLO: str = "Hello World!"
 
 @entry
-fn kern_main () -> () = {
-    putc 'A', 0
-    putc 'l', 2
-    putc 'o', 4
-    putc 'h', 6
-    putc 'a', 8
+fn main () -> () = {
+    println TEN
+    println HELLO
 }

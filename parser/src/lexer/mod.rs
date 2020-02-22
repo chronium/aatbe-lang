@@ -520,7 +520,7 @@ mod lexer_tests {
     #[test]
     fn keyword_identifier() {
         let mut lexer =
-            Lexer::new("fn extern var val if else use true false main record.test bool rec");
+            Lexer::new("fn extern var val if else use true false main record.test bool rec const");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -543,6 +543,7 @@ mod lexer_tests {
         );
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Bool));
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Record));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Const));
     }
 
     #[test]

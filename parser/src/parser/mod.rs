@@ -128,6 +128,7 @@ impl Parser {
                 capture!(res parse_use, self)
                     .or_else(|_| capture!(res parse_function, self))
                     .or_else(|_| capture!(res parse_record, self))
+                    .or_else(|_| capture!(res parse_const, self))
                     .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
             );
         };
