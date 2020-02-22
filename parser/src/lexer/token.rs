@@ -105,6 +105,7 @@ pub enum Keyword {
     As,
     Then,
     Const,
+    Ret,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -231,6 +232,7 @@ impl FromStr for Keyword {
             "as" => Ok(Self::As),
             "then" => Ok(Self::Then),
             "const" => Ok(Self::Const),
+            "ret" => Ok(Self::Ret),
             _ => Err(()),
         }
     }

@@ -1,10 +1,12 @@
 use "aatlib/prelude"
 
-const TEN: i32 = 10
-const HELLO: str = "Hello World!"
+fn drink i: i32 -> str = {
+    if i < 18 "Not drinking"
+    else "Drinking"
+}
 
 @entry
 fn main () -> () = {
-    println TEN
-    println HELLO
+    println drink 16
+    println drink 20
 }

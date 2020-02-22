@@ -3,3 +3,7 @@
 
 *.ll
 *.txt
+*.bin
+*.o
+
+test.c
