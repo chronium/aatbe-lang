@@ -392,26 +392,30 @@ impl AatbeModule {
 
                 if let Some(then_val) = then_val {
                     let ty = then_val.prim().clone();
-                    let phi = Phi::new(
-                        self.llvm_builder_ref().as_ref(),
-                        ty.llvm_ty_in_ctx(self),
-                        "",
-                    );
+                    if ty != PrimitiveType::Unit {
+                        let phi = Phi::new(
+                            self.llvm_builder_ref().as_ref(),
+                            ty.llvm_ty_in_ctx(self),
+                            "",
+                        );
 
-                    phi.add_incoming(then_val.val(), then_bb);
+                        phi.add_incoming(then_val.val(), then_bb);
 
-                    if let Some(else_val) = else_val {
-                        if &ty != else_val.prim() {
-                            self.add_error(CompileError::ExpectedType {
-                                expected_ty: ty.clone().fmt(),
-                                found_ty: else_val.prim().fmt(),
-                                value: else_expr.as_ref().unwrap().fmt(),
-                            });
+                        if let Some(else_val) = else_val {
+                            if &ty != else_val.prim() {
+                                self.add_error(CompileError::ExpectedType {
+                                    expected_ty: ty.clone().fmt(),
+                                    found_ty: else_val.prim().fmt(),
+                                    value: else_expr.as_ref().unwrap().fmt(),
+                                });
+                            }
+                            phi.add_incoming(else_val.val(), else_bb.unwrap());
                         }
-                        phi.add_incoming(else_val.val(), else_bb.unwrap());
-                    }
 
-                    Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                        Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
