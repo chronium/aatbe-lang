@@ -1,7 +1,14 @@
-use "aatlib/prelude"
+fn putc c: char, i: i32 -> () = {
+    var screen = 753664 as str
+    screen[i] = c
+    screen[i + 1] = 31i8 as char
+}
 
 @entry
-fn main () -> () = {
-    println 10
-    println 20
+fn kern_main () -> () = {
+    putc 'A', 0
+    putc 'l', 2
+    putc 'o', 4
+    putc 'h', 6
+    putc 'a', 8
 }
