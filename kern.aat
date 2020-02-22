@@ -1,11 +1,32 @@
+const SCREEN: i32 = 0xB8000
+
 fn putc c: char, i: i32 -> () = {
-    var screen = 753664 as str
+    var screen = SCREEN as str
+
     screen[i] = c
     screen[i + 1] = 31i8 as char
 }
 
+fn clear_row row: i32, column: i32 -> () = {
+    var screen = SCREEN as str
+
+    val index = (column + row * 80) * 2
+
+    screen[index] = ' '
+    screen[index + 1] = 31i8 as char
+
+    if column < 79 clear_row row, column + 1
+}
+
+fn cls row: i32 -> () = {
+    clear_row row, 0
+
+    if row < 24 cls row + 1
+}
+
 @entry
 fn kern_main () -> () = {
+    cls 0
     putc 'A', 0
     putc 'l', 2
     putc 'o', 4
