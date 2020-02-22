@@ -1,12 +1,6 @@
 use "aatlib/prelude"
 
-fn drink i: i32 -> str = {
-    if i < 18 "Not drinking"
-    else "Drinking"
-}
-
 @entry
 fn main () -> () = {
-    println drink 16
-    println drink 20
+    if true println "hello"
 }
