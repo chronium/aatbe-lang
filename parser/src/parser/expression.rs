@@ -2,7 +2,7 @@ use crate::{
     ast::{AtomKind, BindType, Boolean, Expression, IntSize, LValue, PrimitiveType},
     parser::{ParseError, ParseResult, Parser},
     token,
-    token::{Keyword, Symbol, Token},
+    token::{Keyword, Symbol, Token, Type},
 };
 
 fn prec(symbol: Symbol) -> u32 {
@@ -41,12 +41,39 @@ impl Parser {
     }
 
     fn parse_number(&mut self) -> Option<AtomKind> {
+        fn parse_number_type(parser: &mut Parser) -> Option<PrimitiveType> {
+            let prev_ind = parser.index;
+            let tok = parser.next();
+
+            if let Some(tok) = tok {
+                match tok.ty() {
+                    Some(Type::I8) => Some(PrimitiveType::Int(IntSize::Bits8)),
+                    Some(Type::I16) => Some(PrimitiveType::Int(IntSize::Bits16)),
+                    Some(Type::I32) => Some(PrimitiveType::Int(IntSize::Bits32)),
+                    Some(Type::I64) => Some(PrimitiveType::Int(IntSize::Bits64)),
+                    Some(Type::U8) => Some(PrimitiveType::UInt(IntSize::Bits8)),
+                    Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
+                    Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
+                    Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
+                    _ => {
+                        parser.index = prev_ind;
+                        None
+                    }
+                }
+            } else {
+                parser.index = prev_ind;
+                None
+            }
+        }
+
         let token = self.next();
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
-                let ty =
-                    capture!(res parse_type, self).unwrap_or(PrimitiveType::Int(IntSize::Bits32));
-                return Some(AtomKind::Integer(val, ty));
+                let ty = parse_number_type(self);
+                return Some(AtomKind::Integer(
+                    val,
+                    ty.unwrap_or(PrimitiveType::Int(IntSize::Bits32)),
+                ));
             }
         }
 

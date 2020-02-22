@@ -2,6 +2,6 @@ use "aatlib/prelude"
 
 @entry
 fn main () -> () = {
-    val a = 'a' as i8
-    println a as char
+    println 10
+    println 20
 }
