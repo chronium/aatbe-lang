@@ -1,10 +1,10 @@
 use crate::{
-    codegen::{AatbeModule, CompileError, ValueTypePair},
+    codegen::{expr::const_expr::const_atom, AatbeModule, CompileError, ValueTypePair},
     fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind},
 };
 
-use parser::ast::{AtomKind, Boolean, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, PrimitiveType};
 
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
@@ -99,77 +99,10 @@ impl AatbeModule {
                     ),
                 }
             }
-            AtomKind::StringLiteral(string) => Some(
-                (
-                    self.llvm_builder_ref()
-                        .build_global_string_ptr(string.as_str()),
-                    TypeKind::Primitive(PrimitiveType::Str),
-                )
-                    .into(),
-            ),
-            AtomKind::CharLiteral(ch) => Some(
-                (
-                    self.llvm_context_ref().SInt8(*ch as u64),
-                    TypeKind::Primitive(PrimitiveType::Char),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits8)) => Some(
-                (
-                    self.llvm_context_ref().SInt8(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits16)) => Some(
-                (
-                    self.llvm_context_ref().SInt16(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => Some(
-                (
-                    self.llvm_context_ref().SInt32(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits64)) => Some(
-                (
-                    self.llvm_context_ref().SInt64(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits8)) => Some(
-                (
-                    self.llvm_context_ref().UInt8(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits16)) => Some(
-                (
-                    self.llvm_context_ref().UInt8(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits32)) => Some(
-                (
-                    self.llvm_context_ref().UInt8(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
-            AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => Some(
-                (
-                    self.llvm_context_ref().UInt8(*val),
-                    TypeKind::Primitive(prim.clone()),
-                )
-                    .into(),
-            ),
+            atom @ AtomKind::StringLiteral(_) | atom @ AtomKind::CharLiteral(_) => {
+                const_atom(self, atom)
+            }
+            atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
             AtomKind::Bool(Boolean::True) => Some(
                 (
                     self.llvm_context_ref().SInt1(1),

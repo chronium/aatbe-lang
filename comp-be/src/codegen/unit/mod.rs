@@ -152,11 +152,14 @@ impl CodegenUnit {
     pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
         match self {
             CodegenUnit::Variable {
-                mutable: _,
+                mutable,
                 name: _,
                 ty: _,
                 value: _,
-            } => builder.build_load(self.into()),
+            } => match mutable {
+                Mutability::Mutable | Mutability::Immutable => builder.build_load(self.into()),
+                Mutability::Constant => self.into(),
+            },
             CodegenUnit::FunctionArgument(_, _) => self.into(),
             _ => panic!("Cannot load non-variable"),
         }
@@ -167,15 +170,17 @@ impl CodegenUnit {
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
-                ty:
-                    PrimitiveType::NamedType {
-                        name: _,
-                        ty: Some(ty),
-                    },
+                ty,
                 value: _,
-            } => ty,
+            } => match ty {
+                PrimitiveType::NamedType {
+                    name: _,
+                    ty: Some(ty),
+                } => ty,
+                ty => ty,
+            },
             CodegenUnit::FunctionArgument(_, ty) => ty,
-            _ => panic!("Cannot var_ty non-variable"),
+            _ => panic!("ICE var_ty {:?}", self),
         }
     }
 

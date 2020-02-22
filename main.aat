@@ -1,7 +1,10 @@
 use "aatlib/prelude"
 
+const TEN: i32 = 10
+const HELLO: str = "Hello World!"
+
 @entry
 fn main () -> () = {
-    println 10
-    println 20
+    println TEN
+    println HELLO
 }

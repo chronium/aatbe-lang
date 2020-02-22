@@ -4,6 +4,7 @@ use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 use crate::{
     codegen::{
         codegen_binary,
+        expr::const_expr::fold_constant,
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, codegen_function, declare_function, init_record,
@@ -147,6 +148,7 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
+            AST::Constant { ty: _, value: _ } => {}
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
@@ -496,6 +498,13 @@ impl AatbeModule {
 
     pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
         match ast {
+            AST::Constant {
+                ty: PrimitiveType::NamedType { name, ty: _ },
+                value: _,
+            } => {
+                fold_constant(self, ast).map(|constant| self.push_in_scope(name, constant));
+                None
+            }
             AST::File(nodes) => nodes
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
