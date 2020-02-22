@@ -8,7 +8,7 @@ AATC = clang-6.0
 
 OBJs:=\
 	boot.o \
-	main.o
+	kern.o
 
 all: kern.bin
 
