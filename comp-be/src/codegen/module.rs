@@ -1,4 +1,4 @@
-use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, LLVM};
+use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, Phi, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
@@ -215,8 +215,41 @@ impl AatbeModule {
         }
     }
 
+    pub fn has_ret(&self, expr: &Expression) -> bool {
+        match expr {
+            Expression::Ret(_) => true,
+            _ => false,
+        }
+    }
+
+    #[allow(unreachable_code)]
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
+            Expression::Ret(box _value) => {
+                unimplemented!();
+                let val = self.codegen_expr(_value).unwrap();
+
+                let func_ret = self
+                    .get_func(
+                        self.current_function
+                            .as_ref()
+                            .expect("Compiler borked rets"),
+                    )
+                    .expect("Must be in a function for ret statement")
+                    .ret_ty()
+                    .clone();
+
+                if val.prim() != &func_ret {
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: func_ret.fmt(),
+                        found_ty: val.prim().fmt(),
+                        value: _value.fmt(),
+                    });
+                    None
+                } else {
+                    Some((val.val(), TypeKind::Primitive(func_ret)).into())
+                }
+            }
             Expression::RecordInit { record, values } => {
                 let rec = self.llvm_builder_ref().build_alloca(
                     self.typectx_ref()
@@ -340,20 +373,48 @@ impl AatbeModule {
                     .build_cond_br(cond.val(), then_bb, else_bb.unwrap_or(end_bb));
 
                 self.llvm_builder.position_at_end(then_bb);
-                self.codegen_expr(then_expr);
-                else_bb.map(|bb| {
+
+                let then_val = self.codegen_expr(then_expr);
+                let else_val = if let Some(bb) = else_bb {
                     self.llvm_builder.build_br(end_bb);
                     self.llvm_builder.position_at_end(bb);
+
                     if let Some(else_expr) = else_expr {
-                        self.codegen_expr(&*else_expr);
+                        self.codegen_expr(&*else_expr)
                     } else {
-                        unreachable!();
+                        unreachable!()
                     }
-                });
+                } else {
+                    None
+                };
                 self.llvm_builder.build_br(end_bb);
                 self.llvm_builder.position_at_end(end_bb);
 
-                None
+                if let Some(then_val) = then_val {
+                    let ty = then_val.prim().clone();
+                    let phi = Phi::new(
+                        self.llvm_builder_ref().as_ref(),
+                        ty.llvm_ty_in_ctx(self),
+                        "",
+                    );
+
+                    phi.add_incoming(then_val.val(), then_bb);
+
+                    if let Some(else_val) = else_val {
+                        if &ty != else_val.prim() {
+                            self.add_error(CompileError::ExpectedType {
+                                expected_ty: ty.clone().fmt(),
+                                found_ty: else_val.prim().fmt(),
+                                value: else_expr.as_ref().unwrap().fmt(),
+                            });
+                        }
+                        phi.add_incoming(else_val.val(), else_bb.unwrap());
+                    }
+
+                    Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                } else {
+                    None
+                }
             }
             Expression::Call {
                 name: raw_name,

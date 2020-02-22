@@ -354,6 +354,14 @@ impl Parser {
         Ok(Expression::RecordInit { record, values })
     }
 
+    fn parse_ret(&mut self) -> ParseResult<Expression> {
+        kw!(Ret, self);
+
+        Ok(Expression::Ret(
+            box capture!(expect parse_expression, err ExpectedExpression, self),
+        ))
+    }
+
     pub fn parse_expression(&mut self) -> Option<Expression> {
         match self.peek_symbol(Symbol::LCurly) {
             Some(false) => capture!(res parse_record_init, self)
@@ -361,6 +369,7 @@ impl Parser {
                 .or_else(|_| capture!(res parse_assign, self))
                 .or_else(|_| capture!(res parse_decl, self))
                 .or_else(|_| capture!(res parse_if_else, self))
+                .or_else(|_| capture!(res parse_ret, self))
                 .or_else(|_| self.parse_expr(0))
                 .ok(),
             Some(true) => {

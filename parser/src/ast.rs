@@ -18,6 +18,7 @@ pub enum Expression {
     Atom(AtomKind),
     Binary(Box<Expression>, String, Box<Expression>),
     Block(Vec<Expression>),
+    Ret(Box<Expression>),
     Decl {
         ty: PrimitiveType,
         value: Option<Box<Expression>>,
