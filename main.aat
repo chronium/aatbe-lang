@@ -1,6 +1,5 @@
 use "aatlib/prelude"
 
 @entry
-fn main () -> () = {
-    if true println "hello"
+fn main () = {
 }

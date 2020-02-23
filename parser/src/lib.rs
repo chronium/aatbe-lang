@@ -90,7 +90,7 @@ impl Parser {
 
             let pb = PathBuf::from(self.path.clone())
                 .parent()
-                .expect("ICE parse_use parent")
+                .unwrap_or(&PathBuf::default())
                 .join(PathBuf::from(path));
 
             Ok(AST::Import(
@@ -101,7 +101,11 @@ impl Parser {
         }
     }
 
-    fn parse_type_list(&mut self, terminator: Symbol) -> ParseResult<Vec<PrimitiveType>> {
+    fn parse_type_list(
+        &mut self,
+        terminator: Symbol,
+        consume_term: bool,
+    ) -> ParseResult<Vec<PrimitiveType>> {
         let mut params = vec![];
         loop {
             match self.peek_symbol(terminator) {
@@ -118,7 +122,9 @@ impl Parser {
                 None => return Err(ParseError::UnexpectedEOF),
             }
         }
-        self.next();
+        if consume_term {
+            self.next();
+        }
         Ok(params)
     }
 
@@ -130,7 +136,7 @@ impl Parser {
             vec![PrimitiveType::Unit]
         } else {
             sym!(required LParen, self);
-            self.parse_type_list(Symbol::RParen)
+            self.parse_type_list(Symbol::RParen, true)
                 .expect(format!("Expected type list at {}", name).as_str())
         };
 
@@ -163,10 +169,11 @@ impl Parser {
         let name = ident!(required self);
 
         let params = self
-            .parse_type_list(Symbol::Arrow)
+            .parse_type_list(Symbol::Arrow, true)
+            .or_else(|_| self.parse_type_list(Symbol::Assign, false))
             .expect(format!("Expected type list at {}", name).as_str());
 
-        let ret_ty = box capture!(res parse_type, self)?;
+        let ret_ty = box capture!(res parse_type, self).unwrap_or(PrimitiveType::Unit);
 
         let mut body = None;
         if sym!(bool Assign, self) {
