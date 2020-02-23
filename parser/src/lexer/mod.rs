@@ -388,10 +388,16 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().kind, TokenKind::EOF);
     }
 
+    macro_rules! sep {
+        ($tokens: ident) => {
+            assert_eq!($tokens.next().unwrap().kind, TokenKind::SEP);
+        };
+    }
+
     #[test]
     fn symbols() {
         let mut lexer = Lexer::new(
-            "@ ( ) -> {} () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ... [ ]",
+            " @ ( ) -> { } () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ... [ ]",
         );
         lexer.lex();
         let mut tokens = lexer.into_iter();
@@ -435,6 +441,7 @@ mod lexer_tests {
         .map(|t| Some(t));
 
         for t in expected {
+            sep!(tokens);
             assert_eq!(tokens.next().unwrap().sym(), t);
         }
     }
@@ -457,6 +464,7 @@ mod lexer_tests {
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
+        sep!(tokens);
         assert_eq!(
             tokens.next().unwrap().kind,
             TokenKind::Comment(String::from("Test"))
@@ -532,25 +540,39 @@ mod lexer_tests {
         let mut tokens = lexer.into_iter();
 
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Extern));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Var));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Val));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::If));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Else));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Use));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::True));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().bl(), Some(Boolean::False));
+        sep!(tokens);
         assert_eq!(
             tokens.next().unwrap().kind,
             TokenKind::Identifier(String::from("main")),
         );
+        sep!(tokens);
         assert_eq!(
             tokens.next().unwrap().kind,
             TokenKind::Identifier(String::from("record.test")),
         );
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Bool));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Record));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Const));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Ret));
     }
 
@@ -561,13 +583,21 @@ mod lexer_tests {
         let mut tokens = lexer.into_iter();
 
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::Str));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::I8));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::I16));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::I32));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::I64));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U8));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U16));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U32));
+        sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U64));
     }
 }

@@ -129,6 +129,7 @@ pub enum AtomKind {
     Ident(String),
     Access(Vec<String>),
     Deref(Box<AtomKind>),
+    Ref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
     Cast(Box<AtomKind>, PrimitiveType),
     NamedValue { name: String, val: Box<Expression> },

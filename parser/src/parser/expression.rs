@@ -159,6 +159,7 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<AtomKind> {
+        let amp = sym!(bool Ampersand, self);
         let res = if sym!(bool Minus, self) {
             Ok(AtomKind::Unary(
                 String::from("-"),
@@ -182,7 +183,14 @@ impl Parser {
             }
         } else {
             capture!(res parse_atom, self)
-        };
+        }
+        .and_then(|res| {
+            if amp {
+                Ok(AtomKind::Ref(box res))
+            } else {
+                Ok(res)
+            }
+        });
 
         let index = if sym!(bool LBracket, self) && res.is_ok() {
             let index =
