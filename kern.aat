@@ -1,21 +1,38 @@
 const SCREEN: i32 = 0xB8000
+const WIDTH: i32 = 80
+const HEIGHT: i32 = 25
 
-fn putc c: char, i: i32 -> () = {
+rec Term(x: i32, y: i32, color: i8)
+
+fn putc term: &Term, c: char = {
     var screen = SCREEN as str
-    val index = (i) * 2
 
-    screen[index] = c
-    screen[index + 1] = 31i8 as char
+    if c as i8 != 0i8 {
+        if c as i8 == 10i8 {
+            term.x = 0
+            term.y = term.y + 1
+        } else {
+            val index = (term.x + term.y * WIDTH) * 2
+            screen[index] = c
+            screen[index + 1] = 31i8 as char
+
+            term.x = term.x + 1
+        }
+    }
 }
 
-fn puts s: str, i: i32 -> () = {
-    putc s[i], i
+fn puts_internal term: &Term, s: str, i: i32 = {
+    putc &term, s[i]
 
     val si = s[i] as i8
-    if si != 0i8 puts s, i + 1
+    if si != 0i8 puts_internal &term, s, i + 1
 }
 
-fn clear_row row: i32, column: i32 -> () = {
+fn puts term: &Term, s: str = {
+    puts_internal &term, s, 0
+}
+
+fn clear_row row: i32, column: i32 = {
     var screen = SCREEN as str
 
     val index = (column + row * 80) * 2
@@ -26,14 +43,22 @@ fn clear_row row: i32, column: i32 -> () = {
     if column < 79 clear_row row, column + 1
 }
 
-fn cls row: i32 -> () = {
+fn cls row: i32 = {
     clear_row row, 0
 
     if row < 24 cls row + 1
 }
 
 @entry
-fn kern_main () -> () = {
+fn kern_main () = {
     cls 0
-    puts "Hello World!", 0
+
+    var term = Term {
+        x: 0,
+        y: 0,
+        color: 31i8
+    }
+
+    puts &term, "Hello World from Aatbe!\nThis is the first fun thing.\n"
+    puts &term, "This is very surprising that it works."
 }

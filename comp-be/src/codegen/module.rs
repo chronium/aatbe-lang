@@ -347,6 +347,7 @@ impl AatbeModule {
                 let func = self
                     .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
                     .expect("Must be in a function for if statement");
+                let ty = func.ret_ty();
 
                 let then_bb = func.append_basic_block(String::default());
                 let else_bb = if let Some(_) = else_expr {
@@ -391,8 +392,8 @@ impl AatbeModule {
                 self.llvm_builder.position_at_end(end_bb);
 
                 if let Some(then_val) = then_val {
-                    let ty = then_val.prim().clone();
-                    if ty != PrimitiveType::Unit {
+                    let tty = then_val.prim().clone();
+                    if tty != PrimitiveType::Unit && ty != PrimitiveType::Unit {
                         let phi = Phi::new(
                             self.llvm_builder_ref().as_ref(),
                             ty.llvm_ty_in_ctx(self),
