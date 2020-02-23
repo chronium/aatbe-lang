@@ -104,7 +104,11 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     },
                                 );
                             }
-                            PrimitiveType::NamedType { name, ty: Some(ty) } => {
+                            PrimitiveType::NamedType {
+                                name,
+                                ty: Some(box PrimitiveType::Ref(ty)),
+                            }
+                            | PrimitiveType::NamedType { name, ty: Some(ty) } => {
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::FunctionArgument(

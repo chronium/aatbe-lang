@@ -1,13 +1,18 @@
 use "aatlib/prelude"
 
-fn puta s: str, i: i32 -> () = {
-    print s[i]
+rec Num(n: i32)
 
-    val si = s[i] as i8
-    if si != 0i8 puta s, i + 1
+fn double num: &Num = {
+    num.n = num.n * 2
 }
 
 @entry
-fn main () -> () = {
-    puta "hello", 0
+fn main () = {
+    var num = Num {
+        n: 16
+    }
+
+    double &num
+
+    println num.n
 }

@@ -159,6 +159,7 @@ impl Parser {
     }
 
     fn parse_unary(&mut self) -> ParseResult<AtomKind> {
+        let amp = sym!(bool Ampersand, self);
         let res = if sym!(bool Minus, self) {
             Ok(AtomKind::Unary(
                 String::from("-"),
@@ -175,10 +176,21 @@ impl Parser {
             sym!(required RParen, self);
             Ok(AtomKind::Parenthesized(expr))
         } else if sym!(bool Star, self) {
-            Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
+            if self.sep() {
+                Err(ParseError::Continue)
+            } else {
+                Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
+            }
         } else {
             capture!(res parse_atom, self)
-        };
+        }
+        .and_then(|res| {
+            if amp {
+                Ok(AtomKind::Ref(box res))
+            } else {
+                Ok(res)
+            }
+        });
 
         let index = if sym!(bool LBracket, self) && res.is_ok() {
             let index =
@@ -221,7 +233,7 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
-        if self.nl() || sym!(bool Comma, self) {
+        if self.nl() || sym!(bool Comma, self) || !self.sep() {
             return Err(ParseError::Continue);
         }
         let mut args = vec![];

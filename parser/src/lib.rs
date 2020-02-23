@@ -90,7 +90,7 @@ impl Parser {
 
             let pb = PathBuf::from(self.path.clone())
                 .parent()
-                .expect("ICE parse_use parent")
+                .unwrap_or(&PathBuf::default())
                 .join(PathBuf::from(path));
 
             Ok(AST::Import(
@@ -101,24 +101,22 @@ impl Parser {
         }
     }
 
-    fn parse_type_list(&mut self, terminator: Symbol) -> ParseResult<Vec<PrimitiveType>> {
+    fn parse_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
         let mut params = vec![];
+        let ty = capture!(res parse_named_type, self)
+            .or_else(|_| capture!(res parse_type, self))
+            .or(Err(ParseError::ExpectedType))?;
+        params.push(ty);
         loop {
-            match self.peek_symbol(terminator) {
-                Some(true) => break,
-                Some(false) => {
-                    if params.len() > 0 {
-                        sym!(required Comma, self);
-                    }
-                    let ty = capture!(res parse_named_type, self)
-                        .or_else(|_| capture!(res parse_type, self))
-                        .or(Err(ParseError::ExpectedType))?;
-                    params.push(ty);
-                }
-                None => return Err(ParseError::UnexpectedEOF),
+            if !sym!(bool Comma, self) {
+                break;
             }
+
+            let ty = capture!(res parse_named_type, self)
+                .or_else(|_| capture!(res parse_type, self))
+                .or(Err(ParseError::ExpectedType))?;
+            params.push(ty);
         }
-        self.next();
         Ok(params)
     }
 
@@ -130,8 +128,11 @@ impl Parser {
             vec![PrimitiveType::Unit]
         } else {
             sym!(required LParen, self);
-            self.parse_type_list(Symbol::RParen)
-                .expect(format!("Expected type list at {}", name).as_str())
+            let types = self
+                .parse_type_list()
+                .expect(format!("Expected type list at {}", name).as_str());
+            sym!(required RParen, self);
+            types
         };
 
         Ok(AST::Record(name, types))
@@ -163,10 +164,11 @@ impl Parser {
         let name = ident!(required self);
 
         let params = self
-            .parse_type_list(Symbol::Arrow)
+            .parse_type_list()
             .expect(format!("Expected type list at {}", name).as_str());
+        sym!(bool Arrow, self);
 
-        let ret_ty = box capture!(res parse_type, self)?;
+        let ret_ty = box capture!(res parse_type, self).unwrap_or(PrimitiveType::Unit);
 
         let mut body = None;
         if sym!(bool Assign, self) {
