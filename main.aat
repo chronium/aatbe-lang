@@ -1,7 +1,18 @@
 use "aatlib/prelude"
 
+rec Num(n: i32)
+
+fn double num: &Num = {
+    num.n = num.n * 2
+}
+
 @entry
 fn main () = {
-    val i = 10
-    println i * 2 + *i
+    var num = Num {
+        n: 16
+    }
+
+    double &num
+
+    println num.n
 }

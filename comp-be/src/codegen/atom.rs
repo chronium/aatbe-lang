@@ -99,6 +99,24 @@ impl AatbeModule {
                     ),
                 }
             }
+            AtomKind::Ref(box AtomKind::Ident(name)) => {
+                let var_ref = self.get_var(name);
+
+                match var_ref {
+                    None => panic!("Cannot find variable {}", name),
+                    Some(var) => {
+                        let var: ValueTypePair = var.into();
+
+                        Some(
+                            (
+                                var.val(),
+                                TypeKind::Primitive(PrimitiveType::Ref(box var.prim().clone())),
+                            )
+                                .into(),
+                        )
+                    }
+                }
+            }
             atom @ AtomKind::StringLiteral(_) | atom @ AtomKind::CharLiteral(_) => {
                 const_atom(self, atom)
             }

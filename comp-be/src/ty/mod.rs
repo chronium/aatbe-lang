@@ -87,6 +87,7 @@ impl LLVMTyInCtx for PrimitiveType {
         let ctx = module.llvm_context_ref();
 
         match self {
+            PrimitiveType::Ref(r) => ctx.PointerType(r.llvm_ty_in_ctx(module)),
             PrimitiveType::Unit => ctx.VoidType(),
             PrimitiveType::Bool => ctx.Int1Type(),
             PrimitiveType::Int(IntSize::Bits8) | PrimitiveType::UInt(IntSize::Bits8) => {
