@@ -71,6 +71,7 @@ impl<'c> Lexer<'c> {
     }
 
     fn eat_whitespace(&mut self) {
+        let mut eaten = false;
         loop {
             if self
                 .chars
@@ -78,10 +79,15 @@ impl<'c> Lexer<'c> {
                 .map(|c| c.is_whitespace())
                 .unwrap_or(false)
             {
+                eaten = true;
                 self.advance();
             } else {
                 break;
             }
+        }
+
+        if eaten {
+            self.push_token(TokenKind::SEP, (self.col, self.row));
         }
     }
 

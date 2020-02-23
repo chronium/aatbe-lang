@@ -2,4 +2,6 @@ use "aatlib/prelude"
 
 @entry
 fn main () = {
+    val i = 10
+    println i * 2 + *i
 }

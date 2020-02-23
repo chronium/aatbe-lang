@@ -74,7 +74,9 @@ impl Parser {
                 None => {}
             }
 
-            match peek!(self.tt, self.index).map_or(false, |t| t.kind == TokenKind::EOL) {
+            match peek!(self.tt, self.index).map_or(false, |t| {
+                t.kind == TokenKind::EOL || t.kind == TokenKind::SEP
+            }) {
                 true => self.index += 1,
                 false => break,
             }
@@ -93,6 +95,17 @@ impl Parser {
     pub fn nl(&mut self) -> bool {
         match peek!(self.tt, self.index) {
             Some(tok) if tok.kind == TokenKind::EOL => {
+                self.index += 1;
+                true
+            }
+            None => true,
+            _ => false,
+        }
+    }
+
+    pub fn sep(&mut self) -> bool {
+        match peek!(self.tt, self.index) {
+            Some(tok) if tok.kind == TokenKind::SEP => {
                 self.index += 1;
                 true
             }

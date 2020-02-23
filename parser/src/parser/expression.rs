@@ -175,7 +175,11 @@ impl Parser {
             sym!(required RParen, self);
             Ok(AtomKind::Parenthesized(expr))
         } else if sym!(bool Star, self) {
-            Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
+            if self.sep() {
+                Err(ParseError::Continue)
+            } else {
+                Ok(AtomKind::Deref(box capture!(res parse_unary, self)?))
+            }
         } else {
             capture!(res parse_atom, self)
         };
@@ -221,7 +225,7 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
-        if self.nl() || sym!(bool Comma, self) {
+        if self.nl() || sym!(bool Comma, self) || !self.sep() {
             return Err(ParseError::Continue);
         }
         let mut args = vec![];

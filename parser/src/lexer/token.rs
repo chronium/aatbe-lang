@@ -21,6 +21,7 @@ pub enum TokenKind {
     StringLiteral(String),
     CharLiteral(char),
     EOL,
+    SEP,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
