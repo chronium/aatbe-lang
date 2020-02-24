@@ -7,24 +7,22 @@ rec Term(x: i32, y: i32, color: i8)
 fn putc term: &Term, c: char = {
     var screen = SCREEN as str
 
-    if c as i8 != 0i8 {
-        if c as i8 == 10i8 {
-            term.x = 0
-            term.y = term.y + 1
-        } else {
-            val index = (term.x + term.y * WIDTH) * 2
-            screen[index] = c
-            screen[index + 1] = 31i8 as char
+    if c as i8 == 10i8 {
+        term.x = 0
+        term.y = term.y + 1
+    } else {
+        val index = (term.x + term.y * WIDTH) * 2
+        screen[index] = c
+        screen[index + 1] = 31i8 as char
 
-            term.x = term.x + 1
-        }
+        term.x = term.x + 1
     }
 }
 
 fn puts_internal term: &Term, s: str, i: i32 = {
     putc &term, s[i]
 
-    val si = s[i] as i8
+    val si = s[i + 1] as i8
     if si != 0i8 puts_internal &term, s, i + 1
 }
 
@@ -35,18 +33,18 @@ fn puts term: &Term, s: str = {
 fn clear_row row: i32, column: i32 = {
     var screen = SCREEN as str
 
-    val index = (column + row * 80) * 2
+    val index = (column + row * WIDTH) * 2
 
     screen[index] = ' '
     screen[index + 1] = 31i8 as char
 
-    if column < 79 clear_row row, column + 1
+    if column + 1 < WIDTH clear_row row, column + 1
 }
 
 fn cls row: i32 = {
     clear_row row, 0
 
-    if row < 24 cls row + 1
+    if row + 1 < HEIGHT cls row + 1
 }
 
 @entry
