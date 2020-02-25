@@ -1,0 +1,35 @@
+rec Point(x: f64, y: f64, z: f64)
+
+fn from_one Point, v: f64 -> Point =
+    Point
+        { x: v
+        , y: v
+        , z: v
+        }
+
+fn zero Point -> Point =
+    from_one :Point, 0f64
+
+fn add self: &Point, other: Point = {
+    self.x = self.x + other.x
+    self.y = self.y + other.y
+    self.z = self.z + other.z
+}
+
+fn sub self: &Point, other: Point = {
+    self.x = self.x - other.x
+    self.y = self.y - other.y
+    self.z = self.z - other.z
+}
+
+fn mul self: &Point, other: Point = {
+    self.x = self.x * other.x
+    self.y = self.y * other.y
+    self.z = self.z * other.z
+}
+
+fn div self: &Point, other: Point = {
+    self.x = self.x / other.x
+    self.y = self.y / other.y
+    self.z = self.z / other.z
+}

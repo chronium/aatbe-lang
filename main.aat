@@ -1,18 +1,28 @@
 use "aatlib/prelude"
+use "aatlib/math/vec3"
 
-rec Num(n: i32)
-
-fn double num: &Num = {
-    num.n = num.n * 2
-}
+fn print vec: Vec3 = printf "Vec3\n\t{ x: %f\n\t, y: %f\n\t, z: %f\n\t}\n", vec.x, vec.y, vec.z
 
 @entry
 fn main () = {
-    var num = Num {
-        n: 16
+    val vec = Vec3 {
+        x: 10f64,
+        y: 5f64,
+        z: 8f64
+    }
+    val vec2 = Vec3 {
+        x: 8f64,
+        y: 2f64,
+        z: 1f64
     }
 
-    double &num
-
-    println num.n
+    print vec
+    add &vec, vec2
+    print vec
+    print "length: "
+    println length vec
+    print "dot: "
+    println dot vec, vec2
+    print "cross: "
+    print cross vec, vec2
 }

@@ -23,6 +23,10 @@ pub enum CompileError {
         expected_ty: String,
         found_ty: String,
     },
+    UnknownFunction {
+        name: String,
+        values: String,
+    },
     UnaryMismatch {
         op: String,
         expected_ty: String,

@@ -121,6 +121,7 @@ impl AatbeModule {
                 const_atom(self, atom)
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
+            atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
             AtomKind::Bool(Boolean::True) => Some(
                 (
                     self.llvm_context_ref().SInt1(1),

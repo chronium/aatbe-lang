@@ -1,5 +1,5 @@
 use crate::{codegen::AatbeModule, fmt::AatbeFmt, ty::record::Record};
-use parser::ast::{IntSize, PrimitiveType};
+use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef};
 
@@ -102,6 +102,8 @@ impl LLVMTyInCtx for PrimitiveType {
             PrimitiveType::Int(IntSize::Bits64) | PrimitiveType::UInt(IntSize::Bits64) => {
                 ctx.Int64Type()
             }
+            PrimitiveType::Float(FloatSize::Bits32) => ctx.FloatType(),
+            PrimitiveType::Float(FloatSize::Bits64) => ctx.DoubleType(),
             PrimitiveType::Str => ctx.CharPointerType(),
             PrimitiveType::Char => ctx.Int8Type(),
             PrimitiveType::NamedType {

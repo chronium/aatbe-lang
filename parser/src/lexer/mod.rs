@@ -1,4 +1,4 @@
-use std::{iter::Peekable, str::Chars};
+use std::{iter::Peekable, str::Chars, str::FromStr};
 
 pub mod token;
 
@@ -96,6 +96,10 @@ impl<'c> Lexer<'c> {
             Some('n') => {
                 self.advance();
                 '\n'
+            }
+            Some('t') => {
+                self.advance();
+                '\t'
             }
             Some('"') => {
                 self.advance();
@@ -344,7 +348,7 @@ impl<'c> Lexer<'c> {
                     while let Some(ch) = self.chars.peek() {
                         match ch {
                             '_' => self.advance(),
-                            _ if ch.is_digit(10) => {
+                            _ if ch.is_digit(10) | (*ch == '.') => {
                                 buf.push(self.read().expect("Lexer died @digits"))
                             }
                             _ => break,
@@ -352,9 +356,15 @@ impl<'c> Lexer<'c> {
                     }
 
                     self.push_token(
-                        TokenKind::IntLiteral(
-                            u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
-                        ),
+                        if buf.contains(".") {
+                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
+                                format!("{} is not a floating point literal", buf).as_ref(),
+                            ))
+                        } else {
+                            TokenKind::IntLiteral(
+                                u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
+                            )
+                        },
                         pos,
                     );
                 }
@@ -578,7 +588,7 @@ mod lexer_tests {
 
     #[test]
     fn type_tests() {
-        let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64");
+        let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64 f32 f64");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -599,5 +609,9 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U32));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U64));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F32));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F64));
     }
 }

@@ -14,7 +14,9 @@ fn println i: i64 -> () = printf "%d\n", i
 fn println u: u8 -> () = printf "%d\n", u
 fn println u: u16 -> () = printf "%d\n", u
 fn println u: u32 -> () = printf "%d\n", u
-fn println u: u64 -> () = printf "%d\n", u
+fn println u: u32 -> () = printf "%d\n", u
+fn println f: f64 -> () = printf "%f\n", f
+fn println f: f64 -> () = printf "%f\n", f
 
 fn print s: str -> () = printf "%s", s
 fn print c: char -> () = printf "%c", c
@@ -31,3 +33,5 @@ fn print u: u8 -> () = printf "%d", u
 fn print u: u16 -> () = printf "%d", u
 fn print u: u32 -> () = printf "%d", u
 fn print u: u64 -> () = printf "%d", u
+fn print f: f64 -> () = printf "%f", f
+fn print f: f64 -> () = printf "%f", f

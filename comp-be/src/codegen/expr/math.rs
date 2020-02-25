@@ -2,9 +2,30 @@ use crate::{
     codegen::{AatbeModule, ValueTypePair},
     ty::TypeKind,
 };
-use parser::ast::{IntSize, PrimitiveType};
+use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
+
+pub fn codegen_float_ops(
+    module: &AatbeModule,
+    op: &String,
+    lhs: LLVMValueRef,
+    rhs: LLVMValueRef,
+    float_size: FloatSize,
+) -> ValueTypePair {
+    (
+        match op.as_str() {
+            "+" => module.llvm_builder_ref().build_fadd(lhs, rhs),
+            "-" => module.llvm_builder_ref().build_fsub(lhs, rhs),
+            "*" => module.llvm_builder_ref().build_fmul(lhs, rhs),
+            "/" => module.llvm_builder_ref().build_fdiv(lhs, rhs),
+            "%" => module.llvm_builder_ref().build_frem(lhs, rhs),
+            _ => panic!("ICE codegen_float_ops unhandled op {}", op),
+        },
+        TypeKind::Primitive(PrimitiveType::Float(float_size)),
+    )
+        .into()
+}
 
 pub fn codegen_signed_ops(
     module: &AatbeModule,

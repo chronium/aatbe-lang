@@ -7,7 +7,7 @@ pub mod parser;
 
 mod tests;
 
-use ast::{Expression, IntSize, PrimitiveType, AST};
+use ast::{Expression, FloatSize, IntSize, PrimitiveType, AST};
 use lexer::{
     token,
     token::{Keyword, Symbol, Type},
@@ -49,6 +49,8 @@ impl Parser {
                 Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
                 Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
                 Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
+                Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
+                Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
                 _ => None,
             })
         } else {
@@ -67,7 +69,7 @@ impl Parser {
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
         let name = ident!(required self);
-        if sym!(bool Comma, self) {
+        if sym!(bool Comma, self) | sym!(bool Arrow, self) {
             return Err(ParseError::Continue);
         };
         let ty = if sym!(bool Colon, self) {

@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Boolean, Expression, IntSize, LValue, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, Expression, FloatSize, IntSize, LValue, PrimitiveType};
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
@@ -20,6 +20,10 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits16 => String::from("i16"),
                 IntSize::Bits32 => String::from("i32"),
                 IntSize::Bits64 => String::from("i64"),
+            },
+            PrimitiveType::Float(bits) => match bits {
+                FloatSize::Bits32 => String::from("f32"),
+                FloatSize::Bits64 => String::from("f64"),
             },
             PrimitiveType::Varargs => String::from("..."),
             PrimitiveType::NamedType {
@@ -47,6 +51,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
             AtomKind::Cast(val, ty) => format!("{} as {}", val.fmt(), ty.fmt()),
             AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
+            AtomKind::Access(list) => list.join("."),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

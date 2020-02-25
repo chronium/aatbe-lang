@@ -1,4 +1,4 @@
-use parser::ast::{Expression, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType};
 
 pub trait NameMangler {
     fn mangle(&self) -> String;
@@ -31,7 +31,30 @@ impl NameMangler for Expression {
                 } => name.clone(),
                 _ => panic!("ICE non function type mangle"),
             },
+            Expression::Atom(atom) => atom.mangle(),
+            Expression::Call { name, args } => format!(
+                "{} {}",
+                name,
+                args.iter()
+                    .map(|arg| arg.mangle())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             _ => panic!("Cannot name mangle {:?}", self),
+        }
+    }
+}
+
+impl NameMangler for AtomKind {
+    fn mangle(&self) -> String {
+        match self {
+            AtomKind::StringLiteral(lit) => format!("{:?}", lit),
+            AtomKind::Ident(id) => id.clone(),
+            AtomKind::SymbolLiteral(sym) => format!(":{}", sym),
+            AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle()),
+            AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle()),
+            AtomKind::Access(arr) => arr.join("."),
+            _ => panic!("ICE mangle {:?}", self),
         }
     }
 }
@@ -66,6 +89,7 @@ impl NameMangler for PrimitiveType {
             PrimitiveType::Str => String::from("s"),
             PrimitiveType::Int(size) => format!("i{}", size.mangle()),
             PrimitiveType::UInt(size) => format!("u{}", size.mangle()),
+            PrimitiveType::Float(size) => format!("f{}", size.mangle()),
             PrimitiveType::Bool => String::from("b"),
             PrimitiveType::Char => String::from("c"),
             PrimitiveType::Ref(r) => format!("R{}", r.mangle()),
@@ -81,6 +105,15 @@ impl NameMangler for IntSize {
             IntSize::Bits16 => String::from("16"),
             IntSize::Bits32 => String::from("32"),
             IntSize::Bits64 => String::from("64"),
+        }
+    }
+}
+
+impl NameMangler for FloatSize {
+    fn mangle(&self) -> String {
+        match self {
+            FloatSize::Bits32 => String::from("32"),
+            FloatSize::Bits64 => String::from("64"),
         }
     }
 }

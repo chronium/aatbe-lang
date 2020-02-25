@@ -10,6 +10,6 @@ name = "comp_be"
 path = "src/lib.rs"
 
 [dependencies]
-llvm-sys-wrapper = "0.6.1"
+llvm-sys-wrapper = { path = "../llvm-sys-wrapper" }
 tuple-combinator = "0.2.1"
 parser = { path = "../parser" }

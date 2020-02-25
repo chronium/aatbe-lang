@@ -103,6 +103,9 @@ fn main() -> io::Result<()> {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
             CompileError::Handled => {}
+            CompileError::UnknownFunction { name, values } => {
+                error!("Call to unknown function `{} {}`", name, values)
+            }
             CompileError::ExpectedValue { name } => error!(
                 "Cannot infer type for `{}` without specifying a value",
                 name

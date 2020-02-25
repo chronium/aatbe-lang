@@ -235,9 +235,10 @@ pub fn store_value(
 
     get_lval(module, lval)
         .map(|var| {
-            let val = module
-                .codegen_expr(value)
-                .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
+            let val = match module.codegen_expr(value) {
+                None => return None,
+                Some(val) => val,
+            };
             if var.prim() != val.prim().inner() {
                 module.add_error(CompileError::AssignMismatch {
                     expected_ty: var.prim().fmt(),

@@ -456,9 +456,20 @@ impl AatbeModule {
 
                 let mut mismatch = false;
 
-                let params = self
-                    .get_params(&name)
-                    .expect(format!("Call to undefined function {}", raw_name).as_str());
+                let params = match self.get_params(&name) {
+                    None => {
+                        self.add_error(CompileError::UnknownFunction {
+                            name: raw_name.clone(),
+                            values: args
+                                .iter()
+                                .map(|arg| arg.mangle())
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                        });
+                        return None;
+                    }
+                    Some(params) => params,
+                };
 
                 for (i, fty) in params.iter().enumerate() {
                     if fty == &PrimitiveType::Varargs {

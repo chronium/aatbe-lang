@@ -6,6 +6,25 @@ use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
 
+pub fn codegen_compare_float(
+    module: &AatbeModule,
+    op: &String,
+    lhs: LLVMValueRef,
+    rhs: LLVMValueRef,
+) -> ValueTypePair {
+    (
+        match op.as_str() {
+            "<" => module.llvm_builder_ref().build_fcmp_ult(lhs, rhs),
+            ">" => module.llvm_builder_ref().build_fcmp_ugt(lhs, rhs),
+            "<=" => module.llvm_builder_ref().build_fcmp_ule(lhs, rhs),
+            ">=" => module.llvm_builder_ref().build_fcmp_uge(lhs, rhs),
+            _ => panic!("ICE codegen_compare_float unhandled op {}", op),
+        },
+        TypeKind::Primitive(PrimitiveType::Bool),
+    )
+        .into()
+}
+
 pub fn codegen_compare_signed(
     module: &AatbeModule,
     op: &String,

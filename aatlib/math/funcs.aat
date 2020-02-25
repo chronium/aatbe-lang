@@ -1,0 +1,7 @@
+extern fn sqrt f64 -> f64
+extern fn sqrtf f32 -> f32
+
+fn sqrt f: f32 -> f32 = sqrtf f
+
+fn inverse f: f32 -> f32 = 1f32 / f
+fn inverse f: f64 -> f64 = 1f64 / f

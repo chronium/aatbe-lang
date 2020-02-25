@@ -6,7 +6,7 @@ use crate::{
     fmt::AatbeFmt,
     ty::TypeKind,
 };
-use parser::ast::{AtomKind, Expression, IntSize, PrimitiveType, AST};
+use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType, AST};
 
 pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair> {
     match atom {
@@ -78,6 +78,20 @@ pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair
         AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => Some(
             (
                 module.llvm_context_ref().UInt8(*val),
+                TypeKind::Primitive(prim.clone()),
+            )
+                .into(),
+        ),
+        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits32)) => Some(
+            (
+                module.llvm_context_ref().Float(*val),
+                TypeKind::Primitive(prim.clone()),
+            )
+                .into(),
+        ),
+        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits64)) => Some(
+            (
+                module.llvm_context_ref().Double(*val),
                 TypeKind::Primitive(prim.clone()),
             )
                 .into(),

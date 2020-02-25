@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Boolean, Expression, IntSize, LValue, PrimitiveType},
+    ast::{AtomKind, BindType, Boolean, Expression, FloatSize, IntSize, LValue, PrimitiveType},
     parser::{ParseError, ParseResult, Parser},
     token,
     token::{Keyword, Symbol, Token, Type},
@@ -55,6 +55,8 @@ impl Parser {
                     Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
                     Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
                     Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
+                    Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
+                    Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
                     _ => {
                         parser.index = prev_ind;
                         None
@@ -69,10 +71,47 @@ impl Parser {
         let token = self.next();
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
-                let ty = parse_number_type(self);
-                return Some(AtomKind::Integer(
+                return Some(match parse_number_type(self) {
+                    Some(ty @ PrimitiveType::Int(_)) | Some(ty @ PrimitiveType::UInt(_)) => {
+                        AtomKind::Integer(val, ty)
+                    }
+                    Some(ty @ PrimitiveType::Float(_)) => AtomKind::Floating(val as f64, ty),
+                    None => AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)),
+                    _ => unreachable!(),
+                });
+            }
+        }
+
+        None
+    }
+
+    fn parse_float(&mut self) -> Option<AtomKind> {
+        fn parse_float_type(parser: &mut Parser) -> Option<PrimitiveType> {
+            let prev_ind = parser.index;
+            let tok = parser.next();
+
+            if let Some(tok) = tok {
+                match tok.ty() {
+                    Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
+                    Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
+                    _ => {
+                        parser.index = prev_ind;
+                        None
+                    }
+                }
+            } else {
+                parser.index = prev_ind;
+                None
+            }
+        }
+
+        let token = self.next();
+        if let Some(tok) = token {
+            if let Some(val) = tok.float() {
+                let ty = parse_float_type(self);
+                return Some(AtomKind::Floating(
                     val,
-                    ty.unwrap_or(PrimitiveType::Int(IntSize::Bits32)),
+                    ty.unwrap_or(PrimitiveType::Float(FloatSize::Bits32)),
                 ));
             }
         }
@@ -147,6 +186,7 @@ impl Parser {
             parse_ident,
             parse_boolean,
             parse_number,
+            parse_float,
             parse_unit,
             parse_string_lit,
             parse_char_lit,
@@ -161,15 +201,23 @@ impl Parser {
     fn parse_unary(&mut self) -> ParseResult<AtomKind> {
         let amp = sym!(bool Ampersand, self);
         let res = if sym!(bool Minus, self) {
-            Ok(AtomKind::Unary(
-                String::from("-"),
-                box capture!(res parse_unary, self)?,
-            ))
+            if self.sep() {
+                Err(ParseError::Continue)
+            } else {
+                Ok(AtomKind::Unary(
+                    String::from("-"),
+                    box capture!(res parse_unary, self)?,
+                ))
+            }
         } else if sym!(bool Not, self) {
-            Ok(AtomKind::Unary(
-                String::from("!"),
-                box capture!(res parse_unary, self)?,
-            ))
+            if self.sep() {
+                Err(ParseError::Continue)
+            } else {
+                Ok(AtomKind::Unary(
+                    String::from("!"),
+                    box capture!(res parse_unary, self)?,
+                ))
+            }
         } else if sym!(bool LParen, self) {
             let expr =
                 box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
