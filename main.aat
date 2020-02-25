@@ -1,28 +1,18 @@
 use "aatlib/prelude"
-use "aatlib/math/vec3"
-
-fn print vec: Vec3 = printf "Vec3\n\t{ x: %f\n\t, y: %f\n\t, z: %f\n\t}\n", vec.x, vec.y, vec.z
 
 @entry
 fn main () = {
-    val vec = Vec3 {
-        x: 10f64,
-        y: 5f64,
-        z: 8f64
-    }
-    val vec2 = Vec3 {
-        x: 8f64,
-        y: 2f64,
-        z: 1f64
+    var i = 0
+    println "While i < 10"
+    while i < 10 {
+        println i
+        i = i + 1
     }
 
-    print vec
-    add &vec, vec2
-    print vec
-    print "length: "
-    println length vec
-    print "dot: "
-    println dot vec, vec2
-    print "cross: "
-    print cross vec, vec2
+    var j = 0
+    println "Until j > 10"
+    until j > 10 {
+        println j
+        j = j + 1
+    }
 }

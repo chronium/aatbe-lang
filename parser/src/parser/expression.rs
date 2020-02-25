@@ -430,6 +430,7 @@ impl Parser {
                 .or_else(|_| capture!(res parse_decl, self))
                 .or_else(|_| capture!(res parse_if_else, self))
                 .or_else(|_| capture!(res parse_ret, self))
+                .or_else(|_| capture!(res parse_while_until, self))
                 .or_else(|_| self.parse_expr(0))
                 .ok(),
             Some(true) => {

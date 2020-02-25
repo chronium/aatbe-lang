@@ -108,6 +108,8 @@ pub enum Keyword {
     Then,
     Const,
     Ret,
+    While,
+    Until,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -240,6 +242,8 @@ impl FromStr for Keyword {
             "then" => Ok(Self::Then),
             "const" => Ok(Self::Const),
             "ret" => Ok(Self::Ret),
+            "while" => Ok(Self::While),
+            "until" => Ok(Self::Until),
             _ => Err(()),
         }
     }

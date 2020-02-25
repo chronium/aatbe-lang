@@ -1,5 +1,5 @@
 use crate::{
-    ast::Expression,
+    ast::{Expression, LoopType},
     parser::{ParseError, ParseResult, Parser},
     token::Keyword,
 };
@@ -26,6 +26,27 @@ impl Parser {
             cond_expr,
             then_expr,
             else_expr,
+        })
+    }
+
+    pub fn parse_while_until(&mut self) -> ParseResult<Expression> {
+        let loop_type = if kw!(bool While, self) {
+            LoopType::While
+        } else if kw!(bool Until, self) {
+            LoopType::Until
+        } else {
+            return Err(ParseError::Continue);
+        };
+
+        let cond_expr =
+            box capture!(self, parse_expression).ok_or(ParseError::ExpectedCondition)?;
+        let body =
+            box capture!(self, parse_expression).ok_or(ParseError::ExpectedThenExpression)?;
+
+        Ok(Expression::Loop {
+            loop_type,
+            cond_expr,
+            body,
         })
     }
 }

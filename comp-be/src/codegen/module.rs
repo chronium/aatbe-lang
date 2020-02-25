@@ -20,7 +20,7 @@ use crate::{
 };
 
 use parser::{
-    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
+    ast::{AtomKind, Expression, IntSize, LoopType, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -338,6 +338,53 @@ impl AatbeModule {
                     )
                         .into(),
                 )
+            }
+            Expression::Loop {
+                loop_type,
+                cond_expr,
+                body,
+            } => {
+                let func = self
+                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
+                    .expect("Must be in a function for if statement");
+
+                let cond_bb = func.append_basic_block(String::default());
+                let body_bb = func.append_basic_block(String::default());
+                let end_bb = func.append_basic_block(String::default());
+
+                self.llvm_builder_ref().build_br(cond_bb);
+                self.llvm_builder_ref().position_at_end(cond_bb);
+                let cond = match self.codegen_expr(cond_expr) {
+                    Some(cond) => cond,
+                    None => return None,
+                };
+
+                if *cond.prim().inner() != PrimitiveType::Bool {
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: cond.prim().fmt(),
+                        value: cond_expr.fmt(),
+                    });
+                };
+
+                match loop_type {
+                    LoopType::While => {
+                        self.llvm_builder_ref()
+                            .build_cond_br(cond.val(), body_bb, end_bb)
+                    }
+                    LoopType::Until => {
+                        self.llvm_builder_ref()
+                            .build_cond_br(cond.val(), end_bb, body_bb)
+                    }
+                };
+
+                self.llvm_builder_ref().position_at_end(body_bb);
+                self.codegen_expr(body);
+
+                self.llvm_builder_ref().build_br(cond_bb);
+                self.llvm_builder_ref().position_at_end(end_bb);
+
+                None
             }
             Expression::If {
                 cond_expr,

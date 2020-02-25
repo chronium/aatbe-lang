@@ -47,6 +47,11 @@ pub enum Expression {
         record: String,
         values: Vec<AtomKind>,
     },
+    Loop {
+        loop_type: LoopType,
+        cond_expr: Box<Expression>,
+        body: Box<Expression>,
+    },
 }
 
 #[derive(PartialEq, Clone)]
@@ -62,6 +67,12 @@ pub enum BindType {
     Mutable,
     Immutable,
     Constant,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum LoopType {
+    While,
+    Until,
 }
 
 #[derive(Debug, PartialEq, Clone)]
