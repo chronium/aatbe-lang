@@ -2,17 +2,11 @@ use "aatlib/prelude"
 
 @entry
 fn main () = {
-    var i = 0
-    println "While i < 10"
-    while i < 10 {
-        println i
-        i = i + 1
-    }
+    val arr = [1, 2, 3, 4]
 
-    var j = 0
-    println "Until j > 10"
-    until j > 10 {
-        println j
-        j = j + 1
+    var i = 0
+    while i < 4 {
+        println arr[i]
+        i = i + 1
     }
 }

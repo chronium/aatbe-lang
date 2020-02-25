@@ -13,6 +13,9 @@ pub use unit::CodegenUnit;
 pub type GenRes = Result<ValueTypePair, CompileError>;
 
 pub enum CompileError {
+    ArrayTypesNotUniform {
+        values: String,
+    },
     ExpectedType {
         expected_ty: String,
         found_ty: String,

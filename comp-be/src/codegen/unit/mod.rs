@@ -152,6 +152,12 @@ impl CodegenUnit {
     pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
         match self {
             CodegenUnit::Variable {
+                mutable: _,
+                name: _,
+                ty: PrimitiveType::Array { ty: _, len: _ },
+                value: _,
+            } => self.into(),
+            CodegenUnit::Variable {
                 mutable,
                 name: _,
                 ty: _,

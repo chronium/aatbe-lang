@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod macros;
+pub mod atom;
 pub mod conditionals;
 pub mod expression;
 

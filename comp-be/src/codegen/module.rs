@@ -65,9 +65,11 @@ impl ValueTypePair {
     pub fn indexable(&self) -> Option<ValueTypePair> {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
-                prim @ PrimitiveType::Str => Some((*val, TypeKind::Primitive(prim.clone())).into()),
+                prim @ PrimitiveType::Str | prim @ PrimitiveType::Array { ty: _, len: _ } => {
+                    Some((*val, TypeKind::Primitive(prim.clone())).into())
+                }
                 PrimitiveType::Pointer(box ty) => {
-                    Some((self.0, TypeKind::Primitive(ty.clone())).into())
+                    Some((*val, TypeKind::Primitive(ty.clone())).into())
                 }
                 _ => None,
             },

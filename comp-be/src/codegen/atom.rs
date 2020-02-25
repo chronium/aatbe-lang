@@ -6,6 +6,8 @@ use crate::{
 
 use parser::ast::{AtomKind, Boolean, PrimitiveType};
 
+use llvm_sys_wrapper::LLVMValueRef;
+
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
@@ -56,16 +58,25 @@ impl AatbeModule {
                     .expect(format!("{:?} is not indexable", val).as_str())
                     .into();
 
-                let gep = self
-                    .llvm_builder_ref()
-                    .build_inbounds_gep(val, &mut [index.val()]);
-
+                let mut arr = false;
                 let ty = match ty {
                     TypeKind::Primitive(PrimitiveType::Str) => {
                         TypeKind::Primitive(PrimitiveType::Char)
                     }
-                    _ => panic!("ICE ty[] {:?}", ty),
+                    TypeKind::Primitive(PrimitiveType::Array { ty: box ty, len: _ }) => {
+                        arr = true;
+                        TypeKind::Primitive(ty)
+                    }
+                    _ => ty,
                 };
+
+                let mut ind = vec![];
+                if arr {
+                    ind.push(self.llvm_context_ref().UInt32(0));
+                }
+                ind.push(index.val());
+
+                let gep = self.llvm_builder_ref().build_inbounds_gep(val, &mut ind);
 
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
@@ -161,6 +172,55 @@ impl AatbeModule {
                 )
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
+            AtomKind::Array(exprs) => {
+                let values = exprs
+                    .iter()
+                    .filter_map(|expr| self.codegen_expr(expr))
+                    .collect::<Vec<ValueTypePair>>();
+                if exprs.len() != values.len() {
+                    return None;
+                }
+
+                let types = values
+                    .iter()
+                    .map(|val| val.prim().clone())
+                    .collect::<Vec<PrimitiveType>>();
+
+                let fst = types.first().unwrap();
+                if !types.iter().all(|ty| ty == fst) {
+                    self.add_error(CompileError::ArrayTypesNotUniform {
+                        values: format!(
+                            "[{}]",
+                            exprs
+                                .iter()
+                                .map(|val| val.fmt())
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        ),
+                    });
+
+                    return None;
+                };
+
+                let len = values.len() as u32;
+                Some(
+                    (
+                        self.llvm_context_ref().ConstArray(
+                            fst.clone().llvm_ty_in_ctx(self),
+                            &mut values
+                                .iter()
+                                .map(|val| val.val())
+                                .collect::<Vec<LLVMValueRef>>(),
+                            len,
+                        ),
+                        TypeKind::Primitive(PrimitiveType::Array {
+                            ty: box fst.clone(),
+                            len: Some(len),
+                        }),
+                    )
+                        .into(),
+                )
+            }
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }

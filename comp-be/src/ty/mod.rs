@@ -72,8 +72,7 @@ impl TypeContext {
     pub fn get_record(&self, name: &String) -> TypeResult<&Record> {
         self.types
             .get(name)
-            .map(|ty| ty.record())
-            .flatten()
+            .and_then(|ty| ty.record())
             .ok_or(TypeError::NotRecord(name.clone()))
     }
 }
@@ -87,6 +86,9 @@ impl LLVMTyInCtx for PrimitiveType {
         let ctx = module.llvm_context_ref();
 
         match self {
+            PrimitiveType::Array { ty, len: Some(len) } => {
+                ctx.ArrayType(ty.llvm_ty_in_ctx(module), *len)
+            }
             PrimitiveType::Ref(r) => ctx.PointerType(r.llvm_ty_in_ctx(module)),
             PrimitiveType::Unit => ctx.VoidType(),
             PrimitiveType::Bool => ctx.Int1Type(),

@@ -97,6 +97,10 @@ pub enum PrimitiveType {
     },
     Ref(Box<PrimitiveType>),
     Pointer(Box<PrimitiveType>),
+    Array {
+        ty: Box<PrimitiveType>,
+        len: Option<u32>,
+    },
 }
 
 impl PrimitiveType {
@@ -145,6 +149,7 @@ pub enum AtomKind {
     Ref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
     Cast(Box<AtomKind>, PrimitiveType),
+    Array(Vec<Expression>),
     NamedValue { name: String, val: Box<Expression> },
 }
 

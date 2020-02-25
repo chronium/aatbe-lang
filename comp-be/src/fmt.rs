@@ -33,6 +33,11 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
             PrimitiveType::Char => String::from("char"),
             PrimitiveType::TypeRef(ty) => ty.clone(),
+            PrimitiveType::Array { ty, len } => format!(
+                "{}[{}]",
+                ty.clone().fmt(),
+                len.map(|len| len.to_string()).unwrap_or(String::from("?"))
+            ),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -52,6 +57,13 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Cast(val, ty) => format!("{} as {}", val.fmt(), ty.fmt()),
             AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
             AtomKind::Access(list) => list.join("."),
+            AtomKind::Array(vals) => format!(
+                "[{}]",
+                vals.iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

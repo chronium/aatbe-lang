@@ -60,9 +60,15 @@ impl Parser {
         if ty.is_none() {
             Err(ParseError::ExpectedType)
         } else {
-            Ok(match sym!(bool Star, self) {
-                true => PrimitiveType::Pointer(box ty.unwrap()),
-                false => ty.unwrap(),
+            let ty = ty.unwrap();
+            Ok(if sym!(bool Star, self) {
+                PrimitiveType::Pointer(box ty)
+            } else if sym!(bool LBracket, self) {
+                let len = self.next().and_then(|tok| tok.int()).map(|len| len as u32);
+                sym!(required RBracket, self);
+                PrimitiveType::Array { ty: box ty, len }
+            } else {
+                ty
             })
         }
     }
@@ -105,19 +111,23 @@ impl Parser {
 
     fn parse_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
         let mut params = vec![];
-        let ty = capture!(res parse_named_type, self)
-            .or_else(|_| capture!(res parse_type, self))
-            .or(Err(ParseError::ExpectedType))?;
-        params.push(ty);
+
+        params.push(
+            capture!(res parse_named_type, self)
+                .or_else(|_| capture!(res parse_type, self))
+                .or(Err(ParseError::ExpectedType))?,
+        );
+
         loop {
             if !sym!(bool Comma, self) {
                 break;
             }
 
-            let ty = capture!(res parse_named_type, self)
-                .or_else(|_| capture!(res parse_type, self))
-                .or(Err(ParseError::ExpectedType))?;
-            params.push(ty);
+            params.push(
+                capture!(res parse_named_type, self)
+                    .or_else(|_| capture!(res parse_type, self))
+                    .or(Err(ParseError::ExpectedType))?,
+            );
         }
         Ok(params)
     }

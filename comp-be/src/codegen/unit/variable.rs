@@ -16,24 +16,25 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
             let mut vtp = None;
             let ty = match ty {
                 Some(ty) => *ty.clone(),
-                None => PrimitiveType::NamedType {
-                    name: name.clone(),
-                    ty: Some(box if let Some(e) = value {
+                None => {
+                    if let Some(e) = value {
                         if let box Expression::RecordInit { record, values: _ } = e {
                             PrimitiveType::TypeRef(record.clone())
                         } else {
                             let pair = module
                                 .codegen_expr(e)
                                 .expect(format!("Cannot codegen variable {} value", name).as_ref());
+
                             let ty = pair.prim().clone();
                             vtp = Some(pair);
                             ty
                         }
                     } else {
                         unreachable!();
-                    }),
-                },
+                    }
+                }
             };
+
             let var_ref = module
                 .llvm_builder_ref()
                 .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
@@ -139,48 +140,46 @@ pub fn init_record(
     }
 
     match rec {
-        Expression::RecordInit { record, values } => get_lval(module, lval)
-            .map(|var| {
-                let mut err = false;
+        Expression::RecordInit { record, values } => get_lval(module, lval).and_then(|var| {
+            let mut err = false;
 
-                values.iter().for_each(|val| match val {
-                    AtomKind::NamedValue { name, val } => {
-                        let val_ref = module
-                            .codegen_expr(val)
-                            .expect(format!("ICE could not codegen {:?}", val).as_str());
-                        let val_ty = val_ref.prim().fmt();
-                        match store_named_field(
-                            module,
-                            var.val(),
-                            &lval.into(),
-                            module
-                                .typectx_ref()
-                                .get_record(record)
-                                .expect(format!("ICE could not find record {}", record).as_str()),
-                            name,
-                            val_ref,
-                        ) {
-                            Ok(_) => {}
-                            Err(expected) => {
-                                err = true;
-                                module.add_error(CompileError::StoreMismatch {
-                                    expected_ty: expected.fmt(),
-                                    found_ty: val_ty,
-                                    value: val.fmt(),
-                                    lval: lval.fmt(),
-                                })
-                            }
-                        };
-                    }
-                    _ => panic!("ICE init_record unexpected {:?}", val),
-                });
-
-                match err {
-                    false => Some(var),
-                    true => None,
+            values.iter().for_each(|val| match val {
+                AtomKind::NamedValue { name, val } => {
+                    let val_ref = module
+                        .codegen_expr(val)
+                        .expect(format!("ICE could not codegen {:?}", val).as_str());
+                    let val_ty = val_ref.prim().fmt();
+                    match store_named_field(
+                        module,
+                        var.val(),
+                        &lval.into(),
+                        module
+                            .typectx_ref()
+                            .get_record(record)
+                            .expect(format!("ICE could not find record {}", record).as_str()),
+                        name,
+                        val_ref,
+                    ) {
+                        Ok(_) => {}
+                        Err(expected) => {
+                            err = true;
+                            module.add_error(CompileError::StoreMismatch {
+                                expected_ty: expected.fmt(),
+                                found_ty: val_ty,
+                                value: val.fmt(),
+                                lval: lval.fmt(),
+                            })
+                        }
+                    };
                 }
-            })
-            .flatten(),
+                _ => panic!("ICE init_record unexpected {:?}", val),
+            });
+
+            match err {
+                false => Some(var),
+                true => None,
+            }
+        }),
         _ => unreachable!(),
     }
 }
@@ -233,30 +232,28 @@ pub fn store_value(
         }
     }
 
-    get_lval(module, lval)
-        .map(|var| {
-            let val = match module.codegen_expr(value) {
-                None => return None,
-                Some(val) => val,
-            };
-            if var.prim() != val.prim().inner() {
-                module.add_error(CompileError::AssignMismatch {
-                    expected_ty: var.prim().fmt(),
-                    found_ty: val.prim().fmt(),
-                    value: value.fmt(),
-                    var: lval.fmt(),
-                });
+    get_lval(module, lval).and_then(|var| {
+        let val = match module.codegen_expr(value) {
+            None => return None,
+            Some(val) => val,
+        };
+        if var.prim() != val.prim().inner() {
+            module.add_error(CompileError::AssignMismatch {
+                expected_ty: var.prim().fmt(),
+                found_ty: val.prim().fmt(),
+                value: value.fmt(),
+                var: lval.fmt(),
+            });
 
-                None
-            } else {
-                Some(
-                    (
-                        module.llvm_builder_ref().build_store(val.val(), var.val()),
-                        var.ty(),
-                    )
-                        .into(),
+            None
+        } else {
+            Some(
+                (
+                    module.llvm_builder_ref().build_store(val.val(), var.val()),
+                    var.ty(),
                 )
-            }
-        })
-        .flatten()
+                    .into(),
+            )
+        }
+    })
 }
