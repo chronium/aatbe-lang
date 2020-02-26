@@ -1,11 +1,20 @@
+use "vec3"
+
 rec Point(x: f64, y: f64, z: f64)
 
+fn to_vec3 self: Point -> Vec3 =
+    Vec3 {
+        x: self.x,
+        y: self.y,
+        z: self.z
+    }
+
 fn from_one Point, v: f64 -> Point =
-    Point
-        { x: v
-        , y: v
-        , z: v
-        }
+    Point {
+        x: v,
+        y: v,
+        z: v
+    }
 
 fn zero Point -> Point =
     from_one :Point, 0f64
@@ -33,3 +42,31 @@ fn div self: &Point, other: Point = {
     self.y = self.y / other.y
     self.z = self.z / other.z
 }
+
+fn add self: Point, other: Point -> Point =
+    Point {
+        x: self.x + other.x,
+        y: self.y + other.y,
+        z: self.z + other.z
+    }
+
+fn sub self: Point, other: Point -> Point =
+    Point {
+        x: self.x - other.x,
+        y: self.y - other.y,
+        z: self.z - other.z
+    }
+
+fn mul self: Point, other: Point -> Point =
+    Point {
+        x: self.x * other.x,
+        y: self.y * other.y,
+        z: self.z * other.z
+    }
+
+fn div self: Point, other: Point -> Point =
+    Point {
+        x: self.x / other.x,
+        y: self.y / other.y,
+        z: self.z / other.z
+    }

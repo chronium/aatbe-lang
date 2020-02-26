@@ -1,0 +1,47 @@
+use "../../aatlib/math/point"
+use "../../aatlib/math/vec3"
+use "../../aatlib/math/funcs"
+
+rec Ray(origin: Point, direction: Vec3)
+
+fn create_prime Ray, x: i32, y: i32, scene: Scene -> Ray = {
+    val fov_adj = tan (deg2rad scene.fov) / 2f64
+    val aspect_ratio = scene.width as f64 / scene.height as f64
+    val screen_x = ((((x as f64 + 0.5f64) / scene.width as f64) * 2f64 - 1f64) * aspect_ratio) * fov_adj
+    val screen_y = (1f64 - ((y as f64 + 0.5f64) / scene.height as f64) * 2f64) * fov_adj
+
+    val direction =
+        Vec3 {
+            x: screen_x,
+            y: screen_y,
+            z: -1f64
+        }
+    val origin = zero :Point
+
+    Ray
+        { origin: origin
+        , direction: normalized direction
+    }
+}
+
+fn intersect self: Sphere, ray: Ray -> f64 = {
+    val l = to_vec3 sub self.center, ray.origin
+    val adj = dot l, ray.direction
+    val d2 = (dot l, l) - (adj * adj)
+
+    val radius2 = self.radius * self.radius
+
+    if d2 > radius2 ret -1f64
+
+    val thc = sqrt radius2 - d2
+    val t0 = adj - thc
+    val t1 = adj + thc
+
+    if t0 < 0f64 && t1 < 0f64 ret -1f64
+
+    if t0 < t1 then t0
+    else t1
+}
+
+fn normal self: Sphere, hit: Vec3 -> Vec3 =
+    normalized sub hit, to_vec3 self.center

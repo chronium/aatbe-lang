@@ -1,0 +1,82 @@
+use "raytracer/scene"
+use "raytracer/ray"
+
+use "../aatlib/libc"
+use "../aatlib/math/funcs"
+
+fn print color: Color = printf "%d %d %d\n", (color.red * 255.0) as u8, (color.green * 255.0) as u8, (color.blue * 255.0) as u8
+
+fn get_color scene: Scene, ray: Ray, dist: f64 -> Color = {
+    val hit_point = add (to_vec3 ray.origin), mul ray.direction, dist
+    val normal = normal scene.sphere, hit_point
+    val dir_to_light = mul (normalized scene.light.direction), -1f64
+    val light_pow = (max (dot normal, dir_to_light) as f32, 0.0) * scene.light.intensity as f32
+    val light_refl = scene.sphere.albedo / PI as f32
+
+    val color = mul (mul (mul scene.sphere.color, scene.light.color), light_pow), light_refl
+
+    clamp color
+}
+
+@entry
+fn main () = {
+    val scene = Scene {
+        width: 330,
+        height: 220,
+        fov: 90f64,
+        sphere: Sphere {
+            center: Point {
+                x: 0f64,
+                y: 0f64,
+                z: -5f64
+            },
+            radius: 2f64,
+            color: Color {
+                red: 0.2,
+                green: 1.0,
+                blue: 0.2
+            },
+            albedo: 0.18
+        },
+        light: Light {
+            direction: Vec3 {
+                x: -0.25f64,
+                y: -1f64,
+                z: -1f64
+            },
+            color: Color {
+                red: 1.0,
+                green: 1.0,
+                blue: 1.0
+            },
+            intensity: 20f64
+        }
+    }
+    val black = Color {
+        red: 0.0,
+        green: 0.0,
+        blue: 0.0
+    }
+
+    printf "P3\n%d %d\n255\n", scene.width, scene.height
+
+    var y = 0
+    while y < scene.height {
+        var x = 0
+        while x < scene.width {
+            val ray = create_prime :Ray, x, y, scene
+            val sphere = scene.sphere
+
+            val intersection = intersect sphere, ray
+
+            if intersection == -1f64 {
+                print black
+            } else {
+                print get_color scene, ray, intersection
+            }
+
+            x = x + 1
+        }
+        y = y + 1
+    }
+}

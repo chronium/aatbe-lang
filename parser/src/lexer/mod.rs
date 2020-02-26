@@ -327,21 +327,31 @@ impl<'c> Lexer<'c> {
                                 break;
                             }
                         }
-                        u64::from_str_radix(&buf, 16).expect("Lexer died @hex -> u64")
+                        TokenKind::IntLiteral(
+                            u64::from_str_radix(&buf, 16).expect("Lexer died @hex -> u64"),
+                        )
                     } else {
                         buf.push('0');
                         while let Some(ch) = self.chars.peek() {
                             match ch {
                                 '_' => self.advance(),
-                                _ if ch.is_digit(10) => {
+                                _ if ch.is_digit(10) | (*ch == '.') => {
                                     buf.push(self.read().expect("Lexer died @digits"))
                                 }
                                 _ => break,
                             };
                         }
-                        u64::from_str_radix(&buf, 10).expect("Lexer died @dec -> u64")
+                        if buf.contains(".") {
+                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
+                                format!("{} is not a floating point literal", buf).as_ref(),
+                            ))
+                        } else {
+                            TokenKind::IntLiteral(
+                                u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
+                            )
+                        }
                     };
-                    self.push_token(TokenKind::IntLiteral(num), pos);
+                    self.push_token(num, pos);
                 }
                 c if c.is_digit(10) => {
                     let mut buf = c.to_string();

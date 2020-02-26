@@ -23,6 +23,23 @@ pub fn codegen_eq_ne(
         .into()
 }
 
+pub fn codegen_boolean(
+    module: &AatbeModule,
+    op: &String,
+    lhs: LLVMValueRef,
+    rhs: LLVMValueRef,
+) -> ValueTypePair {
+    (
+        match op.as_str() {
+            "&&" => module.llvm_builder_ref().build_and(lhs, rhs),
+            "||" => module.llvm_builder_ref().build_and(lhs, rhs),
+            _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
+        },
+        TypeKind::Primitive(PrimitiveType::Bool),
+    )
+        .into()
+}
+
 pub fn codegen_eq_ne_float(
     module: &AatbeModule,
     op: &String,

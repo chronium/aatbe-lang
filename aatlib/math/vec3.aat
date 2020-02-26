@@ -3,11 +3,11 @@ use "funcs"
 rec Vec3(x: f64, y: f64, z: f64)
 
 fn from_one Vec3, v: f64 -> Vec3 =
-    Vec3
-        { x: v
-        , y: v
-        , z: v
-        }
+    Vec3 {
+        x: v,
+        y: v,
+        z: v
+    }
 
 fn zero Vec3 -> Vec3 =
     from_one :Vec3, 0f64
@@ -17,21 +17,21 @@ fn length self: Vec3 -> f64 =
 
 fn normalized self: Vec3 -> Vec3 = {
     val inv_len = inverse length self
-    Vec3
-        { x: self.x * inv_len
-        , y: self.y * inv_len
-        , z: self.z * inv_len
-        }
+    Vec3 {
+        x: self.x * inv_len,
+        y: self.y * inv_len,
+        z: self.z * inv_len
+    }
 }
 
 fn dot self: Vec3, other: Vec3 -> f64 =
     self.x * other.x + self.y * other.y + self.z * other.z
 
 fn cross self: Vec3, other: Vec3 -> Vec3 =
-    Vec3
-        { x: self.y * other.z - self.z * other.y
-        , y: self.z * other.x - self.x * other.z
-        , z: self.x * other.y - self.y * other.x
+    Vec3 {
+        x: self.y * other.z - self.z * other.y,
+        y: self.z * other.x - self.x * other.z,
+        z: self.x * other.y - self.y * other.x
     }
 
 fn add self: &Vec3, other: Vec3 = {
@@ -81,3 +81,59 @@ fn div self: &Vec3, other: f64 = {
     self.y = self.y / other
     self.z = self.z / other
 }
+
+fn add self: Vec3, other: Vec3 -> Vec3 =
+    Vec3 {
+        x: self.x + other.x,
+        y: self.y + other.y,
+        z: self.z + other.z
+    }
+
+fn sub self: Vec3, other: Vec3 -> Vec3 =
+    Vec3 {
+        x: self.x - other.x,
+        y: self.y - other.y,
+        z: self.z - other.z
+    }
+
+fn mul self: Vec3, other: Vec3 -> Vec3 =
+    Vec3 {
+        x: self.x * other.x,
+        y: self.y * other.y,
+        z: self.z * other.z
+    }
+
+fn div self: Vec3, other: Vec3 -> Vec3 =
+    Vec3 {
+        x: self.x / other.x,
+        y: self.y / other.y,
+        z: self.z / other.z
+    }
+
+fn add self: Vec3, other: f64 -> Vec3 =
+    Vec3 {
+        x: self.x + other,
+        y: self.y + other,
+        z: self.z + other
+    }
+
+fn sub self: Vec3, other: f64 -> Vec3 =
+    Vec3 {
+        x: self.x - other,
+        y: self.y - other,
+        z: self.z - other
+    }
+
+fn mul self: Vec3, other: f64 -> Vec3 =
+    Vec3 {
+        x: self.x * other,
+        y: self.y * other,
+        z: self.z * other
+    }
+
+fn div self: Vec3, other: f64 -> Vec3 =
+    Vec3 {
+        x: self.x / other,
+        y: self.y / other,
+        z: self.z / other
+    }

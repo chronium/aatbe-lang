@@ -6,7 +6,7 @@ use crate::{
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
-pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> PrimitiveType {
+pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option<PrimitiveType> {
     match variable {
         Expression::Decl {
             ty: PrimitiveType::NamedType { name, ty },
@@ -21,9 +21,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                         if let box Expression::RecordInit { record, values: _ } = e {
                             PrimitiveType::TypeRef(record.clone())
                         } else {
-                            let pair = module
-                                .codegen_expr(e)
-                                .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                            let pair = match module.codegen_expr(e) {
+                                None => return None,
+                                Some(pair) => pair,
+                            };
 
                             let ty = pair.prim().clone();
                             vtp = Some(pair);
@@ -68,9 +69,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                     );
                 } else {
                     let val = if vtp.is_none() {
-                        let val = module
-                            .codegen_expr(e)
-                            .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                        let val = match module.codegen_expr(e) {
+                            None => return None,
+                            Some(val) => val,
+                        };
 
                         if val.prim() != ty.inner() {
                             module.add_error(CompileError::ExpectedType {
@@ -86,7 +88,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
             }
-            ty.clone()
+            Some(ty.clone())
         }
         _ => unreachable!(),
     }

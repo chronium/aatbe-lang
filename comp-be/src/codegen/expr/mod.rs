@@ -1,5 +1,5 @@
 mod eqne;
-use eqne::{codegen_eq_ne, codegen_eq_ne_float};
+use eqne::{codegen_boolean, codegen_eq_ne, codegen_eq_ne_float};
 
 mod compare;
 use compare::{codegen_compare_float, codegen_compare_signed, codegen_compare_unsigned};
@@ -25,6 +25,7 @@ fn dispatch_bool(
 ) -> Option<ValueTypePair> {
     match op.as_str() {
         "==" | "!=" => Some(codegen_eq_ne(module, op, lhs, rhs)),
+        "&&" | "||" => Some(codegen_boolean(module, op, lhs, rhs)),
         _ => None,
     }
 }
@@ -82,10 +83,10 @@ pub fn codegen_binary(
 ) -> GenRes {
     let lhs = module
         .codegen_expr(lhs_expr)
-        .expect("ICE dispatch_binary codegen_expr lhs");
+        .expect(format!("ICE dispatch_binary codegen_expr lhs {:?}", lhs_expr).as_ref());
     let rhs = module
         .codegen_expr(rhs_expr)
-        .expect("ICE dispatch_binary codegen_expr rhs");
+        .expect(format!("ICE dispatch_binary codegen_expr rhs {:?}", rhs_expr).as_ref());
 
     match (lhs.prim(), rhs.prim()) {
         (PrimitiveType::Bool, PrimitiveType::Bool) => {

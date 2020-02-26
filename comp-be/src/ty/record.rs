@@ -46,7 +46,13 @@ impl Record {
             let ty = self
                 .types
                 .get(member)
-                .expect("ICE read_field found field externally but not internally")
+                .expect(
+                    format!(
+                        "ICE read_field found field externally but not internally {}.{:?}",
+                        self.name, fields
+                    )
+                    .as_str(),
+                )
                 .clone();
 
             let gep = module.llvm_builder_ref().build_struct_gep_with_name(

@@ -1,0 +1,31 @@
+use "../../aatlib/math/point"
+use "../../aatlib/math/funcs"
+
+rec Color(red: f32, green: f32, blue: f32)
+
+rec Sphere(center: Point, radius: f64, color: Color, albedo: f32)
+
+rec Light(direction: Vec3, color: Color, intensity: f64)
+
+rec Scene(width: i32, height: i32, fov: f64, sphere: Sphere, light: Light)
+
+fn clamp self: Color -> Color =
+    Color {
+        red: (max (min self.red, 1.0), 0.0),
+        green: (max (min self.green, 1.0), 0.0),
+        blue: (max (min self.blue, 1.0), 0.0)
+    }
+
+fn mul self: Color, other: Color -> Color =
+    Color {
+        red: self.red * other.red,
+        green: self.green * other.green,
+        blue: self.blue * other.blue
+    }
+
+fn mul self: Color, other: f32 -> Color =
+    Color {
+        red: self.red * other,
+        green: self.green * other,
+        blue: self.blue * other
+    }

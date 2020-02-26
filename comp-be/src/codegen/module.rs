@@ -86,6 +86,7 @@ pub struct AatbeModule {
     name: String,
     scope_stack: Vec<Scope>,
     imported: HashMap<String, AST>,
+    imported_cg: Vec<String>,
     current_function: Option<String>,
     typectx: TypeContext,
     compile_errors: Vec<CompileError>,
@@ -105,6 +106,7 @@ impl AatbeModule {
             llvm_builder,
             name,
             imported: HashMap::new(),
+            imported_cg: Vec::new(),
             scope_stack: Vec::new(),
             current_function: None,
             typectx: TypeContext::new(),
@@ -162,13 +164,15 @@ impl AatbeModule {
                 .unwrap(),
             AST::Expr(expr) => self.decl_expr(expr),
             AST::Import(module) => {
-                let ast = self
-                    .parse_import(module)
-                    .expect("Something is completely broken");
-                self.decl_pass(&ast);
-                self.imported
-                    .insert(module.clone(), ast)
-                    .expect_none(format!("Module {} already imported", module).as_ref());
+                if !self.imported.contains_key(module) {
+                    let ast = self
+                        .parse_import(module)
+                        .expect("Something is completely broken");
+                    self.decl_pass(&ast);
+                    self.imported
+                        .insert(module.clone(), ast)
+                        .expect_none(format!("Module {} already imported", module).as_ref());
+                }
             }
             _ => panic!("cannot decl {:?}", ast),
         }
@@ -228,7 +232,6 @@ impl AatbeModule {
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
             Expression::Ret(box _value) => {
-                unimplemented!();
                 let val = self.codegen_expr(_value).unwrap();
 
                 let func_ret = self
@@ -331,15 +334,15 @@ impl AatbeModule {
                     return None;
                 }
 
-                let ty = alloc_variable(self, expr);
-
-                Some(
-                    (
-                        self.get_var(name).expect("Compiler crapped out.").into(),
-                        TypeKind::Primitive(ty),
+                alloc_variable(self, expr).and_then(|ty| {
+                    Some(
+                        (
+                            self.get_var(name).expect("Compiler crapped out.").into(),
+                            TypeKind::Primitive(ty),
+                        )
+                            .into(),
                     )
-                        .into(),
-                )
+                })
             }
             Expression::Loop {
                 loop_type,
@@ -442,26 +445,30 @@ impl AatbeModule {
                 if let Some(then_val) = then_val {
                     let ty = then_val.prim().clone();
                     if ty != PrimitiveType::Unit {
-                        let phi = Phi::new(
-                            self.llvm_builder_ref().as_ref(),
-                            ty.llvm_ty_in_ctx(self),
-                            "",
-                        );
+                        if else_val.is_some() {
+                            let phi = Phi::new(
+                                self.llvm_builder_ref().as_ref(),
+                                ty.llvm_ty_in_ctx(self),
+                                "",
+                            );
 
-                        phi.add_incoming(then_val.val(), then_bb);
+                            phi.add_incoming(then_val.val(), then_bb);
 
-                        if let Some(else_val) = else_val {
-                            if &ty != else_val.prim() {
-                                self.add_error(CompileError::ExpectedType {
-                                    expected_ty: ty.clone().fmt(),
-                                    found_ty: else_val.prim().fmt(),
-                                    value: else_expr.as_ref().unwrap().fmt(),
-                                });
+                            if let Some(else_val) = else_val {
+                                if &ty != else_val.prim() {
+                                    self.add_error(CompileError::ExpectedType {
+                                        expected_ty: ty.clone().fmt(),
+                                        found_ty: else_val.prim().fmt(),
+                                        value: else_expr.as_ref().unwrap().fmt(),
+                                    });
+                                }
+                                phi.add_incoming(else_val.val(), else_bb.unwrap());
                             }
-                            phi.add_incoming(else_val.val(), else_bb.unwrap());
-                        }
 
-                        Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                            Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                        } else {
+                            Some((then_val.val(), TypeKind::Primitive(ty)).into())
+                        }
                     } else {
                         None
                     }
@@ -509,9 +516,10 @@ impl AatbeModule {
                     None => {
                         self.add_error(CompileError::UnknownFunction {
                             name: raw_name.clone(),
-                            values: args
+                            values: call_types
                                 .iter()
-                                .map(|arg| arg.mangle())
+                                .zip(args)
+                                .map(|(ty, val)| format!("{}: {}", val.mangle(), ty.fmt()))
                                 .collect::<Vec<String>>()
                                 .join(", "),
                         });
@@ -636,11 +644,14 @@ impl AatbeModule {
                 .unwrap(),
             AST::Expr(expr) => self.codegen_expr(expr).map(|e| e.val()),
             AST::Import(module) => {
-                let ast = self
-                    .get_imported_ast(module)
-                    .expect("Cannot find already declared imported module? wat")
-                    .clone();
-                self.codegen_pass(&ast);
+                if !self.imported_cg.contains(module) {
+                    let ast = self
+                        .get_imported_ast(module)
+                        .expect("Cannot find already declared imported module? wat")
+                        .clone();
+                    self.codegen_pass(&ast);
+                    self.imported_cg.push(module.clone());
+                }
                 None
             }
             AST::Record(_, _) => None,

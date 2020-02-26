@@ -21,6 +21,12 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits32 => String::from("i32"),
                 IntSize::Bits64 => String::from("i64"),
             },
+            PrimitiveType::UInt(bits) => match bits {
+                IntSize::Bits8 => String::from("u8"),
+                IntSize::Bits16 => String::from("u16"),
+                IntSize::Bits32 => String::from("u32"),
+                IntSize::Bits64 => String::from("u64"),
+            },
             PrimitiveType::Float(bits) => match bits {
                 FloatSize::Bits32 => String::from("f32"),
                 FloatSize::Bits64 => String::from("f64"),
@@ -38,6 +44,7 @@ impl AatbeFmt for &PrimitiveType {
                 ty.clone().fmt(),
                 len.map(|len| len.to_string()).unwrap_or(String::from("?"))
             ),
+            PrimitiveType::Unit => String::from("()"),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -49,6 +56,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::StringLiteral(lit) => format!("{}", lit),
             AtomKind::CharLiteral(lit) => format!("{}", lit),
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
+            AtomKind::Floating(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Bool(Boolean::True) => String::from("true"),
             AtomKind::Bool(Boolean::False) => String::from("false"),
             AtomKind::Ident(id) => format!("{}", id),
@@ -79,6 +87,14 @@ impl AatbeFmt for &Expression {
                 record,
                 values
                     .iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Call { name, args } => format!(
+                "{} {}",
+                name,
+                args.iter()
                     .map(|val| val.fmt())
                     .collect::<Vec<String>>()
                     .join(", ")
