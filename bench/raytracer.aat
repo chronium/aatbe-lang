@@ -21,8 +21,8 @@ fn get_color scene: Scene, ray: Ray, dist: f64 -> Color = {
 @entry
 fn main () = {
     val scene = Scene {
-        width: 330,
-        height: 220,
+        width: 800,
+        height: 600,
         fov: 90f64,
         sphere: Sphere {
             center: Point {
@@ -58,16 +58,20 @@ fn main () = {
         blue: 0.0
     }
 
+    val ray = Ray {
+        origin: (zero :Point),
+        direction: to_vec3 (zero :Point)
+    }
+
     printf "P3\n%d %d\n255\n", scene.width, scene.height
 
     var y = 0
     while y < scene.height {
         var x = 0
         while x < scene.width {
-            val ray = create_prime :Ray, x, y, scene
-            val sphere = scene.sphere
+            create_prime &ray, x, y, scene
 
-            val intersection = intersect sphere, ray
+            val intersection = intersect scene.sphere, ray
 
             if intersection == -1f64 {
                 print black
