@@ -37,5 +37,22 @@ fn intersect self: Sphere, ray: Ray -> f64 = {
     else t1
 }
 
+fn intersect self: Plane, ray: Ray -> f64 = {
+    val denom = dot self.normal, ray.direction
+
+    if denom < 0.000001f64 {
+        ret -1f64
+    }
+
+    val v = to_vec3 sub self.center, ray.origin
+    val dist = (dot v, self.normal) / denom
+    if dist >= 0.0f64 then
+        dist
+    else -1f64
+}
+
 fn normal self: Sphere, hit: Vec3 -> Vec3 =
     normalized sub hit, to_vec3 self.center
+
+fn normal self: Plane, hit: Vec3 -> Vec3 =
+    mul self.normal, -1f64

@@ -4,10 +4,11 @@ use "../../aatlib/math/funcs"
 rec Color(red: f32, green: f32, blue: f32)
 
 rec Sphere(center: Point, radius: f64, color: Color, albedo: f32)
+rec Plane(center: Point, normal: Vec3, color: Color, albedo: f32)
 
 rec Light(direction: Vec3, color: Color, intensity: f64)
 
-rec Scene(width: i32, height: i32, fov: f64, sphere: Sphere, light: Light)
+rec Scene(width: i32, height: i32, fov: f64, sphere: Sphere, plane: Plane, light: Light)
 
 fn clamp self: Color -> Color =
     Color {

@@ -224,6 +224,9 @@ impl AatbeModule {
     pub fn has_ret(&self, expr: &Expression) -> bool {
         match expr {
             Expression::Ret(_) => true,
+            Expression::Block(vals) if vals.len() > 0 => {
+                vals.iter().fold(false, |_, n| self.has_ret(n))
+            }
             _ => false,
         }
     }
@@ -252,7 +255,13 @@ impl AatbeModule {
                     });
                     None
                 } else {
-                    Some((val.val(), TypeKind::Primitive(func_ret)).into())
+                    Some(
+                        (
+                            self.llvm_builder_ref().build_ret(val.val()),
+                            TypeKind::Primitive(func_ret),
+                        )
+                            .into(),
+                    )
                 }
             }
             Expression::RecordInit { record, values } => {
@@ -439,7 +448,9 @@ impl AatbeModule {
                 } else {
                     None
                 };
-                self.llvm_builder.build_br(end_bb);
+                if !self.has_ret(then_expr) {
+                    self.llvm_builder.build_br(end_bb);
+                }
                 self.llvm_builder.position_at_end(end_bb);
 
                 if let Some(then_val) = then_val {

@@ -6,14 +6,26 @@ use "../aatlib/math/funcs"
 
 fn print color: Color = printf "%d %d %d\n", (color.red * 255.0) as u8, (color.green * 255.0) as u8, (color.blue * 255.0) as u8
 
-fn get_color scene: Scene, ray: Ray, dist: f64 -> Color = {
+fn get_color sphere: Sphere, light: Light, ray: Ray, dist: f64 -> Color = {
     val hit_point = add (to_vec3 ray.origin), mul ray.direction, dist
-    val normal = normal scene.sphere, hit_point
-    val dir_to_light = mul (normalized scene.light.direction), -1f64
-    val light_pow = (max (dot normal, dir_to_light) as f32, 0.0) * scene.light.intensity as f32
-    val light_refl = scene.sphere.albedo / PI as f32
+    val normal = normal sphere, hit_point
+    val dir_to_light = mul light.direction, -1f64
+    val light_pow = (max (dot normal, dir_to_light) as f32, 0.0) * light.intensity as f32
+    val light_refl = sphere.albedo / PI as f32
 
-    val color = mul (mul (mul scene.sphere.color, scene.light.color), light_pow), light_refl
+    val color = mul (mul (mul sphere.color, light.color), light_pow), light_refl
+
+    clamp color
+}
+
+fn get_color plane: Plane, light: Light, ray: Ray, dist: f64 -> Color = {
+    val hit_point = add (to_vec3 ray.origin), mul ray.direction, dist
+    val normal = normal plane, hit_point
+    val dir_to_light = mul (normalized light.direction), -1f64
+    val light_pow = (max (dot normal, dir_to_light) as f32, 0.0) * light.intensity as f32
+    val light_refl = plane.albedo / PI as f32
+
+    val color = mul (mul (mul plane.color, light.color), light_pow), light_refl
 
     clamp color
 }
@@ -35,6 +47,24 @@ fn main () = {
                 red: 0.2,
                 green: 1.0,
                 blue: 0.2
+            },
+            albedo: 0.18
+        },
+        plane: Plane {
+            center: Point {
+                x: 0f64,
+                y: -1f64,
+                z: 0f64
+            },
+            normal: Vec3 {
+                x: 0f64,
+                y: -1f64,
+                z: 0f64
+            },
+            color: Color {
+                red: 0.6,
+                green: 0.8,
+                blue: 1.0
             },
             albedo: 0.18
         },
@@ -64,6 +94,8 @@ fn main () = {
     }
 
     printf "P3\n%d %d\n255\n", scene.width, scene.height
+    var sphere_dist: f64
+    var plane_dist: f64
 
     var y = 0
     while y < scene.height {
@@ -71,12 +103,15 @@ fn main () = {
         while x < scene.width {
             create_prime &ray, x, y, scene
 
-            val intersection = intersect scene.sphere, ray
+            sphere_dist = intersect scene.sphere, ray
+            plane_dist = intersect scene.plane, ray
 
-            if intersection == -1f64 {
-                print black
+            if sphere_dist != -1f64 {
+                print get_color scene.sphere, scene.light, ray, sphere_dist
+            } else if plane_dist != -1f64 {
+                print get_color scene.plane, scene.light, ray, plane_dist
             } else {
-                print get_color scene, ray, intersection
+                print black
             }
 
             x = x + 1
