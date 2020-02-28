@@ -14,6 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get install llvm-6.0-dev
+        sudo ln -sf /usr/bin/llvm-config-6.0 /usr/bin/llvm-config
     - uses: actions/checkout@v2
     - uses: Mushus/checkout-submodule@v1.0.1
       with:
