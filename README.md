@@ -1,4 +1,6 @@
 # aatbe-lang
+![Rust](https://github.com/chronium/aatbe-lang/workflows/Rust/badge.svg)
+
 Åtbe language compiler. Written in Rust.
 
 Anything's A Tuple if you're Brave Enough.
