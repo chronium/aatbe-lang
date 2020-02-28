@@ -1,0 +1,21 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: "nightly"
+    - name: Install dependencies
+      run: |
+        apt install llvm-6.0-dev
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Run tests
+      run: cargo test --verbose
