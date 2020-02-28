@@ -15,6 +15,9 @@ jobs:
       run: |
         sudo apt-get install llvm-6.0-dev
     - uses: actions/checkout@v2
+    - uses: Mushus/checkout-submodule@v1.0.1
+      with:
+        submodulePath: llvm-sys-wrapper
     - name: Build
       run: cargo build --verbose
     - name: Run tests
