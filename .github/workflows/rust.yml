@@ -13,7 +13,7 @@ jobs:
         rust-version: "nightly"
     - name: Install dependencies
       run: |
-        apt install llvm-6.0-dev
+        sudo apt-get install llvm-6.0-dev
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
