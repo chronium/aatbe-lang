@@ -22,7 +22,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -32,7 +32,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -42,7 +42,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_si_to_fp(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -52,7 +52,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_ui_to_fp(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -65,7 +65,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_fp_trunc(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -75,7 +75,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_fp_to_si(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -85,7 +85,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_fp_to_ui(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -97,7 +97,7 @@ impl AatbeModule {
                     (
                         self.llvm_builder_ref()
                             .build_bitcast(val, ty.llvm_ty_in_ctx(self)),
-                        TypeKind::Primitive(ty.clone()),
+                        ty.clone(),
                     )
                         .into(),
                 )
@@ -154,13 +154,9 @@ impl AatbeModule {
 
                 match var_ref {
                     None => None,
-                    Some(var) => Some(
-                        (
-                            var.load_var(self.llvm_builder_ref()),
-                            TypeKind::Primitive(var.var_ty().clone()),
-                        )
-                            .into(),
-                    ),
+                    Some(var) => {
+                        Some((var.load_var(self.llvm_builder_ref()), var.var_ty().clone()).into())
+                    }
                 }
             }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
@@ -171,13 +167,7 @@ impl AatbeModule {
                     Some(var) => {
                         let var: ValueTypePair = var.into();
 
-                        Some(
-                            (
-                                var.val(),
-                                TypeKind::Primitive(PrimitiveType::Ref(box var.prim().clone())),
-                            )
-                                .into(),
-                        )
+                        Some((var.val(), PrimitiveType::Ref(box var.prim().clone())).into())
                     }
                 }
             }
@@ -186,20 +176,12 @@ impl AatbeModule {
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
             atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
-            AtomKind::Bool(Boolean::True) => Some(
-                (
-                    self.llvm_context_ref().SInt1(1),
-                    TypeKind::Primitive(PrimitiveType::Bool),
-                )
-                    .into(),
-            ),
-            AtomKind::Bool(Boolean::False) => Some(
-                (
-                    self.llvm_context_ref().SInt1(0),
-                    TypeKind::Primitive(PrimitiveType::Bool),
-                )
-                    .into(),
-            ),
+            AtomKind::Bool(Boolean::True) => {
+                Some((self.llvm_context_ref().SInt1(1), PrimitiveType::Bool).into())
+            }
+            AtomKind::Bool(Boolean::False) => {
+                Some((self.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into())
+            }
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
             AtomKind::Unary(op, val) if op == &String::from("-") => {
@@ -208,17 +190,13 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
 
                 match value.prim() {
-                    prim @ PrimitiveType::Int(_) | prim @ PrimitiveType::UInt(_) => Some(
-                        (
-                            self.llvm_builder_ref().build_neg(value.val()),
-                            TypeKind::Primitive(prim.clone()),
-                        )
-                            .into(),
-                    ),
+                    prim @ PrimitiveType::Int(_) | prim @ PrimitiveType::UInt(_) => {
+                        Some((self.llvm_builder_ref().build_neg(value.val()), prim.clone()).into())
+                    }
                     prim @ PrimitiveType::Float(_) => Some(
                         (
                             self.llvm_builder_ref().build_fneg(value.val()),
-                            TypeKind::Primitive(prim.clone()),
+                            prim.clone(),
                         )
                             .into(),
                     ),
@@ -250,7 +228,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_not(value.val()),
-                        TypeKind::Primitive(PrimitiveType::Bool),
+                        PrimitiveType::Bool,
                     )
                         .into(),
                 )
@@ -297,10 +275,10 @@ impl AatbeModule {
                                 .collect::<Vec<LLVMValueRef>>(),
                             len,
                         ),
-                        TypeKind::Primitive(PrimitiveType::Array {
+                        PrimitiveType::Array {
                             ty: box fst.clone(),
                             len: Some(len),
-                        }),
+                        },
                     )
                         .into(),
                 )

@@ -1,9 +1,6 @@
 use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 
-use crate::{
-    codegen::{AatbeModule, ValueTypePair},
-    ty::TypeKind,
-};
+use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
@@ -44,18 +41,14 @@ pub enum CodegenUnit {
 impl Into<ValueTypePair> for &CodegenUnit {
     fn into(self) -> ValueTypePair {
         match self {
-            CodegenUnit::Function(func, ty) => {
-                (func.as_ref(), TypeKind::Primitive(ty.clone())).into()
-            }
-            CodegenUnit::FunctionArgument(arg, ty) => {
-                (*arg, TypeKind::Primitive(ty.clone())).into()
-            }
+            CodegenUnit::Function(func, ty) => (func.as_ref(), ty.clone()).into(),
+            CodegenUnit::FunctionArgument(arg, ty) => (*arg, ty.clone()).into(),
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
                 ty,
                 value,
-            } => (*value, TypeKind::Primitive(ty.clone())).into(),
+            } => (*value, ty.clone()).into(),
         }
     }
 }

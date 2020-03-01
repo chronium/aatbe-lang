@@ -1,7 +1,4 @@
-use crate::{
-    codegen::{AatbeModule, ValueTypePair},
-    ty::TypeKind,
-};
+use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
@@ -20,7 +17,7 @@ pub fn codegen_compare_float(
             ">=" => module.llvm_builder_ref().build_fcmp_uge(lhs, rhs),
             _ => panic!("ICE codegen_compare_float unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }
@@ -39,7 +36,7 @@ pub fn codegen_compare_signed(
             ">=" => module.llvm_builder_ref().build_icmp_sge(lhs, rhs),
             _ => panic!("ICE codegen_compare_signed unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }
@@ -58,7 +55,7 @@ pub fn codegen_compare_unsigned(
             ">=" => module.llvm_builder_ref().build_icmp_uge(lhs, rhs),
             _ => panic!("ICE codegen_compare_unsigned unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }

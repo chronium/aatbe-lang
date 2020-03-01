@@ -5,7 +5,7 @@ fn main () = {
     val arr = [1, 2, 3, 4]
 
     var i = 0
-    while i < 4 {
+    while i < (len arr) {
         println arr[i]
         i = i + 1
     }

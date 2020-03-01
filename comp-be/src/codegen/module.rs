@@ -33,6 +33,12 @@ impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
     }
 }
 
+impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, PrimitiveType)) -> ValueTypePair {
+        ValueTypePair(val, TypeKind::Primitive(ty))
+    }
+}
+
 impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
     fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
         (vtp.0, vtp.1)
@@ -66,11 +72,9 @@ impl ValueTypePair {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
                 prim @ PrimitiveType::Str | prim @ PrimitiveType::Array { ty: _, len: _ } => {
-                    Some((*val, TypeKind::Primitive(prim.clone())).into())
+                    Some((*val, prim.clone()).into())
                 }
-                PrimitiveType::Pointer(box ty) => {
-                    Some((*val, TypeKind::Primitive(ty.clone())).into())
-                }
+                PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
                 _ => None,
             },
             _ => None,
@@ -152,7 +156,7 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
-            AST::Constant { ty: _, value: _ } => {}
+            AST::Constant { .. } => {}
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
@@ -255,13 +259,7 @@ impl AatbeModule {
                     });
                     None
                 } else {
-                    Some(
-                        (
-                            self.llvm_builder_ref().build_ret(val.val()),
-                            TypeKind::Primitive(func_ret),
-                        )
-                            .into(),
-                    )
+                    Some((self.llvm_builder_ref().build_ret(val.val()), func_ret).into())
                 }
             }
             Expression::RecordInit { record, values } => {
@@ -302,7 +300,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_load(rec),
-                        TypeKind::Primitive(PrimitiveType::TypeRef(record.clone())),
+                        PrimitiveType::TypeRef(record.clone()),
                     )
                         .into(),
                 )
@@ -328,7 +326,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.get_var(name).expect("Compiler crapped out.").into(),
-                        TypeKind::Primitive(*ty.clone()),
+                        *ty.clone(),
                     )
                         .into(),
                 )
@@ -347,7 +345,7 @@ impl AatbeModule {
                     Some(
                         (
                             self.get_var(name).expect("Compiler crapped out.").into(),
-                            TypeKind::Primitive(ty),
+                            ty,
                         )
                             .into(),
                     )
@@ -476,9 +474,9 @@ impl AatbeModule {
                                 phi.add_incoming(else_val.val(), else_bb.unwrap());
                             }
 
-                            Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                            Some((phi.as_ref(), ty).into())
                         } else {
-                            Some((then_val.val(), TypeKind::Primitive(ty)).into())
+                            Some((then_val.val(), ty).into())
                         }
                     } else {
                         None
@@ -506,6 +504,35 @@ impl AatbeModule {
                         }),
                     })
                     .collect::<Vec<LLVMValueRef>>();
+
+                // TODO: fix this hack
+                if raw_name == "len" {
+                    if call_types.len() != 1 {
+                        return None;
+                    }
+                    match call_types[0] {
+                        PrimitiveType::Array {
+                            ty: _,
+                            len: Some(len),
+                        } => {
+                            return Some(
+                                (
+                                    self.llvm_context_ref().SInt32(len as u64),
+                                    PrimitiveType::Int(IntSize::Bits32),
+                                )
+                                    .into(),
+                            );
+                        }
+                        _ => {
+                            self.add_error(CompileError::MismatchedArguments {
+                                function: String::from("len"),
+                                expected_ty: String::from("[x; n]"),
+                                found_ty: call_types[0].clone().fmt(),
+                            });
+                            return None;
+                        }
+                    }
+                }
 
                 let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
@@ -570,7 +597,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder.build_call(func.into(), &mut call_args),
-                        TypeKind::Primitive(func.ret_ty()),
+                        func.ret_ty(),
                     )
                         .into(),
                 )

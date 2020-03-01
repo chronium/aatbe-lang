@@ -1,7 +1,4 @@
-use crate::{
-    codegen::{AatbeModule, ValueTypePair},
-    ty::TypeKind,
-};
+use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
@@ -18,7 +15,7 @@ pub fn codegen_eq_ne(
             "!=" => module.llvm_builder_ref().build_icmp_ne(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }
@@ -35,7 +32,7 @@ pub fn codegen_boolean(
             "||" => module.llvm_builder_ref().build_and(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }
@@ -52,7 +49,7 @@ pub fn codegen_eq_ne_float(
             "!=" => module.llvm_builder_ref().build_fcmp_une(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne_float unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Bool),
+        PrimitiveType::Bool,
     )
         .into()
 }

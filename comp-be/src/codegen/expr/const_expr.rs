@@ -4,7 +4,6 @@ use crate::{
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
-    ty::TypeKind,
 };
 use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType, AST};
 
@@ -15,87 +14,47 @@ pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair
                 module
                     .llvm_builder_ref()
                     .build_global_string_ptr(string.as_str()),
-                TypeKind::Primitive(PrimitiveType::Str),
+                PrimitiveType::Str,
             )
                 .into(),
         ),
         AtomKind::CharLiteral(ch) => Some(
             (
                 module.llvm_context_ref().SInt8(*ch as u64),
-                TypeKind::Primitive(PrimitiveType::Char),
+                PrimitiveType::Char,
             )
                 .into(),
         ),
-        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits8)) => Some(
-            (
-                module.llvm_context_ref().SInt8(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits16)) => Some(
-            (
-                module.llvm_context_ref().SInt16(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => Some(
-            (
-                module.llvm_context_ref().SInt32(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits64)) => Some(
-            (
-                module.llvm_context_ref().SInt64(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits8)) => Some(
-            (
-                module.llvm_context_ref().UInt8(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits16)) => Some(
-            (
-                module.llvm_context_ref().UInt8(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits32)) => Some(
-            (
-                module.llvm_context_ref().UInt8(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => Some(
-            (
-                module.llvm_context_ref().UInt8(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits32)) => Some(
-            (
-                module.llvm_context_ref().Float(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
-        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits64)) => Some(
-            (
-                module.llvm_context_ref().Double(*val),
-                TypeKind::Primitive(prim.clone()),
-            )
-                .into(),
-        ),
+        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits8)) => {
+            Some((module.llvm_context_ref().SInt8(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits16)) => {
+            Some((module.llvm_context_ref().SInt16(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits32)) => {
+            Some((module.llvm_context_ref().SInt32(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::Int(IntSize::Bits64)) => {
+            Some((module.llvm_context_ref().SInt64(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits8)) => {
+            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits16)) => {
+            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits32)) => {
+            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+        }
+        AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => {
+            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+        }
+        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits32)) => {
+            Some((module.llvm_context_ref().Float(*val), prim.clone()).into())
+        }
+        AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits64)) => {
+            Some((module.llvm_context_ref().Double(*val), prim.clone()).into())
+        }
         _ => panic!("ICE fold_atom {:?}", atom),
     }
 }

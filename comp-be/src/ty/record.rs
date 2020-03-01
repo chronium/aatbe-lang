@@ -1,6 +1,6 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
-    ty::{LLVMTyInCtx, TypeKind},
+    ty::LLVMTyInCtx,
 };
 use parser::ast::PrimitiveType;
 
@@ -68,7 +68,7 @@ impl Record {
                     .get_record(&typeref)
                     .expect(format!("ICE no type associated with {}", typeref).as_str())
                     .read_field(module, gep, &member, rest.to_vec()),
-                _ => (gep, TypeKind::Primitive(ty.clone())).into(),
+                _ => (gep, ty.clone()).into(),
             }
         } else {
             unreachable!()

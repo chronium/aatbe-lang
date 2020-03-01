@@ -121,7 +121,7 @@ pub fn init_record(
                             Some(
                                 (
                                     module.llvm_builder_ref().build_load(gep),
-                                    TypeKind::Primitive(PrimitiveType::Char),
+                                    PrimitiveType::Char,
                                 )
                                     .into(),
                             )
@@ -217,7 +217,7 @@ pub fn store_value(
                                 .llvm_builder_ref()
                                 .build_inbounds_gep(load, &mut [index.val()]);
 
-                            Some((gep, TypeKind::Primitive(PrimitiveType::Char)).into())
+                            Some((gep, PrimitiveType::Char).into())
                         }
                         _ => {
                             module.add_error(CompileError::NotIndexable {

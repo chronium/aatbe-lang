@@ -1,7 +1,4 @@
-use crate::{
-    codegen::{AatbeModule, ValueTypePair},
-    ty::TypeKind,
-};
+use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
@@ -22,7 +19,7 @@ pub fn codegen_float_ops(
             "%" => module.llvm_builder_ref().build_frem(lhs, rhs),
             _ => panic!("ICE codegen_float_ops unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Float(float_size)),
+        PrimitiveType::Float(float_size),
     )
         .into()
 }
@@ -43,7 +40,7 @@ pub fn codegen_signed_ops(
             "%" => module.llvm_builder_ref().build_srem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::Int(int_size)),
+        PrimitiveType::Int(int_size),
     )
         .into()
 }
@@ -64,7 +61,7 @@ pub fn codegen_unsigned_ops(
             "%" => module.llvm_builder_ref().build_urem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
-        TypeKind::Primitive(PrimitiveType::UInt(int_size)),
+        PrimitiveType::UInt(int_size),
     )
         .into()
 }
