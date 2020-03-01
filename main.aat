@@ -1,12 +1,13 @@
 use "aatlib/prelude"
 
+const test: i32 = 0
+global testo: i32 = 10
+
 @entry
 fn main () = {
-    val arr = [1, 2, 3, 4]
-
-    var i = 0
-    while i < (len arr) {
-        println arr[i]
-        i = i + 1
-    }
+    println test
+    println testo
+    testo = testo + 1
+    println testo
+    println test
 }

@@ -150,15 +150,24 @@ impl Parser {
         Ok(AST::Record(name, types))
     }
 
-    fn parse_const(&mut self) -> ParseResult<AST> {
-        kw!(Const, self);
+    fn parse_const_global(&mut self) -> ParseResult<AST> {
+        let cons = kw!(bool Const, self);
+        let glob = kw!(bool Global, self);
+
+        if !cons && !glob {
+            return Err(ParseError::Continue);
+        }
 
         let ty = capture!(res parse_named_type, self)?;
 
         sym!(required Assign, self);
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
-        Ok(AST::Constant { ty, value })
+        Ok(if cons {
+            AST::Constant { ty, value }
+        } else {
+            AST::Global { ty, value }
+        })
     }
 
     fn parse_function(&mut self) -> ParseResult<AST> {

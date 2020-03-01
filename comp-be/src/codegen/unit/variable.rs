@@ -197,7 +197,7 @@ pub fn store_value(
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => {
                     match var.get_mutability() {
-                        Mutability::Mutable => {}
+                        Mutability::Mutable | Mutability::Global => {}
                         _ => panic!("Cannot reassign to immutable/constant {}", name),
                     };
                     Some(var.into())

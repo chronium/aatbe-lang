@@ -11,6 +11,10 @@ pub enum AST {
         ty: PrimitiveType,
         value: Box<Expression>,
     },
+    Global {
+        ty: PrimitiveType,
+        value: Box<Expression>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone)]

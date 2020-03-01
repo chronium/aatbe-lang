@@ -156,7 +156,7 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
-            AST::Constant { .. } => {}
+            AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
@@ -189,20 +189,16 @@ impl AatbeModule {
                 Some(rec) => {
                     let rec_type = match rec {
                         CodegenUnit::Variable {
-                            mutable: _,
-                            name: _,
                             ty: PrimitiveType::TypeRef(rec),
-                            value: _,
+                            ..
                         } => rec.clone(),
                         CodegenUnit::Variable {
-                            mutable: _,
-                            name: _,
                             ty:
                                 PrimitiveType::NamedType {
                                     name: _,
                                     ty: Some(box PrimitiveType::TypeRef(rec)),
                                 },
-                            value: _,
+                            ..
                         } => rec.clone(),
                         CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
                             rec.clone()
@@ -670,6 +666,10 @@ impl AatbeModule {
     pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
         match ast {
             AST::Constant {
+                ty: PrimitiveType::NamedType { name, ty: _ },
+                value: _,
+            }
+            | AST::Global {
                 ty: PrimitiveType::NamedType { name, ty: _ },
                 value: _,
             } => {

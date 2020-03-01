@@ -4,6 +4,7 @@ use crate::{
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
+    ty::LLVMTyInCtx,
 };
 use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType, AST};
 
@@ -68,6 +69,40 @@ fn fold_expression(module: &AatbeModule, expr: &Expression) -> Option<ValueTypeP
 
 pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit> {
     match ast {
+        AST::Global {
+            ty:
+                PrimitiveType::NamedType {
+                    name,
+                    ty: Some(box ty),
+                },
+            value,
+        } => fold_expression(module, value)
+            .and_then(|val| {
+                if val.prim() != ty.inner() {
+                    module.add_error(CompileError::AssignMismatch {
+                        expected_ty: ty.fmt(),
+                        found_ty: val.prim().fmt(),
+                        value: value.fmt(),
+                        var: name.clone(),
+                    });
+
+                    None
+                } else {
+                    Some(val)
+                }
+            })
+            .map(|val| {
+                let val_ref = module
+                    .llvm_module_ref()
+                    .add_global(ty.llvm_ty_in_ctx(module), name.as_ref());
+                module.llvm_module_ref().set_initializer(val_ref, val.val());
+                CodegenUnit::Variable {
+                    mutable: Mutability::Global,
+                    name: name.clone(),
+                    ty: val.prim().clone(),
+                    value: val_ref,
+                }
+            }),
         AST::Constant {
             ty:
                 PrimitiveType::NamedType {
