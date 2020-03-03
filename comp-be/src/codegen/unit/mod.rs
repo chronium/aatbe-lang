@@ -134,6 +134,14 @@ impl CodegenUnit {
             CodegenUnit::Variable {
                 ty: PrimitiveType::Array { .. },
                 ..
+            }
+            | CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::NamedType {
+                        ty: Some(box PrimitiveType::Array { .. }),
+                        ..
+                    },
+                ..
             } => self.into(),
             CodegenUnit::Variable { mutable, .. } => match mutable {
                 Mutability::Constant => self.into(),
@@ -161,6 +169,7 @@ impl CodegenUnit {
     pub fn get_mutability(&self) -> &Mutability {
         match self {
             CodegenUnit::Variable { mutable, .. } => mutable,
+            CodegenUnit::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
             _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }

@@ -496,7 +496,12 @@ impl AatbeModule {
                         }
                         _ => self.codegen_expr(arg).map_or(None, |arg| {
                             call_types.push(arg.prim().clone());
-                            Some(arg.val())
+                            match arg.prim().clone() {
+                                PrimitiveType::Array { .. } => {
+                                    Some(self.llvm_builder_ref().build_load(arg.val()))
+                                }
+                                _ => Some(arg.val())
+                            }
                         }),
                     })
                     .collect::<Vec<LLVMValueRef>>();

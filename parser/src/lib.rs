@@ -64,7 +64,10 @@ impl Parser {
             Ok(if sym!(bool Star, self) {
                 PrimitiveType::Pointer(box ty)
             } else if sym!(bool LBracket, self) {
-                let len = self.next().and_then(|tok| tok.int()).map(|len| len as u32);
+                let len = self.peek().and_then(|tok| tok.int()).map(|len| len as u32);
+                if len.is_some() {
+                    self.next();
+                }
                 sym!(required RBracket, self);
                 PrimitiveType::Array { ty: box ty, len }
             } else {

@@ -5,6 +5,15 @@
 
 Anything's A Tuple if you're Brave Enough.
 
+# Requirements
+You need the latest Rust Nightly.
+The following are the required ubuntu packages: `llvm-6.0-dev`, some form of build essentials.
+
+After installing `llvm`, you need to run the following command:
+```
+> sudo ln -sf /usr/bin/llvm-config-6.0 /usr/bin/llvm-config
+```
+
 # Usage
 ```
 USAGE:

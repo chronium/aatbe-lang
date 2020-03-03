@@ -219,6 +219,14 @@ pub fn store_value(
 
                             Some((gep, PrimitiveType::Char).into())
                         }
+                        TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
+                            let gep = module.llvm_builder_ref().build_inbounds_gep(
+                                val.val(),
+                                &mut [module.llvm_context_ref().SInt32(0), index.val()],
+                            );
+
+                            Some((gep, ty.clone()).into())
+                        }
                         _ => {
                             module.add_error(CompileError::NotIndexable {
                                 ty: val.prim().fmt(),

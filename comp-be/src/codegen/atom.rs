@@ -118,6 +118,7 @@ impl AatbeModule {
                     }
                     TypeKind::Primitive(PrimitiveType::Array { ty: box ty, len: _ }) => {
                         arr = true;
+
                         TypeKind::Primitive(ty)
                     }
                     _ => ty,

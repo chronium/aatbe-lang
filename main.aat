@@ -1,13 +1,11 @@
 use "aatlib/prelude"
 
-const test: i32 = 0
-global testo: i32 = 10
+fn test arr: &i32[1] = arr[0] = 64
 
 @entry
 fn main () = {
-    println test
-    println testo
-    testo = testo + 1
-    println testo
-    println test
+    var arr = [10]
+    println arr[0]
+    test &arr
+    println arr[0]
 }

@@ -72,6 +72,7 @@ impl AatbeFmt for &AtomKind {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            AtomKind::Index(lval, index) => format!("{}[{}]", lval.fmt(), index.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
