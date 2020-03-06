@@ -33,8 +33,8 @@ fn get_color plane: Plane, light: Light, ray: Ray, dist: f64 -> Color = {
 @entry
 fn main () = {
     val scene = Scene {
-        width: 800,
-        height: 600,
+        width: 1920,
+        height: 1080,
         fov: 90f64,
         sphere: Sphere {
             center: Point {

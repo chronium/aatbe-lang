@@ -1,0 +1,9 @@
+// spector:name Pass by reference
+
+fn double_first i: &i32[3] = i[0] = i[0] * 2
+
+@entry
+fn main () = {
+    var test = [1, 2, 3]
+    double_first &test
+}

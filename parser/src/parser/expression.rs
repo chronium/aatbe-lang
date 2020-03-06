@@ -48,7 +48,10 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
-        if self.nl() || sym!(bool Comma, self) || !self.sep() {
+        if self.nl()
+            || sym!(bool Comma, self)
+            || !(self.sep() || self.peek_symbol(Symbol::Unit).unwrap_or(false))
+        {
             return Err(ParseError::Continue);
         }
         let mut args = vec![];

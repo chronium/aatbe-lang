@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from itertools import chain
 from functools import reduce
 from collections import namedtuple
@@ -172,6 +173,8 @@ def runTestCases(tests, testCaseMaxLen):
         len(list(filter(getPassed, results))),
         len(list(filter(getFailed, results)))
     ))
+    if len(list(filter(getFailed, results))) > 0:
+        sys.exit(-1)
 
 # Entry Point
 if __name__ == "__main__":

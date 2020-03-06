@@ -54,7 +54,8 @@ impl NameMangler for AtomKind {
             AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle()),
             AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle()),
             AtomKind::Access(arr) => arr.join("."),
-            AtomKind::Parenthesized(val) => format!("({})", val.mangle()),
+            AtomKind::Parenthesized(val) => format!("{}", val.mangle()),
+            AtomKind::Ref(val) => format!("&{}", val.mangle()),
             _ => panic!("ICE mangle {:?}", self),
         }
     }

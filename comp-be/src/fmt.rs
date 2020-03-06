@@ -45,6 +45,7 @@ impl AatbeFmt for &PrimitiveType {
                 len.map(|len| len.to_string()).unwrap_or(String::from("?"))
             ),
             PrimitiveType::Unit => String::from("()"),
+            PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

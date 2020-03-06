@@ -500,7 +500,7 @@ impl AatbeModule {
                                 PrimitiveType::Array { .. } => {
                                     Some(self.llvm_builder_ref().build_load(arg.val()))
                                 }
-                                _ => Some(arg.val())
+                                _ => Some(arg.val()),
                             }
                         }),
                     })
