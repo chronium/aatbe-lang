@@ -11,6 +11,10 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         rust-version: "nightly"
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7 
     - name: Install dependencies
       run: |
         sudo apt-get install llvm-6.0-dev
@@ -23,3 +27,5 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Run Spector tests
+      run: python3 spector.py
