@@ -20,7 +20,7 @@ use crate::{
 };
 
 use parser::{
-    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
+    ast::{AtomKind, Expression, IntSize, LoopType, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -30,6 +30,12 @@ pub struct ValueTypePair(LLVMValueRef, TypeKind);
 impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
     fn from((val, ty): (LLVMValueRef, TypeKind)) -> ValueTypePair {
         ValueTypePair(val, ty)
+    }
+}
+
+impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, PrimitiveType)) -> ValueTypePair {
+        ValueTypePair(val, TypeKind::Primitive(ty))
     }
 }
 
@@ -65,10 +71,10 @@ impl ValueTypePair {
     pub fn indexable(&self) -> Option<ValueTypePair> {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
-                prim @ PrimitiveType::Str => Some((*val, TypeKind::Primitive(prim.clone())).into()),
-                PrimitiveType::Pointer(box ty) => {
-                    Some((self.0, TypeKind::Primitive(ty.clone())).into())
+                prim @ PrimitiveType::Str | prim @ PrimitiveType::Array { ty: _, len: _ } => {
+                    Some((*val, prim.clone()).into())
                 }
+                PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
                 _ => None,
             },
             _ => None,
@@ -84,6 +90,7 @@ pub struct AatbeModule {
     name: String,
     scope_stack: Vec<Scope>,
     imported: HashMap<String, AST>,
+    imported_cg: Vec<String>,
     current_function: Option<String>,
     typectx: TypeContext,
     compile_errors: Vec<CompileError>,
@@ -103,6 +110,7 @@ impl AatbeModule {
             llvm_builder,
             name,
             imported: HashMap::new(),
+            imported_cg: Vec::new(),
             scope_stack: Vec::new(),
             current_function: None,
             typectx: TypeContext::new(),
@@ -148,7 +156,7 @@ impl AatbeModule {
     pub fn decl_pass(&mut self, ast: &AST) {
         self.start_scope();
         match ast {
-            AST::Constant { ty: _, value: _ } => {}
+            AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, types) => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
@@ -160,13 +168,15 @@ impl AatbeModule {
                 .unwrap(),
             AST::Expr(expr) => self.decl_expr(expr),
             AST::Import(module) => {
-                let ast = self
-                    .parse_import(module)
-                    .expect("Something is completely broken");
-                self.decl_pass(&ast);
-                self.imported
-                    .insert(module.clone(), ast)
-                    .expect_none(format!("Module {} already imported", module).as_ref());
+                if !self.imported.contains_key(module) {
+                    let ast = self
+                        .parse_import(module)
+                        .expect("Something is completely broken");
+                    self.decl_pass(&ast);
+                    self.imported
+                        .insert(module.clone(), ast)
+                        .expect_none(format!("Module {} already imported", module).as_ref());
+                }
             }
             _ => panic!("cannot decl {:?}", ast),
         }
@@ -179,20 +189,16 @@ impl AatbeModule {
                 Some(rec) => {
                     let rec_type = match rec {
                         CodegenUnit::Variable {
-                            mutable: _,
-                            name: _,
                             ty: PrimitiveType::TypeRef(rec),
-                            value: _,
+                            ..
                         } => rec.clone(),
                         CodegenUnit::Variable {
-                            mutable: _,
-                            name: _,
                             ty:
                                 PrimitiveType::NamedType {
                                     name: _,
                                     ty: Some(box PrimitiveType::TypeRef(rec)),
                                 },
-                            value: _,
+                            ..
                         } => rec.clone(),
                         CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
                             rec.clone()
@@ -218,6 +224,9 @@ impl AatbeModule {
     pub fn has_ret(&self, expr: &Expression) -> bool {
         match expr {
             Expression::Ret(_) => true,
+            Expression::Block(vals) if vals.len() > 0 => {
+                vals.iter().fold(false, |_, n| self.has_ret(n))
+            }
             _ => false,
         }
     }
@@ -226,7 +235,6 @@ impl AatbeModule {
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
             Expression::Ret(box _value) => {
-                unimplemented!();
                 let val = self.codegen_expr(_value).unwrap();
 
                 let func_ret = self
@@ -247,7 +255,7 @@ impl AatbeModule {
                     });
                     None
                 } else {
-                    Some((val.val(), TypeKind::Primitive(func_ret)).into())
+                    Some((self.llvm_builder_ref().build_ret(val.val()), func_ret).into())
                 }
             }
             Expression::RecordInit { record, values } => {
@@ -288,7 +296,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_load(rec),
-                        TypeKind::Primitive(PrimitiveType::TypeRef(record.clone())),
+                        PrimitiveType::TypeRef(record.clone()),
                     )
                         .into(),
                 )
@@ -314,7 +322,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.get_var(name).expect("Compiler crapped out.").into(),
-                        TypeKind::Primitive(*ty.clone()),
+                        *ty.clone(),
                     )
                         .into(),
                 )
@@ -329,15 +337,62 @@ impl AatbeModule {
                     return None;
                 }
 
-                let ty = alloc_variable(self, expr);
-
-                Some(
-                    (
-                        self.get_var(name).expect("Compiler crapped out.").into(),
-                        TypeKind::Primitive(ty),
+                alloc_variable(self, expr).and_then(|ty| {
+                    Some(
+                        (
+                            self.get_var(name).expect("Compiler crapped out.").into(),
+                            ty,
+                        )
+                            .into(),
                     )
-                        .into(),
-                )
+                })
+            }
+            Expression::Loop {
+                loop_type,
+                cond_expr,
+                body,
+            } => {
+                let func = self
+                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
+                    .expect("Must be in a function for if statement");
+
+                let cond_bb = func.append_basic_block(String::default());
+                let body_bb = func.append_basic_block(String::default());
+                let end_bb = func.append_basic_block(String::default());
+
+                self.llvm_builder_ref().build_br(cond_bb);
+                self.llvm_builder_ref().position_at_end(cond_bb);
+                let cond = match self.codegen_expr(cond_expr) {
+                    Some(cond) => cond,
+                    None => return None,
+                };
+
+                if *cond.prim().inner() != PrimitiveType::Bool {
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: cond.prim().fmt(),
+                        value: cond_expr.fmt(),
+                    });
+                };
+
+                match loop_type {
+                    LoopType::While => {
+                        self.llvm_builder_ref()
+                            .build_cond_br(cond.val(), body_bb, end_bb)
+                    }
+                    LoopType::Until => {
+                        self.llvm_builder_ref()
+                            .build_cond_br(cond.val(), end_bb, body_bb)
+                    }
+                };
+
+                self.llvm_builder_ref().position_at_end(body_bb);
+                self.codegen_expr(body);
+
+                self.llvm_builder_ref().build_br(cond_bb);
+                self.llvm_builder_ref().position_at_end(end_bb);
+
+                None
             }
             Expression::If {
                 cond_expr,
@@ -347,7 +402,6 @@ impl AatbeModule {
                 let func = self
                     .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
                     .expect("Must be in a function for if statement");
-                let ty = func.ret_ty();
 
                 let then_bb = func.append_basic_block(String::default());
                 let else_bb = if let Some(_) = else_expr {
@@ -388,32 +442,38 @@ impl AatbeModule {
                 } else {
                     None
                 };
-                self.llvm_builder.build_br(end_bb);
+                if !self.has_ret(then_expr) {
+                    self.llvm_builder.build_br(end_bb);
+                }
                 self.llvm_builder.position_at_end(end_bb);
 
                 if let Some(then_val) = then_val {
-                    let tty = then_val.prim().clone();
-                    if tty != PrimitiveType::Unit && ty != PrimitiveType::Unit {
-                        let phi = Phi::new(
-                            self.llvm_builder_ref().as_ref(),
-                            ty.llvm_ty_in_ctx(self),
-                            "",
-                        );
+                    let ty = then_val.prim().clone();
+                    if ty != PrimitiveType::Unit {
+                        if else_val.is_some() {
+                            let phi = Phi::new(
+                                self.llvm_builder_ref().as_ref(),
+                                ty.llvm_ty_in_ctx(self),
+                                "",
+                            );
 
-                        phi.add_incoming(then_val.val(), then_bb);
+                            phi.add_incoming(then_val.val(), then_bb);
 
-                        if let Some(else_val) = else_val {
-                            if &ty != else_val.prim() {
-                                self.add_error(CompileError::ExpectedType {
-                                    expected_ty: ty.clone().fmt(),
-                                    found_ty: else_val.prim().fmt(),
-                                    value: else_expr.as_ref().unwrap().fmt(),
-                                });
+                            if let Some(else_val) = else_val {
+                                if &ty != else_val.prim() {
+                                    self.add_error(CompileError::ExpectedType {
+                                        expected_ty: ty.clone().fmt(),
+                                        found_ty: else_val.prim().fmt(),
+                                        value: else_expr.as_ref().unwrap().fmt(),
+                                    });
+                                }
+                                phi.add_incoming(else_val.val(), else_bb.unwrap());
                             }
-                            phi.add_incoming(else_val.val(), else_bb.unwrap());
-                        }
 
-                        Some((phi.as_ref(), TypeKind::Primitive(ty)).into())
+                            Some((phi.as_ref(), ty).into())
+                        } else {
+                            Some((then_val.val(), ty).into())
+                        }
                     } else {
                         None
                     }
@@ -436,10 +496,44 @@ impl AatbeModule {
                         }
                         _ => self.codegen_expr(arg).map_or(None, |arg| {
                             call_types.push(arg.prim().clone());
-                            Some(arg.val())
+                            match arg.prim().clone() {
+                                PrimitiveType::Array { .. } => {
+                                    Some(self.llvm_builder_ref().build_load(arg.val()))
+                                }
+                                _ => Some(arg.val()),
+                            }
                         }),
                     })
                     .collect::<Vec<LLVMValueRef>>();
+
+                // TODO: fix this hack
+                if raw_name == "len" {
+                    if call_types.len() != 1 {
+                        return None;
+                    }
+                    match call_types[0] {
+                        PrimitiveType::Array {
+                            ty: _,
+                            len: Some(len),
+                        } => {
+                            return Some(
+                                (
+                                    self.llvm_context_ref().SInt32(len as u64),
+                                    PrimitiveType::Int(IntSize::Bits32),
+                                )
+                                    .into(),
+                            );
+                        }
+                        _ => {
+                            self.add_error(CompileError::MismatchedArguments {
+                                function: String::from("len"),
+                                expected_ty: String::from("[x; n]"),
+                                found_ty: call_types[0].clone().fmt(),
+                            });
+                            return None;
+                        }
+                    }
+                }
 
                 let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
@@ -457,9 +551,21 @@ impl AatbeModule {
 
                 let mut mismatch = false;
 
-                let params = self
-                    .get_params(&name)
-                    .expect(format!("Call to undefined function {}", raw_name).as_str());
+                let params = match self.get_params(&name) {
+                    None => {
+                        self.add_error(CompileError::UnknownFunction {
+                            name: raw_name.clone(),
+                            values: call_types
+                                .iter()
+                                .zip(args)
+                                .map(|(ty, val)| format!("{}: {}", val.mangle(), ty.fmt()))
+                                .collect::<Vec<String>>()
+                                .join(", "),
+                        });
+                        return None;
+                    }
+                    Some(params) => params,
+                };
 
                 for (i, fty) in params.iter().enumerate() {
                     if fty == &PrimitiveType::Varargs {
@@ -492,7 +598,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder.build_call(func.into(), &mut call_args),
-                        TypeKind::Primitive(func.ret_ty()),
+                        func.ret_ty(),
                     )
                         .into(),
                 )
@@ -567,6 +673,10 @@ impl AatbeModule {
             AST::Constant {
                 ty: PrimitiveType::NamedType { name, ty: _ },
                 value: _,
+            }
+            | AST::Global {
+                ty: PrimitiveType::NamedType { name, ty: _ },
+                value: _,
             } => {
                 fold_constant(self, ast).map(|constant| self.push_in_scope(name, constant));
                 None
@@ -577,11 +687,14 @@ impl AatbeModule {
                 .unwrap(),
             AST::Expr(expr) => self.codegen_expr(expr).map(|e| e.val()),
             AST::Import(module) => {
-                let ast = self
-                    .get_imported_ast(module)
-                    .expect("Cannot find already declared imported module? wat")
-                    .clone();
-                self.codegen_pass(&ast);
+                if !self.imported_cg.contains(module) {
+                    let ast = self
+                        .get_imported_ast(module)
+                        .expect("Cannot find already declared imported module? wat")
+                        .clone();
+                    self.codegen_pass(&ast);
+                    self.imported_cg.push(module.clone());
+                }
                 None
             }
             AST::Record(_, _) => None,

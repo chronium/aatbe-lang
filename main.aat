@@ -1,18 +1,11 @@
 use "aatlib/prelude"
 
-rec Num(n: i32)
-
-fn double num: &Num = {
-    num.n = num.n * 2
-}
+fn test arr: &i32[1] = arr[0] = 64
 
 @entry
 fn main () = {
-    var num = Num {
-        n: 16
-    }
-
-    double &num
-
-    println num.n
+    var arr = [10]
+    println arr[0]
+    test &arr
+    println arr[0]
 }

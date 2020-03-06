@@ -6,7 +6,7 @@ use crate::{
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
-pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> PrimitiveType {
+pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option<PrimitiveType> {
     match variable {
         Expression::Decl {
             ty: PrimitiveType::NamedType { name, ty },
@@ -16,24 +16,26 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
             let mut vtp = None;
             let ty = match ty {
                 Some(ty) => *ty.clone(),
-                None => PrimitiveType::NamedType {
-                    name: name.clone(),
-                    ty: Some(box if let Some(e) = value {
+                None => {
+                    if let Some(e) = value {
                         if let box Expression::RecordInit { record, values: _ } = e {
                             PrimitiveType::TypeRef(record.clone())
                         } else {
-                            let pair = module
-                                .codegen_expr(e)
-                                .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                            let pair = match module.codegen_expr(e) {
+                                None => return None,
+                                Some(pair) => pair,
+                            };
+
                             let ty = pair.prim().clone();
                             vtp = Some(pair);
                             ty
                         }
                     } else {
                         unreachable!();
-                    }),
-                },
+                    }
+                }
             };
+
             let var_ref = module
                 .llvm_builder_ref()
                 .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
@@ -67,9 +69,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                     );
                 } else {
                     let val = if vtp.is_none() {
-                        let val = module
-                            .codegen_expr(e)
-                            .expect(format!("Cannot codegen variable {} value", name).as_ref());
+                        let val = match module.codegen_expr(e) {
+                            None => return None,
+                            Some(val) => val,
+                        };
 
                         if val.prim() != ty.inner() {
                             module.add_error(CompileError::ExpectedType {
@@ -85,7 +88,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Primit
                     module.llvm_builder_ref().build_store(val.val(), var_ref);
                 }
             }
-            ty.clone()
+            Some(ty.clone())
         }
         _ => unreachable!(),
     }
@@ -118,7 +121,7 @@ pub fn init_record(
                             Some(
                                 (
                                     module.llvm_builder_ref().build_load(gep),
-                                    TypeKind::Primitive(PrimitiveType::Char),
+                                    PrimitiveType::Char,
                                 )
                                     .into(),
                             )
@@ -139,48 +142,46 @@ pub fn init_record(
     }
 
     match rec {
-        Expression::RecordInit { record, values } => get_lval(module, lval)
-            .map(|var| {
-                let mut err = false;
+        Expression::RecordInit { record, values } => get_lval(module, lval).and_then(|var| {
+            let mut err = false;
 
-                values.iter().for_each(|val| match val {
-                    AtomKind::NamedValue { name, val } => {
-                        let val_ref = module
-                            .codegen_expr(val)
-                            .expect(format!("ICE could not codegen {:?}", val).as_str());
-                        let val_ty = val_ref.prim().fmt();
-                        match store_named_field(
-                            module,
-                            var.val(),
-                            &lval.into(),
-                            module
-                                .typectx_ref()
-                                .get_record(record)
-                                .expect(format!("ICE could not find record {}", record).as_str()),
-                            name,
-                            val_ref,
-                        ) {
-                            Ok(_) => {}
-                            Err(expected) => {
-                                err = true;
-                                module.add_error(CompileError::StoreMismatch {
-                                    expected_ty: expected.fmt(),
-                                    found_ty: val_ty,
-                                    value: val.fmt(),
-                                    lval: lval.fmt(),
-                                })
-                            }
-                        };
-                    }
-                    _ => panic!("ICE init_record unexpected {:?}", val),
-                });
-
-                match err {
-                    false => Some(var),
-                    true => None,
+            values.iter().for_each(|val| match val {
+                AtomKind::NamedValue { name, val } => {
+                    let val_ref = module
+                        .codegen_expr(val)
+                        .expect(format!("ICE could not codegen {:?}", val).as_str());
+                    let val_ty = val_ref.prim().fmt();
+                    match store_named_field(
+                        module,
+                        var.val(),
+                        &lval.into(),
+                        module
+                            .typectx_ref()
+                            .get_record(record)
+                            .expect(format!("ICE could not find record {}", record).as_str()),
+                        name,
+                        val_ref,
+                    ) {
+                        Ok(_) => {}
+                        Err(expected) => {
+                            err = true;
+                            module.add_error(CompileError::StoreMismatch {
+                                expected_ty: expected.fmt(),
+                                found_ty: val_ty,
+                                value: val.fmt(),
+                                lval: lval.fmt(),
+                            })
+                        }
+                    };
                 }
-            })
-            .flatten(),
+                _ => panic!("ICE init_record unexpected {:?}", val),
+            });
+
+            match err {
+                false => Some(var),
+                true => None,
+            }
+        }),
         _ => unreachable!(),
     }
 }
@@ -196,7 +197,7 @@ pub fn store_value(
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => {
                     match var.get_mutability() {
-                        Mutability::Mutable => {}
+                        Mutability::Mutable | Mutability::Global => {}
                         _ => panic!("Cannot reassign to immutable/constant {}", name),
                     };
                     Some(var.into())
@@ -216,7 +217,15 @@ pub fn store_value(
                                 .llvm_builder_ref()
                                 .build_inbounds_gep(load, &mut [index.val()]);
 
-                            Some((gep, TypeKind::Primitive(PrimitiveType::Char)).into())
+                            Some((gep, PrimitiveType::Char).into())
+                        }
+                        TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
+                            let gep = module.llvm_builder_ref().build_inbounds_gep(
+                                val.val(),
+                                &mut [module.llvm_context_ref().SInt32(0), index.val()],
+                            );
+
+                            Some((gep, ty.clone()).into())
                         }
                         _ => {
                             module.add_error(CompileError::NotIndexable {
@@ -233,29 +242,28 @@ pub fn store_value(
         }
     }
 
-    get_lval(module, lval)
-        .map(|var| {
-            let val = module
-                .codegen_expr(value)
-                .expect(format!("Cannot codegen assignment for {:?} value", lval).as_ref());
-            if var.prim() != val.prim().inner() {
-                module.add_error(CompileError::AssignMismatch {
-                    expected_ty: var.prim().fmt(),
-                    found_ty: val.prim().fmt(),
-                    value: value.fmt(),
-                    var: lval.fmt(),
-                });
+    get_lval(module, lval).and_then(|var| {
+        let val = match module.codegen_expr(value) {
+            None => return None,
+            Some(val) => val,
+        };
+        if var.prim() != val.prim().inner() {
+            module.add_error(CompileError::AssignMismatch {
+                expected_ty: var.prim().fmt(),
+                found_ty: val.prim().fmt(),
+                value: value.fmt(),
+                var: lval.fmt(),
+            });
 
-                None
-            } else {
-                Some(
-                    (
-                        module.llvm_builder_ref().build_store(val.val(), var.val()),
-                        var.ty(),
-                    )
-                        .into(),
+            None
+        } else {
+            Some(
+                (
+                    module.llvm_builder_ref().build_store(val.val(), var.val()),
+                    var.ty(),
                 )
-            }
-        })
-        .flatten()
+                    .into(),
+            )
+        }
+    })
 }

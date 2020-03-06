@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod macros;
+pub mod atom;
 pub mod conditionals;
 pub mod expression;
 
@@ -141,7 +142,7 @@ impl Parser {
                 capture!(res parse_use, self)
                     .or_else(|_| capture!(res parse_function, self))
                     .or_else(|_| capture!(res parse_record, self))
-                    .or_else(|_| capture!(res parse_const, self))
+                    .or_else(|_| capture!(res parse_const_global, self))
                     .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
             );
         };

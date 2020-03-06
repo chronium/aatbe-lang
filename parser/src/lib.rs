@@ -7,7 +7,7 @@ pub mod parser;
 
 mod tests;
 
-use ast::{Expression, IntSize, PrimitiveType, AST};
+use ast::{Expression, FloatSize, IntSize, PrimitiveType, AST};
 use lexer::{
     token,
     token::{Keyword, Symbol, Type},
@@ -49,6 +49,8 @@ impl Parser {
                 Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
                 Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
                 Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
+                Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
+                Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
                 _ => None,
             })
         } else {
@@ -58,16 +60,25 @@ impl Parser {
         if ty.is_none() {
             Err(ParseError::ExpectedType)
         } else {
-            Ok(match sym!(bool Star, self) {
-                true => PrimitiveType::Pointer(box ty.unwrap()),
-                false => ty.unwrap(),
+            let ty = ty.unwrap();
+            Ok(if sym!(bool Star, self) {
+                PrimitiveType::Pointer(box ty)
+            } else if sym!(bool LBracket, self) {
+                let len = self.peek().and_then(|tok| tok.int()).map(|len| len as u32);
+                if len.is_some() {
+                    self.next();
+                }
+                sym!(required RBracket, self);
+                PrimitiveType::Array { ty: box ty, len }
+            } else {
+                ty
             })
         }
     }
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
         let name = ident!(required self);
-        if sym!(bool Comma, self) {
+        if sym!(bool Comma, self) | sym!(bool Arrow, self) {
             return Err(ParseError::Continue);
         };
         let ty = if sym!(bool Colon, self) {
@@ -103,19 +114,23 @@ impl Parser {
 
     fn parse_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
         let mut params = vec![];
-        let ty = capture!(res parse_named_type, self)
-            .or_else(|_| capture!(res parse_type, self))
-            .or(Err(ParseError::ExpectedType))?;
-        params.push(ty);
+
+        params.push(
+            capture!(res parse_named_type, self)
+                .or_else(|_| capture!(res parse_type, self))
+                .or(Err(ParseError::ExpectedType))?,
+        );
+
         loop {
             if !sym!(bool Comma, self) {
                 break;
             }
 
-            let ty = capture!(res parse_named_type, self)
-                .or_else(|_| capture!(res parse_type, self))
-                .or(Err(ParseError::ExpectedType))?;
-            params.push(ty);
+            params.push(
+                capture!(res parse_named_type, self)
+                    .or_else(|_| capture!(res parse_type, self))
+                    .or(Err(ParseError::ExpectedType))?,
+            );
         }
         Ok(params)
     }
@@ -138,15 +153,24 @@ impl Parser {
         Ok(AST::Record(name, types))
     }
 
-    fn parse_const(&mut self) -> ParseResult<AST> {
-        kw!(Const, self);
+    fn parse_const_global(&mut self) -> ParseResult<AST> {
+        let cons = kw!(bool Const, self);
+        let glob = kw!(bool Global, self);
+
+        if !cons && !glob {
+            return Err(ParseError::Continue);
+        }
 
         let ty = capture!(res parse_named_type, self)?;
 
         sym!(required Assign, self);
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
-        Ok(AST::Constant { ty, value })
+        Ok(if cons {
+            AST::Constant { ty, value }
+        } else {
+            AST::Global { ty, value }
+        })
     }
 
     fn parse_function(&mut self) -> ParseResult<AST> {

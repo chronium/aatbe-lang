@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Boolean, Expression, IntSize, LValue, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, Expression, FloatSize, IntSize, LValue, PrimitiveType};
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
@@ -21,6 +21,16 @@ impl AatbeFmt for &PrimitiveType {
                 IntSize::Bits32 => String::from("i32"),
                 IntSize::Bits64 => String::from("i64"),
             },
+            PrimitiveType::UInt(bits) => match bits {
+                IntSize::Bits8 => String::from("u8"),
+                IntSize::Bits16 => String::from("u16"),
+                IntSize::Bits32 => String::from("u32"),
+                IntSize::Bits64 => String::from("u64"),
+            },
+            PrimitiveType::Float(bits) => match bits {
+                FloatSize::Bits32 => String::from("f32"),
+                FloatSize::Bits64 => String::from("f64"),
+            },
             PrimitiveType::Varargs => String::from("..."),
             PrimitiveType::NamedType {
                 name: _,
@@ -29,6 +39,13 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
             PrimitiveType::Char => String::from("char"),
             PrimitiveType::TypeRef(ty) => ty.clone(),
+            PrimitiveType::Array { ty, len } => format!(
+                "{}[{}]",
+                ty.clone().fmt(),
+                len.map(|len| len.to_string()).unwrap_or(String::from("?"))
+            ),
+            PrimitiveType::Unit => String::from("()"),
+            PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -40,6 +57,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::StringLiteral(lit) => format!("{}", lit),
             AtomKind::CharLiteral(lit) => format!("{}", lit),
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
+            AtomKind::Floating(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Bool(Boolean::True) => String::from("true"),
             AtomKind::Bool(Boolean::False) => String::from("false"),
             AtomKind::Ident(id) => format!("{}", id),
@@ -47,7 +65,15 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Parenthesized(expr) => format!("({})", expr.fmt()),
             AtomKind::Cast(val, ty) => format!("{} as {}", val.fmt(), ty.fmt()),
             AtomKind::NamedValue { name, val } => format!("{}: {}", name, val.fmt()),
-            AtomKind::Index(lval, ind) => format!("{}[{}]", lval.fmt(), ind.fmt()),
+            AtomKind::Access(list) => list.join("."),
+            AtomKind::Array(vals) => format!(
+                "[{}]",
+                vals.iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            AtomKind::Index(lval, index) => format!("{}[{}]", lval.fmt(), index.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -63,6 +89,14 @@ impl AatbeFmt for &Expression {
                 record,
                 values
                     .iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Call { name, args } => format!(
+                "{} {}",
+                name,
+                args.iter()
                     .map(|val| val.fmt())
                     .collect::<Vec<String>>()
                     .join(", ")

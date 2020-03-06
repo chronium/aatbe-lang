@@ -1,9 +1,6 @@
 use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
 
-use crate::{
-    codegen::{AatbeModule, ValueTypePair},
-    ty::TypeKind,
-};
+use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
@@ -17,6 +14,7 @@ pub enum Mutability {
     Immutable,
     Mutable,
     Constant,
+    Global,
 }
 
 impl From<&BindType> for Mutability {
@@ -44,18 +42,14 @@ pub enum CodegenUnit {
 impl Into<ValueTypePair> for &CodegenUnit {
     fn into(self) -> ValueTypePair {
         match self {
-            CodegenUnit::Function(func, ty) => {
-                (func.as_ref(), TypeKind::Primitive(ty.clone())).into()
-            }
-            CodegenUnit::FunctionArgument(arg, ty) => {
-                (*arg, TypeKind::Primitive(ty.clone())).into()
-            }
+            CodegenUnit::Function(func, ty) => (func.as_ref(), ty.clone()).into(),
+            CodegenUnit::FunctionArgument(arg, ty) => (*arg, ty.clone()).into(),
             CodegenUnit::Variable {
                 mutable: _,
                 name: _,
                 ty,
                 value,
-            } => (*value, TypeKind::Primitive(ty.clone())).into(),
+            } => (*value, ty.clone()).into(),
         }
     }
 }
@@ -65,12 +59,7 @@ impl Into<LLVMValueRef> for &CodegenUnit {
         match self {
             CodegenUnit::Function(func, _) => func.as_ref(),
             CodegenUnit::FunctionArgument(arg, _) => *arg,
-            CodegenUnit::Variable {
-                mutable: _,
-                name: _,
-                ty: _,
-                value,
-            } => *value,
+            CodegenUnit::Variable { value, .. } => *value,
         }
     }
 }
@@ -92,14 +81,7 @@ impl CodegenUnit {
 
     pub fn param_types(&self) -> Vec<PrimitiveType> {
         match self {
-            CodegenUnit::Function(
-                _,
-                PrimitiveType::Function {
-                    ext: _,
-                    ret_ty: _,
-                    params,
-                },
-            ) => params
+            CodegenUnit::Function(_, PrimitiveType::Function { params, .. }) => params
                 .iter()
                 .filter_map(|p| match p {
                     //TODO: Handle Unit
@@ -119,14 +101,12 @@ impl CodegenUnit {
     pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<(u32, PrimitiveType)> {
         match self {
             CodegenUnit::Variable {
-                mutable: _,
-                name: _,
                 ty:
                     PrimitiveType::NamedType {
                         name: _,
                         ty: Some(box PrimitiveType::TypeRef(record)),
                     },
-                value: _,
+                ..
             } => match module.typectx_ref().get_record(record) {
                 Ok(rec) => rec.get_field_index_ty(name),
                 _ => panic!("Cannot get index from {:?}", self),
@@ -152,13 +132,20 @@ impl CodegenUnit {
     pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
         match self {
             CodegenUnit::Variable {
-                mutable,
-                name: _,
-                ty: _,
-                value: _,
-            } => match mutable {
-                Mutability::Mutable | Mutability::Immutable => builder.build_load(self.into()),
+                ty: PrimitiveType::Array { .. },
+                ..
+            }
+            | CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::NamedType {
+                        ty: Some(box PrimitiveType::Array { .. }),
+                        ..
+                    },
+                ..
+            } => self.into(),
+            CodegenUnit::Variable { mutable, .. } => match mutable {
                 Mutability::Constant => self.into(),
+                _ => builder.build_load(self.into()),
             },
             CodegenUnit::FunctionArgument(_, _) => self.into(),
             _ => panic!("Cannot load non-variable"),
@@ -167,12 +154,7 @@ impl CodegenUnit {
 
     pub fn var_ty(&self) -> &PrimitiveType {
         match self {
-            CodegenUnit::Variable {
-                mutable: _,
-                name: _,
-                ty,
-                value: _,
-            } => match ty {
+            CodegenUnit::Variable { ty, .. } => match ty {
                 PrimitiveType::NamedType {
                     name: _,
                     ty: Some(ty),
@@ -186,12 +168,8 @@ impl CodegenUnit {
 
     pub fn get_mutability(&self) -> &Mutability {
         match self {
-            CodegenUnit::Variable {
-                mutable,
-                name: _,
-                ty: _,
-                value: _,
-            } => mutable,
+            CodegenUnit::Variable { mutable, .. } => mutable,
+            CodegenUnit::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
             _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }

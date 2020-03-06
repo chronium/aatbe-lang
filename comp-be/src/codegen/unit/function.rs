@@ -84,6 +84,10 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                             PrimitiveType::NamedType {
                                 name,
                                 ty: Some(box PrimitiveType::TypeRef(_)),
+                            }
+                            | PrimitiveType::NamedType {
+                                name,
+                                ty: Some(box PrimitiveType::Array { .. }),
                             } => {
                                 let arg = module
                                     .get_func(&fun_name)
@@ -97,7 +101,14 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::Variable {
-                                        mutable: Mutability::Immutable,
+                                        mutable: match ty {
+                                            PrimitiveType::Array { .. }
+                                            | PrimitiveType::NamedType {
+                                                ty: Some(box PrimitiveType::Array { .. }),
+                                                ..
+                                            } => Mutability::Mutable,
+                                            _ => Mutability::Immutable,
+                                        },
                                         name: name.clone(),
                                         ty: ty.clone(),
                                         value: ptr,

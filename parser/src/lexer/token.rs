@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub position: Position,
@@ -8,12 +8,13 @@ pub struct Token {
 
 pub type Position = (usize, usize);
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     EOF,
     Symbol(Symbol),
     Comment(String),
     IntLiteral(u64),
+    FloatLiteral(f64),
     BooleanLiteral(Boolean),
     Identifier(String),
     Keyword(Keyword),
@@ -106,7 +107,10 @@ pub enum Keyword {
     As,
     Then,
     Const,
+    Global,
     Ret,
+    While,
+    Until,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -121,6 +125,8 @@ pub enum Type {
     U16,
     U32,
     U64,
+    F32,
+    F64,
 }
 
 macro_rules! to_tok {
@@ -191,6 +197,7 @@ impl Token {
     from_tok!(bl, BooleanLiteral, Boolean);
     from_tok!(sym, Symbol, Symbol);
     from_tok!(int, IntLiteral, u64);
+    from_tok!(float, FloatLiteral, f64);
     from_tok!(ident, Identifier, String);
     from_tok!(ty, Type, Type);
     from_tok!(st, StringLiteral, String);
@@ -212,6 +219,8 @@ impl FromStr for Type {
             "u16" => Ok(Self::U16),
             "u32" => Ok(Self::U32),
             "u64" => Ok(Self::U64),
+            "f32" => Ok(Self::F32),
+            "f64" => Ok(Self::F64),
             _ => Err(()),
         }
     }
@@ -233,7 +242,10 @@ impl FromStr for Keyword {
             "as" => Ok(Self::As),
             "then" => Ok(Self::Then),
             "const" => Ok(Self::Const),
+            "global" => Ok(Self::Global),
             "ret" => Ok(Self::Ret),
+            "while" => Ok(Self::While),
+            "until" => Ok(Self::Until),
             _ => Err(()),
         }
     }

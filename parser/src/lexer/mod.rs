@@ -1,4 +1,4 @@
-use std::{iter::Peekable, str::Chars};
+use std::{iter::Peekable, str::Chars, str::FromStr};
 
 pub mod token;
 
@@ -96,6 +96,10 @@ impl<'c> Lexer<'c> {
             Some('n') => {
                 self.advance();
                 '\n'
+            }
+            Some('t') => {
+                self.advance();
+                '\t'
             }
             Some('"') => {
                 self.advance();
@@ -341,28 +345,38 @@ impl<'c> Lexer<'c> {
                                 break;
                             }
                         }
-                        u64::from_str_radix(&buf, 16).expect("Lexer died @hex -> u64")
+                        TokenKind::IntLiteral(
+                            u64::from_str_radix(&buf, 16).expect("Lexer died @hex -> u64"),
+                        )
                     } else {
                         buf.push('0');
                         while let Some(ch) = self.chars.peek() {
                             match ch {
                                 '_' => self.advance(),
-                                _ if ch.is_digit(10) => {
+                                _ if ch.is_digit(10) | (*ch == '.') => {
                                     buf.push(self.read().expect("Lexer died @digits"))
                                 }
                                 _ => break,
                             };
                         }
-                        u64::from_str_radix(&buf, 10).expect("Lexer died @dec -> u64")
+                        if buf.contains(".") {
+                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
+                                format!("{} is not a floating point literal", buf).as_ref(),
+                            ))
+                        } else {
+                            TokenKind::IntLiteral(
+                                u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
+                            )
+                        }
                     };
-                    self.push_token(TokenKind::IntLiteral(num), pos);
+                    self.push_token(num, pos);
                 }
                 c if c.is_digit(10) => {
                     let mut buf = c.to_string();
                     while let Some(ch) = self.chars.peek() {
                         match ch {
                             '_' => self.advance(),
-                            _ if ch.is_digit(10) => {
+                            _ if ch.is_digit(10) | (*ch == '.') => {
                                 buf.push(self.read().expect("Lexer died @digits"))
                             }
                             _ => break,
@@ -370,9 +384,15 @@ impl<'c> Lexer<'c> {
                     }
 
                     self.push_token(
-                        TokenKind::IntLiteral(
-                            u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
-                        ),
+                        if buf.contains(".") {
+                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
+                                format!("{} is not a floating point literal", buf).as_ref(),
+                            ))
+                        } else {
+                            TokenKind::IntLiteral(
+                                u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
+                            )
+                        },
                         pos,
                     );
                 }
@@ -552,7 +572,7 @@ mod lexer_tests {
     #[test]
     fn keyword_identifier() {
         let mut lexer = Lexer::new(
-            "fn extern var val if else use true false main record.test bool rec const ret",
+            "fn extern var val if else use true false main record.test bool rec global ret while until",
         );
         lexer.lex();
         let mut tokens = lexer.into_iter();
@@ -589,14 +609,18 @@ mod lexer_tests {
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Record));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Const));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Global));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Ret));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::While));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Until));
     }
 
     #[test]
     fn type_tests() {
-        let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64");
+        let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64 f32 f64");
         lexer.lex();
         let mut tokens = lexer.into_iter();
 
@@ -617,5 +641,9 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U32));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::U64));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F32));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F64));
     }
 }

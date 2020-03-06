@@ -7,14 +7,16 @@ fn println b: bool -> () = {
     else printf "%s\n", "false"
 }
 
-fn println i: i8 -> () = printf "%d\n", i
-fn println i: i16 -> () = printf "%d\n", i
-fn println i: i32 -> () = printf "%d\n", i
-fn println i: i64 -> () = printf "%d\n", i
-fn println u: u8 -> () = printf "%d\n", u
-fn println u: u16 -> () = printf "%d\n", u
-fn println u: u32 -> () = printf "%d\n", u
-fn println u: u64 -> () = printf "%d\n", u
+fn println i: i8 -> () = printf "%hhi\n", i
+fn println i: i16 -> () = printf "%hi\n", i
+fn println i: i32 -> () = printf "%i\n", i
+fn println i: i64 -> () = printf "%li\n", i
+fn println u: u8 -> () = printf "%hhu\n", u
+fn println u: u16 -> () = printf "%hu\n", u
+fn println u: u32 -> () = printf "%u\n", u
+fn println u: u64 -> () = printf "%lu\n", u
+fn println f: f64 -> () = printf "%f\n", f
+fn println f: f64 -> () = printf "%f\n", f
 
 fn print s: str -> () = printf "%s", s
 fn print c: char -> () = printf "%c", c
@@ -23,11 +25,13 @@ fn print b: bool -> () = {
     else printf "%s", "false"
 }
 
-fn print i: i8 -> () = printf "%d", i
-fn print i: i16 -> () = printf "%d", i
-fn print i: i32 -> () = printf "%d", i
-fn print i: i64 -> () = printf "%d", i
-fn print u: u8 -> () = printf "%d", u
-fn print u: u16 -> () = printf "%d", u
-fn print u: u32 -> () = printf "%d", u
-fn print u: u64 -> () = printf "%d", u
+fn print i: i8 -> () = printf "%hhi", i
+fn print i: i16 -> () = printf "%hi", i
+fn print i: i32 -> () = printf "%i", i
+fn print i: i64 -> () = printf "%li", i
+fn print u: u8 -> () = printf "%hhu", u
+fn print u: u16 -> () = printf "%hu", u
+fn print u: u32 -> () = printf "%u", u
+fn print u: u64 -> () = printf "%lu", u
+fn print f: f64 -> () = printf "%f", f
+fn print f: f64 -> () = printf "%f", f

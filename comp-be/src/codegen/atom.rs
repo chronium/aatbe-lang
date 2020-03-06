@@ -4,7 +4,9 @@ use crate::{
     ty::{LLVMTyInCtx, TypeKind},
 };
 
-use parser::ast::{AtomKind, Boolean, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
+
+use llvm_sys_wrapper::LLVMValueRef;
 
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
@@ -20,7 +22,7 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -30,7 +32,60 @@ impl AatbeModule {
                             (
                                 self.llvm_builder_ref()
                                     .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                TypeKind::Primitive(ty.clone()),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Float(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_si_to_fp(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::UInt(_)), PrimitiveType::Float(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ui_to_fp(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (
+                        TypeKind::Primitive(PrimitiveType::Float(FloatSize::Bits64)),
+                        PrimitiveType::Float(FloatSize::Bits32),
+                    ) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_fp_trunc(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Float(_)), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_fp_to_si(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Float(_)), PrimitiveType::UInt(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_fp_to_ui(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
                             )
                                 .into(),
                         )
@@ -62,7 +117,7 @@ impl AatbeModule {
                     (
                         self.llvm_builder_ref()
                             .build_bitcast(val, ty.llvm_ty_in_ctx(self)),
-                        TypeKind::Primitive(ty.clone()),
+                        ty.clone(),
                     )
                         .into(),
                 )
@@ -76,16 +131,26 @@ impl AatbeModule {
                     .expect(format!("{:?} is not indexable", val).as_str())
                     .into();
 
-                let gep = self
-                    .llvm_builder_ref()
-                    .build_inbounds_gep(val, &mut [index.val()]);
-
+                let mut arr = false;
                 let ty = match ty {
                     TypeKind::Primitive(PrimitiveType::Str) => {
                         TypeKind::Primitive(PrimitiveType::Char)
                     }
-                    _ => panic!("ICE ty[] {:?}", ty),
+                    TypeKind::Primitive(PrimitiveType::Array { ty: box ty, len: _ }) => {
+                        arr = true;
+
+                        TypeKind::Primitive(ty)
+                    }
+                    _ => ty,
                 };
+
+                let mut ind = vec![];
+                if arr {
+                    ind.push(self.llvm_context_ref().UInt32(0));
+                }
+                ind.push(index.val());
+
+                let gep = self.llvm_builder_ref().build_inbounds_gep(val, &mut ind);
 
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
@@ -109,31 +174,21 @@ impl AatbeModule {
                 let var_ref = self.get_var(name);
 
                 match var_ref {
-                    None => panic!("Cannot find variable {}", name),
-                    Some(var) => Some(
-                        (
-                            var.load_var(self.llvm_builder_ref()),
-                            TypeKind::Primitive(var.var_ty().clone()),
-                        )
-                            .into(),
-                    ),
+                    None => None,
+                    Some(var) => {
+                        Some((var.load_var(self.llvm_builder_ref()), var.var_ty().clone()).into())
+                    }
                 }
             }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
                 let var_ref = self.get_var(name);
 
                 match var_ref {
-                    None => panic!("Cannot find variable {}", name),
+                    None => None,
                     Some(var) => {
                         let var: ValueTypePair = var.into();
 
-                        Some(
-                            (
-                                var.val(),
-                                TypeKind::Primitive(PrimitiveType::Ref(box var.prim().clone())),
-                            )
-                                .into(),
-                        )
+                        Some((var.val(), PrimitiveType::Ref(box var.prim().clone())).into())
                     }
                 }
             }
@@ -141,22 +196,42 @@ impl AatbeModule {
                 const_atom(self, atom)
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
-            AtomKind::Bool(Boolean::True) => Some(
-                (
-                    self.llvm_context_ref().SInt1(1),
-                    TypeKind::Primitive(PrimitiveType::Bool),
-                )
-                    .into(),
-            ),
-            AtomKind::Bool(Boolean::False) => Some(
-                (
-                    self.llvm_context_ref().SInt1(0),
-                    TypeKind::Primitive(PrimitiveType::Bool),
-                )
-                    .into(),
-            ),
+            atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
+            AtomKind::Bool(Boolean::True) => {
+                Some((self.llvm_context_ref().SInt1(1), PrimitiveType::Bool).into())
+            }
+            AtomKind::Bool(Boolean::False) => {
+                Some((self.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into())
+            }
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
+            AtomKind::Unary(op, val) if op == &String::from("-") => {
+                let value = self
+                    .codegen_atom(val)
+                    .expect(format!("ICE Cannot negate {:?}", val).as_str());
+
+                match value.prim() {
+                    prim @ PrimitiveType::Int(_) | prim @ PrimitiveType::UInt(_) => {
+                        Some((self.llvm_builder_ref().build_neg(value.val()), prim.clone()).into())
+                    }
+                    prim @ PrimitiveType::Float(_) => Some(
+                        (
+                            self.llvm_builder_ref().build_fneg(value.val()),
+                            prim.clone(),
+                        )
+                            .into(),
+                    ),
+                    _ => {
+                        self.add_error(CompileError::UnaryMismatch {
+                            op: op.clone(),
+                            expected_ty: String::from("any number/float"),
+                            found_ty: value.prim().fmt(),
+                            value: val.fmt(),
+                        });
+                        None
+                    }
+                }
+            }
             AtomKind::Unary(op, val) if op == &String::from("!") => {
                 let value = self
                     .codegen_atom(val)
@@ -174,12 +249,61 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_not(value.val()),
-                        TypeKind::Primitive(PrimitiveType::Bool),
+                        PrimitiveType::Bool,
                     )
                         .into(),
                 )
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
+            AtomKind::Array(exprs) => {
+                let values = exprs
+                    .iter()
+                    .filter_map(|expr| self.codegen_expr(expr))
+                    .collect::<Vec<ValueTypePair>>();
+                if exprs.len() != values.len() {
+                    return None;
+                }
+
+                let types = values
+                    .iter()
+                    .map(|val| val.prim().clone())
+                    .collect::<Vec<PrimitiveType>>();
+
+                let fst = types.first().unwrap();
+                if !types.iter().all(|ty| ty == fst) {
+                    self.add_error(CompileError::ArrayTypesNotUniform {
+                        values: format!(
+                            "[{}]",
+                            exprs
+                                .iter()
+                                .map(|val| val.fmt())
+                                .collect::<Vec<String>>()
+                                .join(", ")
+                        ),
+                    });
+
+                    return None;
+                };
+
+                let len = values.len() as u32;
+                Some(
+                    (
+                        self.llvm_context_ref().ConstArray(
+                            fst.clone().llvm_ty_in_ctx(self),
+                            &mut values
+                                .iter()
+                                .map(|val| val.val())
+                                .collect::<Vec<LLVMValueRef>>(),
+                            len,
+                        ),
+                        PrimitiveType::Array {
+                            ty: box fst.clone(),
+                            len: Some(len),
+                        },
+                    )
+                        .into(),
+                )
+            }
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }

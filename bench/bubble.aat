@@ -1,0 +1,46 @@
+use "../aatlib/prelude"
+
+fn bubble_sort arr: &i32[7] = {
+    var i = 0
+    var j = 0
+    var swapped: bool
+
+    while i < (len arr) {
+        swapped = false
+
+        j = 0
+        while j < (len arr) {
+            if arr[j] > arr[j + 1] {
+                val tmp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = tmp
+                swapped = true
+            }
+            j = j + 1
+        }
+
+        if !swapped then i = (len arr)
+
+        i = i + 1
+    }
+}
+
+@entry
+fn main () = {
+    var arr = [5, 8, 13, 2, 1, 22, 9]
+    var i = 0
+
+    while i < (len arr) {
+        printf "%d ", arr[i]
+        i = i + 1
+    }
+    println ""
+    bubble_sort &arr
+
+    i = 0
+    while i < (len arr) {
+        printf "%d ", arr[i]
+        i = i + 1
+    }
+    println ""
+}

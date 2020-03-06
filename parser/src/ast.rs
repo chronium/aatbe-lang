@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AST {
     File(Vec<AST>),
     Error,
@@ -11,9 +11,13 @@ pub enum AST {
         ty: PrimitiveType,
         value: Box<Expression>,
     },
+    Global {
+        ty: PrimitiveType,
+        value: Box<Expression>,
+    },
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Atom(AtomKind),
     Binary(Box<Expression>, String, Box<Expression>),
@@ -47,9 +51,14 @@ pub enum Expression {
         record: String,
         values: Vec<AtomKind>,
     },
+    Loop {
+        loop_type: LoopType,
+        cond_expr: Box<Expression>,
+        body: Box<Expression>,
+    },
 }
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum LValue {
     Ident(String),
     Accessor(Vec<String>),
@@ -57,14 +66,20 @@ pub enum LValue {
     Index(Box<LValue>, Box<Expression>),
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BindType {
     Mutable,
     Immutable,
     Constant,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
+pub enum LoopType {
+    While,
+    Until,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum PrimitiveType {
     Unit,
     Str,
@@ -73,6 +88,7 @@ pub enum PrimitiveType {
     Char,
     Int(IntSize),
     UInt(IntSize),
+    Float(FloatSize),
     TypeRef(String),
     Function {
         ext: bool,
@@ -85,6 +101,10 @@ pub enum PrimitiveType {
     },
     Ref(Box<PrimitiveType>),
     Pointer(Box<PrimitiveType>),
+    Array {
+        ty: Box<PrimitiveType>,
+        len: Option<u32>,
+    },
 }
 
 impl PrimitiveType {
@@ -115,11 +135,12 @@ impl PrimitiveType {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AtomKind {
     SymbolLiteral(String),
     Bool(Boolean),
     Integer(u64, PrimitiveType),
+    Floating(f64, PrimitiveType),
     StringLiteral(String),
     CharLiteral(char),
     Expr(Box<Expression>),
@@ -132,19 +153,26 @@ pub enum AtomKind {
     Ref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
     Cast(Box<AtomKind>, PrimitiveType),
+    Array(Vec<Expression>),
     NamedValue { name: String, val: Box<Expression> },
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Boolean {
     True,
     False,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum IntSize {
     Bits8,
     Bits16,
+    Bits32,
+    Bits64,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum FloatSize {
     Bits32,
     Bits64,
 }

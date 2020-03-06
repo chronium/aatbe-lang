@@ -1,0 +1,3 @@
+[submodule "llvm-sys-wrapper"]
+	path = llvm-sys-wrapper
+	url = https://github.com/chronium/llvm-sys-wrapper.git

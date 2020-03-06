@@ -1,0 +1,38 @@
+extern fn sqrt f64 -> f64
+extern fn sqrtf f32 -> f32
+
+extern fn tan f64 -> f64
+extern fn tanf f32 -> f32
+
+extern fn sin f64 -> f64
+extern fn sinf f32 -> f32
+
+extern fn cos f64 -> f64
+extern fn cosf f32 -> f32
+
+fn max a: f64, b: f64 -> f64 =
+    if a > b then a
+    else b
+fn max a: f32, b: f32 -> f32 =
+    if a > b then a
+    else b
+
+fn min a: f64, b: f64 -> f64 =
+    if a < b then a
+    else b
+fn min a: f32, b: f32 -> f32 =
+    if a < b then a
+    else b
+
+fn sqrt f: f32 -> f32 = sqrtf f
+fn tan f: f32 -> f32 = tanf f
+fn sin f: f32 -> f32 = sinf f
+fn cos f: f32 -> f32 = cosf f
+
+fn inverse f: f32 -> f32 = 1f32 / f
+fn inverse f: f64 -> f64 = 1f64 / f
+
+const PI: f64 = 3.14159265358979323846264338327950288f64
+
+fn deg2rad deg: f64 -> f64 = deg * PI / 180f64
+fn rad2deg rad: f64 -> f64 = rad * 180f64 / PI
