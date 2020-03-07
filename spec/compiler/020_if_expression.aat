@@ -1,0 +1,13 @@
+// spector:name If/Else expressions using `if ret`
+
+extern fn puts str -> i32
+
+fn should_return b: bool -> str =
+    if ret b then "true"
+    else "false"
+
+@entry
+fn main () = {
+    puts should_return true
+    puts should_return false
+}

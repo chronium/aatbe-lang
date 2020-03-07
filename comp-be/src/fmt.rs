@@ -46,6 +46,7 @@ impl AatbeFmt for &PrimitiveType {
             ),
             PrimitiveType::Unit => String::from("()"),
             PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
+            PrimitiveType::Function { ret_ty, .. } => ret_ty.clone().fmt(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

@@ -1,0 +1,13 @@
+// spector:name Expected if expression
+// spector:shouldfail
+
+extern fn puts str -> i32
+
+fn should_fail () -> str =
+    if true then "fail"
+    else "still fail"
+
+@entry
+fn main () = {
+    puts should_fail ()
+}
