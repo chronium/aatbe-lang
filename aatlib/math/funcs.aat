@@ -11,17 +11,17 @@ extern fn cos f64 -> f64
 extern fn cosf f32 -> f32
 
 fn max a: f64, b: f64 -> f64 =
-    if a > b then a
+    if ret a > b then a
     else b
 fn max a: f32, b: f32 -> f32 =
-    if a > b then a
+    if ret a > b then a
     else b
 
 fn min a: f64, b: f64 -> f64 =
-    if a < b then a
+    if ret a < b then a
     else b
 fn min a: f32, b: f32 -> f32 =
-    if a < b then a
+    if ret a < b then a
     else b
 
 fn sqrt f: f32 -> f32 = sqrtf f

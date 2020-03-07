@@ -10,7 +10,7 @@ use crate::{
             alloc_variable, codegen_function, declare_function, init_record,
             inject_function_in_scope, store_value,
         },
-        CodegenUnit, CompileError, Scope,
+        CodegenUnit, CompileError, Scope, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::{
@@ -24,63 +24,6 @@ use parser::{
     lexer::Lexer,
     parser::Parser,
 };
-
-pub struct ValueTypePair(LLVMValueRef, TypeKind);
-
-impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
-    fn from((val, ty): (LLVMValueRef, TypeKind)) -> ValueTypePair {
-        ValueTypePair(val, ty)
-    }
-}
-
-impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
-    fn from((val, ty): (LLVMValueRef, PrimitiveType)) -> ValueTypePair {
-        ValueTypePair(val, TypeKind::Primitive(ty))
-    }
-}
-
-impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
-    fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
-        (vtp.0, vtp.1)
-    }
-}
-
-impl ValueTypePair {
-    pub fn prim(&self) -> &PrimitiveType {
-        match self {
-            ValueTypePair(
-                _,
-                TypeKind::Primitive(PrimitiveType::NamedType {
-                    name: _,
-                    ty: Some(ty),
-                }),
-            ) => ty,
-            ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
-            _ => panic!("ICE prim {:?}"),
-        }
-    }
-
-    pub fn ty(&self) -> TypeKind {
-        TypeKind::Primitive(self.prim().clone())
-    }
-
-    pub fn val(&self) -> LLVMValueRef {
-        self.0
-    }
-
-    pub fn indexable(&self) -> Option<ValueTypePair> {
-        match &self {
-            ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
-                prim @ PrimitiveType::Str | prim @ PrimitiveType::Array { ty: _, len: _ } => {
-                    Some((*val, prim.clone()).into())
-                }
-                PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-}
 
 #[allow(dead_code)]
 pub struct AatbeModule {
@@ -143,12 +86,7 @@ impl AatbeModule {
 
     pub fn decl_expr(&mut self, expr: &Expression) {
         match expr {
-            Expression::Function {
-                name: _,
-                ty: _,
-                attributes: _,
-                body: _,
-            } => declare_function(self, expr),
+            Expression::Function { .. } => declare_function(self, expr),
             _ => panic!("Top level {:?} unsupported", expr),
         }
     }
@@ -255,7 +193,7 @@ impl AatbeModule {
                     });
                     None
                 } else {
-                    Some((self.llvm_builder_ref().build_ret(val.val()), func_ret).into())
+                    Some((self.llvm_builder_ref().build_ret(*val), func_ret).into())
                 }
             }
             Expression::RecordInit { record, values } => {
@@ -376,14 +314,12 @@ impl AatbeModule {
                 };
 
                 match loop_type {
-                    LoopType::While => {
-                        self.llvm_builder_ref()
-                            .build_cond_br(cond.val(), body_bb, end_bb)
-                    }
-                    LoopType::Until => {
-                        self.llvm_builder_ref()
-                            .build_cond_br(cond.val(), end_bb, body_bb)
-                    }
+                    LoopType::While => self
+                        .llvm_builder_ref()
+                        .build_cond_br(*cond, body_bb, end_bb),
+                    LoopType::Until => self
+                        .llvm_builder_ref()
+                        .build_cond_br(*cond, end_bb, body_bb),
                 };
 
                 self.llvm_builder_ref().position_at_end(body_bb);
@@ -398,6 +334,7 @@ impl AatbeModule {
                 cond_expr,
                 then_expr,
                 else_expr,
+                is_expr,
             } => {
                 let func = self
                     .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
@@ -425,7 +362,7 @@ impl AatbeModule {
                 }
 
                 self.llvm_builder
-                    .build_cond_br(cond.val(), then_bb, else_bb.unwrap_or(end_bb));
+                    .build_cond_br(*cond, then_bb, else_bb.unwrap_or(end_bb));
 
                 self.llvm_builder.position_at_end(then_bb);
 
@@ -447,6 +384,10 @@ impl AatbeModule {
                 }
                 self.llvm_builder.position_at_end(end_bb);
 
+                if !is_expr {
+                    return None;
+                }
+
                 if let Some(then_val) = then_val {
                     let ty = then_val.prim().clone();
                     if ty != PrimitiveType::Unit {
@@ -457,7 +398,7 @@ impl AatbeModule {
                                 "",
                             );
 
-                            phi.add_incoming(then_val.val(), then_bb);
+                            phi.add_incoming(*then_val, then_bb);
 
                             if let Some(else_val) = else_val {
                                 if &ty != else_val.prim() {
@@ -467,12 +408,12 @@ impl AatbeModule {
                                         value: else_expr.as_ref().unwrap().fmt(),
                                     });
                                 }
-                                phi.add_incoming(else_val.val(), else_bb.unwrap());
+                                phi.add_incoming(*else_val, else_bb.unwrap());
                             }
 
                             Some((phi.as_ref(), ty).into())
                         } else {
-                            Some((then_val.val(), ty).into())
+                            Some((*then_val, ty).into())
                         }
                     } else {
                         None
@@ -498,9 +439,9 @@ impl AatbeModule {
                             call_types.push(arg.prim().clone());
                             match arg.prim().clone() {
                                 PrimitiveType::Array { .. } => {
-                                    Some(self.llvm_builder_ref().build_load(arg.val()))
+                                    Some(self.llvm_builder_ref().build_load(*arg))
                                 }
-                                _ => Some(arg.val()),
+                                _ => Some(*arg),
                             }
                         }),
                     })
@@ -610,12 +551,7 @@ impl AatbeModule {
                     None
                 }
             },
-            Expression::Function {
-                name: _,
-                ty,
-                body,
-                attributes: _,
-            } => {
+            Expression::Function { ty, body, .. } => {
                 match ty {
                     PrimitiveType::Function {
                         ret_ty: _,
@@ -634,15 +570,18 @@ impl AatbeModule {
                         );
 
                         // TODO: Typechecks
-                        match has_return_type(ty) {
-                            true => self.llvm_builder.build_ret(
-                                ret.expect(
-                                    "Compiler broke, function returns broke. Everything's on fire",
-                                )
-                                .0,
-                            ),
-                            false => self.llvm_builder.build_ret_void(),
-                        };
+                        if has_return_type(ty) {
+                            if let Some(ret) = ret {
+                                self.llvm_builder.build_ret(ret.0);
+                            } else {
+                                self.add_error(CompileError::ExpectedReturn {
+                                    function: expr.clone().fmt(),
+                                    ty: ty.fmt(),
+                                })
+                            }
+                        } else {
+                            self.llvm_builder.build_ret_void();
+                        }
 
                         self.exit_scope();
 
@@ -685,7 +624,7 @@ impl AatbeModule {
                 .iter()
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
                 .unwrap(),
-            AST::Expr(expr) => self.codegen_expr(expr).map(|e| e.val()),
+            AST::Expr(expr) => self.codegen_expr(expr).map(|e| *e),
             AST::Import(module) => {
                 if !self.imported_cg.contains(module) {
                     let ast = self
@@ -699,20 +638,6 @@ impl AatbeModule {
             }
             AST::Record(_, _) => None,
             _ => panic!("cannot codegen {:?}", ast),
-        }
-    }
-
-    pub fn codegen_const_int(&self, ty: &PrimitiveType, val: u64) -> LLVMValueRef {
-        match ty {
-            PrimitiveType::Int(IntSize::Bits8) => self.llvm_context.SInt8(val),
-            PrimitiveType::Int(IntSize::Bits16) => self.llvm_context.SInt16(val),
-            PrimitiveType::Int(IntSize::Bits32) => self.llvm_context.SInt32(val),
-            PrimitiveType::Int(IntSize::Bits64) => self.llvm_context.SInt64(val),
-            PrimitiveType::UInt(IntSize::Bits8) => self.llvm_context.UInt8(val),
-            PrimitiveType::UInt(IntSize::Bits16) => self.llvm_context.UInt16(val),
-            PrimitiveType::UInt(IntSize::Bits32) => self.llvm_context.UInt32(val),
-            PrimitiveType::UInt(IntSize::Bits64) => self.llvm_context.UInt64(val),
-            _ => panic!("Cannot const int {:?}", ty),
         }
     }
 

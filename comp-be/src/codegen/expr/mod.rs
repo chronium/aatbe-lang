@@ -89,18 +89,16 @@ pub fn codegen_binary(
         .expect(format!("ICE dispatch_binary codegen_expr rhs {:?}", rhs_expr).as_ref());
 
     match (lhs.prim(), rhs.prim()) {
-        (PrimitiveType::Bool, PrimitiveType::Bool) => {
-            match dispatch_bool(module, op, lhs.val(), rhs.val()) {
-                Some(res) => Ok(res),
-                None => Err(CompileError::OpMismatch {
-                    op: op.clone(),
-                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
-                }),
-            }
-        }
+        (PrimitiveType::Bool, PrimitiveType::Bool) => match dispatch_bool(module, op, *lhs, *rhs) {
+            Some(res) => Ok(res),
+            None => Err(CompileError::OpMismatch {
+                op: op.clone(),
+                types: (lhs.prim().fmt(), rhs.prim().fmt()),
+                values: (lhs_expr.fmt(), rhs_expr.fmt()),
+            }),
+        },
         (PrimitiveType::UInt(lsz), PrimitiveType::UInt(rsz)) if lsz == rsz => {
-            match dispatch_unsigned(module, op, lhs.val(), rhs.val(), lsz.clone()) {
+            match dispatch_unsigned(module, op, *lhs, *rhs, lsz.clone()) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),
@@ -110,7 +108,7 @@ pub fn codegen_binary(
             }
         }
         (PrimitiveType::Int(lsz), PrimitiveType::Int(rsz)) if lsz == rsz => {
-            match dispatch_signed(module, op, lhs.val(), rhs.val(), lsz.clone()) {
+            match dispatch_signed(module, op, *lhs, *rhs, lsz.clone()) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),
@@ -120,7 +118,7 @@ pub fn codegen_binary(
             }
         }
         (PrimitiveType::Float(lsz), PrimitiveType::Float(rsz)) if lsz == rsz => {
-            match dispatch_float(module, op, lhs.val(), rhs.val(), lsz.clone()) {
+            match dispatch_float(module, op, *lhs, *rhs, lsz.clone()) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),

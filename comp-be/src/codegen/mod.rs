@@ -6,13 +6,17 @@ pub mod scope;
 pub mod unit;
 
 pub use expr::*;
-pub use module::{AatbeModule, ValueTypePair};
+pub use module::AatbeModule;
 pub use scope::Scope;
 pub use unit::CodegenUnit;
 
 pub type GenRes = Result<ValueTypePair, CompileError>;
 
 pub enum CompileError {
+    ExpectedReturn {
+        function: String,
+        ty: String,
+    },
     ArrayTypesNotUniform {
         values: String,
     },
@@ -66,4 +70,71 @@ pub enum CompileError {
         name: String,
     },
     Handled,
+}
+
+use crate::ty::TypeKind;
+use llvm_sys_wrapper::LLVMValueRef;
+use parser::ast::PrimitiveType;
+
+pub struct ValueTypePair(LLVMValueRef, TypeKind);
+
+impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, TypeKind)) -> ValueTypePair {
+        ValueTypePair(val, ty)
+    }
+}
+
+impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, PrimitiveType)) -> ValueTypePair {
+        ValueTypePair(val, TypeKind::Primitive(ty))
+    }
+}
+
+impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
+    fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
+        (vtp.0, vtp.1)
+    }
+}
+
+impl ValueTypePair {
+    pub fn prim(&self) -> &PrimitiveType {
+        match self {
+            ValueTypePair(
+                _,
+                TypeKind::Primitive(PrimitiveType::NamedType {
+                    name: _,
+                    ty: Some(ty),
+                }),
+            ) => ty,
+            ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
+            _ => panic!("ICE prim {:?}"),
+        }
+    }
+
+    pub fn ty(&self) -> TypeKind {
+        TypeKind::Primitive(self.prim().clone())
+    }
+
+    pub fn indexable(&self) -> Option<ValueTypePair> {
+        match &self {
+            ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
+                prim @ (PrimitiveType::Str | PrimitiveType::Array { ty: _, len: _ }) => {
+                    Some((*val, prim.clone()).into())
+                }
+                PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+use std::ops::Deref;
+
+impl Deref for ValueTypePair {
+    type Target = LLVMValueRef;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }

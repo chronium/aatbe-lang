@@ -52,7 +52,7 @@ impl Parser {
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
                 return Some(match parse_number_type(self) {
-                    Some(ty @ PrimitiveType::Int(_)) | Some(ty @ PrimitiveType::UInt(_)) => {
+                    Some(ty @ (PrimitiveType::Int(_) | PrimitiveType::UInt(_))) => {
                         AtomKind::Integer(val, ty)
                     }
                     Some(ty @ PrimitiveType::Float(_)) => AtomKind::Floating(val as f64, ty),

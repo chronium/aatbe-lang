@@ -33,7 +33,7 @@ fn intersect self: Sphere, ray: Ray -> f64 = {
 
     if t0 < 0f64 && t1 < 0f64 ret -1f64
 
-    if t0 < t1 then t0
+    if ret t0 < t1 then t0
     else t1
 }
 
@@ -46,7 +46,7 @@ fn intersect self: Plane, ray: Ray -> f64 = {
 
     val v = to_vec3 sub self.center, ray.origin
     val dist = (dot v, self.normal) / denom
-    if dist >= 0.0f64 then
+    if ret dist >= 0.0f64 then
         dist
     else -1f64
 }

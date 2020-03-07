@@ -95,7 +95,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit>
                 let val_ref = module
                     .llvm_module_ref()
                     .add_global(ty.llvm_ty_in_ctx(module), name.as_ref());
-                module.llvm_module_ref().set_initializer(val_ref, val.val());
+                module.llvm_module_ref().set_initializer(val_ref, *val);
                 CodegenUnit::Variable {
                     mutable: Mutability::Global,
                     name: name.clone(),
@@ -129,7 +129,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit>
                 mutable: Mutability::Constant,
                 name: name.clone(),
                 ty: val.prim().clone(),
-                value: val.val(),
+                value: *val,
             }),
         _ => unreachable!(),
     }

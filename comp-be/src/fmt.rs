@@ -101,6 +101,26 @@ impl AatbeFmt for &Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Expression::Function {
+                name,
+                ty:
+                    PrimitiveType::Function {
+                        ext,
+                        ret_ty: box ret_ty,
+                        params,
+                    },
+                ..
+            } => format!(
+                "{}fn {} {} -> {}",
+                if *ext { "ext " } else { "" },
+                name,
+                params
+                    .iter()
+                    .map(|val| val.fmt())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                ret_ty.fmt(),
+            ),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

@@ -128,7 +128,7 @@ impl AatbeModule {
                 if arr {
                     ind.push(self.llvm_context_ref().UInt32(0));
                 }
-                ind.push(index.val());
+                ind.push(*index);
 
                 let gep = self.llvm_builder_ref().build_inbounds_gep(val, &mut ind);
 
@@ -144,7 +144,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref()
-                            .build_load_with_name(int.val(), path.join(".").as_str()),
+                            .build_load_with_name(*int, path.join(".").as_str()),
                         int.ty(),
                     )
                         .into(),
@@ -168,11 +168,11 @@ impl AatbeModule {
                     Some(var) => {
                         let var: ValueTypePair = var.into();
 
-                        Some((var.val(), PrimitiveType::Ref(box var.prim().clone())).into())
+                        Some((*var, PrimitiveType::Ref(box var.prim().clone())).into())
                     }
                 }
             }
-            atom @ AtomKind::StringLiteral(_) | atom @ AtomKind::CharLiteral(_) => {
+            atom @ (AtomKind::StringLiteral(_) | AtomKind::CharLiteral(_)) => {
                 const_atom(self, atom)
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
@@ -191,16 +191,12 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
 
                 match value.prim() {
-                    prim @ PrimitiveType::Int(_) | prim @ PrimitiveType::UInt(_) => {
-                        Some((self.llvm_builder_ref().build_neg(value.val()), prim.clone()).into())
+                    prim @ (PrimitiveType::Int(_) | PrimitiveType::UInt(_)) => {
+                        Some((self.llvm_builder_ref().build_neg(*value), prim.clone()).into())
                     }
-                    prim @ PrimitiveType::Float(_) => Some(
-                        (
-                            self.llvm_builder_ref().build_fneg(value.val()),
-                            prim.clone(),
-                        )
-                            .into(),
-                    ),
+                    prim @ PrimitiveType::Float(_) => {
+                        Some((self.llvm_builder_ref().build_fneg(*value), prim.clone()).into())
+                    }
                     _ => {
                         self.add_error(CompileError::UnaryMismatch {
                             op: op.clone(),
@@ -228,7 +224,7 @@ impl AatbeModule {
 
                 Some(
                     (
-                        self.llvm_builder_ref().build_not(value.val()),
+                        self.llvm_builder_ref().build_not(*value),
                         PrimitiveType::Bool,
                     )
                         .into(),
@@ -272,7 +268,7 @@ impl AatbeModule {
                             fst.clone().llvm_ty_in_ctx(self),
                             &mut values
                                 .iter()
-                                .map(|val| val.val())
+                                .map(|val| **val)
                                 .collect::<Vec<LLVMValueRef>>(),
                             len,
                         ),

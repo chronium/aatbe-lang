@@ -85,7 +85,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                     } else {
                         vtp.unwrap()
                     };
-                    module.llvm_builder_ref().build_store(val.val(), var_ref);
+                    module.llvm_builder_ref().build_store(*val, var_ref);
                 }
             }
             Some(ty.clone())
@@ -116,7 +116,7 @@ pub fn init_record(
                         TypeKind::Primitive(PrimitiveType::Str) => {
                             let gep = module
                                 .llvm_builder_ref()
-                                .build_inbounds_gep(val.val(), &mut [index.val()]);
+                                .build_inbounds_gep(*val, &mut [*index]);
 
                             Some(
                                 (
@@ -153,7 +153,7 @@ pub fn init_record(
                     let val_ty = val_ref.prim().fmt();
                     match store_named_field(
                         module,
-                        var.val(),
+                        *var,
                         &lval.into(),
                         module
                             .typectx_ref()
@@ -212,17 +212,17 @@ pub fn store_value(
                 if let Some(val) = val {
                     match val.ty() {
                         TypeKind::Primitive(PrimitiveType::Str) => {
-                            let load = module.llvm_builder_ref().build_load(val.val());
+                            let load = module.llvm_builder_ref().build_load(*val);
                             let gep = module
                                 .llvm_builder_ref()
-                                .build_inbounds_gep(load, &mut [index.val()]);
+                                .build_inbounds_gep(load, &mut [*index]);
 
                             Some((gep, PrimitiveType::Char).into())
                         }
                         TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
                             let gep = module.llvm_builder_ref().build_inbounds_gep(
-                                val.val(),
-                                &mut [module.llvm_context_ref().SInt32(0), index.val()],
+                                *val,
+                                &mut [module.llvm_context_ref().SInt32(0), *index],
                             );
 
                             Some((gep, ty.clone()).into())
@@ -257,13 +257,7 @@ pub fn store_value(
 
             None
         } else {
-            Some(
-                (
-                    module.llvm_builder_ref().build_store(val.val(), var.val()),
-                    var.ty(),
-                )
-                    .into(),
-            )
+            Some((module.llvm_builder_ref().build_store(*val, *var), var.ty()).into())
         }
     })
 }

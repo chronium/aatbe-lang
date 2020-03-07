@@ -46,6 +46,7 @@ pub enum Expression {
         cond_expr: Box<Expression>,
         then_expr: Box<Expression>,
         else_expr: Option<Box<Expression>>,
+        is_expr: bool,
     },
     RecordInit {
         record: String,

@@ -447,7 +447,7 @@ fn main () -> () = {
                             box Expression::Atom(AtomKind::Integer(
                                 2,
                                 PrimitiveType::Int(IntSize::Bits32)
-                            ))
+                            )),
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
                             name: "foo".to_string(),
@@ -461,6 +461,7 @@ fn main () -> () = {
                                 "foo".to_string()
                             ))]
                         }])),
+                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -476,6 +477,7 @@ fn main () -> () = {
                             args: vec![Expression::Atom(AtomKind::Bool(Boolean::True))]
                         },
                         else_expr: None,
+                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -484,6 +486,7 @@ fn main () -> () = {
                         )),
                         then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
                         else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::True))),
+                        is_expr: false,
                     },
                 ])),
                 ty: PrimitiveType::Function {

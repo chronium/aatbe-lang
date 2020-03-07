@@ -3,7 +3,8 @@
     box_patterns,
     type_ascription,
     vec_remove_item,
-    option_expect_none
+    option_expect_none,
+    or_patterns
 )]
 
 pub mod codegen;

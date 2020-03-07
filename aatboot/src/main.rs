@@ -102,6 +102,9 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::ExpectedReturn { function, ty } => {
+                error!("Expected return of type {} at `{}`", ty, function)
+            }
             CompileError::Handled => {}
             CompileError::ArrayTypesNotUniform { values } => {
                 error!("Array types are not all the same in `{}`", values)

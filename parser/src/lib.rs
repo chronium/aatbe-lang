@@ -1,4 +1,4 @@
-#![feature(box_syntax, box_patterns)]
+#![feature(box_syntax, box_patterns, or_patterns)]
 #![allow(dead_code)]
 
 pub mod ast;

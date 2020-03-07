@@ -118,7 +118,7 @@ pub fn store_named_field(
     if value.prim() != &index.1 {
         Err(index.1)
     } else {
-        module.llvm_builder_ref().build_store(value.val(), gep);
+        module.llvm_builder_ref().build_store(*value, gep);
         Ok(())
     }
 }
