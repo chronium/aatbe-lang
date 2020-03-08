@@ -86,9 +86,16 @@ impl LLVMTyInCtx for PrimitiveType {
         let ctx = module.llvm_context_ref();
 
         match self {
-            PrimitiveType::Array { ty, len: Some(len) } => {
-                ctx.ArrayType(ty.llvm_ty_in_ctx(module), *len)
-            }
+            PrimitiveType::Slice { ty } => ctx
+                .StructType(
+                    &mut vec![
+                        ctx.PointerType(ctx.ArrayType(ty.llvm_ty_in_ctx(module), 0)),
+                        ctx.Int32Type(),
+                    ],
+                    false,
+                )
+                .as_ref(),
+            PrimitiveType::Array { ty, len } => ctx.ArrayType(ty.llvm_ty_in_ctx(module), *len),
             PrimitiveType::Ref(r) => ctx.PointerType(r.llvm_ty_in_ctx(module)),
             PrimitiveType::Unit => ctx.VoidType(),
             PrimitiveType::Bool => ctx.Int1Type(),

@@ -39,14 +39,13 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
             PrimitiveType::Char => String::from("char"),
             PrimitiveType::TypeRef(ty) => ty.clone(),
-            PrimitiveType::Array { ty, len } => format!(
-                "{}[{}]",
-                ty.clone().fmt(),
-                len.map(|len| len.to_string()).unwrap_or(String::from("?"))
-            ),
+            PrimitiveType::Array { ty, len } => {
+                format!("{}[{}]", ty.clone().fmt(), len.to_string())
+            }
             PrimitiveType::Unit => String::from("()"),
             PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
             PrimitiveType::Function { ret_ty, .. } => ret_ty.clone().fmt(),
+            PrimitiveType::Slice { ty } => format!("{}[]", ty.clone().fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

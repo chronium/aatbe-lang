@@ -1,4 +1,5 @@
 pub mod atom;
+pub mod call;
 pub mod expr;
 pub mod mangle_v1;
 pub mod module;
@@ -115,12 +116,19 @@ impl ValueTypePair {
         TypeKind::Primitive(self.prim().clone())
     }
 
-    pub fn indexable(&self) -> Option<ValueTypePair> {
+    pub fn indexable(&self, module: &AatbeModule) -> Option<ValueTypePair> {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
-                prim @ (PrimitiveType::Str | PrimitiveType::Array { ty: _, len: _ }) => {
+                prim @ (PrimitiveType::Str | PrimitiveType::Array { .. }) => {
                     Some((*val, prim.clone()).into())
                 }
+                PrimitiveType::Slice { .. } => Some(
+                    (
+                        module.llvm_builder_ref().build_extract_value(*val, 0),
+                        prim.clone(),
+                    )
+                        .into(),
+                ),
                 PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
                 _ => None,
             },

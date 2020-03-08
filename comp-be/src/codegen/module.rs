@@ -5,7 +5,6 @@ use crate::{
     codegen::{
         codegen_binary,
         expr::const_expr::fold_constant,
-        mangle_v1::NameMangler,
         unit::{
             alloc_variable, codegen_function, declare_function, init_record,
             inject_function_in_scope, store_value,
@@ -20,7 +19,7 @@ use crate::{
 };
 
 use parser::{
-    ast::{AtomKind, Expression, IntSize, LoopType, PrimitiveType, AST},
+    ast::{AtomKind, Expression, LoopType, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -416,128 +415,7 @@ impl AatbeModule {
                     None
                 }
             }
-            Expression::Call {
-                name: raw_name,
-                args,
-            } => {
-                let mut call_types = vec![];
-
-                let mut call_args = args
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
-                            call_types.push(PrimitiveType::TypeRef(sym.clone()));
-                            None
-                        }
-                        _ => self.codegen_expr(arg).map_or(None, |arg| {
-                            call_types.push(arg.prim().clone());
-                            match arg.prim().clone() {
-                                PrimitiveType::Array { .. } => {
-                                    Some(self.llvm_builder_ref().build_load(*arg))
-                                }
-                                _ => Some(*arg),
-                            }
-                        }),
-                    })
-                    .collect::<Vec<LLVMValueRef>>();
-
-                // TODO: fix this hack
-                if raw_name == "len" {
-                    if call_types.len() != 1 {
-                        return None;
-                    }
-                    match call_types[0] {
-                        PrimitiveType::Array {
-                            ty: _,
-                            len: Some(len),
-                        } => {
-                            return Some(
-                                (
-                                    self.llvm_context_ref().SInt32(len as u64),
-                                    PrimitiveType::Int(IntSize::Bits32),
-                                )
-                                    .into(),
-                            );
-                        }
-                        _ => {
-                            self.add_error(CompileError::MismatchedArguments {
-                                function: String::from("len"),
-                                expected_ty: String::from("[x; n]"),
-                                found_ty: call_types[0].clone().fmt(),
-                            });
-                            return None;
-                        }
-                    }
-                }
-
-                let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
-                    format!(
-                        "{}A{}",
-                        raw_name,
-                        call_types
-                            .iter()
-                            .map(|arg| arg.mangle())
-                            .collect::<Vec<String>>()
-                            .join(".")
-                    )
-                } else {
-                    raw_name.clone()
-                };
-
-                let mut mismatch = false;
-
-                let params = match self.get_params(&name) {
-                    None => {
-                        self.add_error(CompileError::UnknownFunction {
-                            name: raw_name.clone(),
-                            values: call_types
-                                .iter()
-                                .zip(args)
-                                .map(|(ty, val)| format!("{}: {}", val.mangle(), ty.fmt()))
-                                .collect::<Vec<String>>()
-                                .join(", "),
-                        });
-                        return None;
-                    }
-                    Some(params) => params,
-                };
-
-                for (i, fty) in params.iter().enumerate() {
-                    if fty == &PrimitiveType::Varargs {
-                        break;
-                    }
-
-                    if &call_types[i] != fty {
-                        mismatch = true;
-                    }
-                }
-
-                if mismatch {
-                    self.add_error(CompileError::MismatchedArguments {
-                        function: raw_name.clone(),
-                        expected_ty: params
-                            .iter()
-                            .map(|p| p.fmt())
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                        found_ty: call_types
-                            .iter()
-                            .map(|arg| arg.fmt())
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                    });
-                }
-
-                let func = self.get_func(&name).unwrap();
-
-                Some(
-                    (
-                        self.llvm_builder.build_call(func.into(), &mut call_args),
-                        func.ret_ty(),
-                    )
-                        .into(),
-                )
-            }
+            Expression::Call { .. } => self.codegen_call(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
                 Err(err) => {

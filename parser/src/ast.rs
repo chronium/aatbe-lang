@@ -104,7 +104,10 @@ pub enum PrimitiveType {
     Pointer(Box<PrimitiveType>),
     Array {
         ty: Box<PrimitiveType>,
-        len: Option<u32>,
+        len: u32,
+    },
+    Slice {
+        ty: Box<PrimitiveType>,
     },
 }
 

@@ -96,6 +96,7 @@ impl NameMangler for PrimitiveType {
             PrimitiveType::Char => String::from("c"),
             PrimitiveType::Ref(r) => format!("R{}", r.mangle()),
             PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle()),
+            PrimitiveType::Slice { ty } => format!("S{}", ty.mangle()),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }

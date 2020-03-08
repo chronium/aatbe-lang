@@ -107,7 +107,7 @@ impl AatbeModule {
                 let (val, ty) = self
                     .codegen_atom(val)
                     .expect("ICE codegen_atom index val")
-                    .indexable()
+                    .indexable(self)
                     .expect(format!("{:?} is not indexable", val).as_str())
                     .into();
 
@@ -116,7 +116,12 @@ impl AatbeModule {
                     TypeKind::Primitive(PrimitiveType::Str) => {
                         TypeKind::Primitive(PrimitiveType::Char)
                     }
-                    TypeKind::Primitive(PrimitiveType::Array { ty: box ty, len: _ }) => {
+                    TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
+                        arr = true;
+
+                        TypeKind::Primitive(ty)
+                    }
+                    TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => {
                         arr = true;
 
                         TypeKind::Primitive(ty)
@@ -270,7 +275,7 @@ impl AatbeModule {
                         ),
                         PrimitiveType::Array {
                             ty: box fst.clone(),
-                            len: Some(len),
+                            len: len,
                         },
                     )
                         .into(),

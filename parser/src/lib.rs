@@ -66,7 +66,10 @@ impl Parser {
                     self.next();
                 }
                 sym!(required RBracket, self);
-                PrimitiveType::Array { ty: box ty, len }
+                match len {
+                    None => PrimitiveType::Slice { ty: box ty },
+                    Some(len) => PrimitiveType::Array { ty: box ty, len },
+                }
             } else {
                 ty
             })

@@ -143,10 +143,28 @@ impl CodegenUnit {
                     },
                 ..
             } => self.into(),
+            CodegenUnit::Variable {
+                ty: PrimitiveType::Slice { .. },
+                ..
+            }
+            | CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::NamedType {
+                        ty: Some(box PrimitiveType::Slice { .. }),
+                        ..
+                    },
+                ..
+            } => {
+                builder.build_extract_value(self.into(), 0);
+                unimplemented!();
+            }
             CodegenUnit::Variable { mutable, .. } => match mutable {
                 Mutability::Constant => self.into(),
                 _ => builder.build_load(self.into()),
             },
+            CodegenUnit::FunctionArgument(_, PrimitiveType::Slice { .. }) => {
+                builder.build_load(self.into())
+            }
             CodegenUnit::FunctionArgument(_, _) => self.into(),
             _ => panic!("Cannot load non-variable"),
         }

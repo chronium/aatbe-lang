@@ -1,11 +1,12 @@
 use "aatlib/prelude"
 
-fn test arr: &i32[1] = arr[0] = 64
+fn test arr: &i32[] = {
+    println arr[0]
+    println len arr
+}
 
 @entry
 fn main () = {
-    var arr = [10]
-    println arr[0]
+    var arr = [10, 15, 20]
     test &arr
-    println arr[0]
 }
