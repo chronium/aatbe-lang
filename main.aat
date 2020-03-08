@@ -10,5 +10,12 @@ fn test arr: &i32[] = {
 @entry
 fn main () = {
     var arr = [10, 15, 20]
+    var i = 0
+
+    while i < (len arr) {
+        println arr[i]
+        i = i + 1
+    }
+
     test &arr
 }

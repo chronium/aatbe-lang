@@ -15,6 +15,42 @@ impl AatbeModule {
                 name: raw_name,
                 args,
             } => {
+                // TODO: fix this hack
+                if raw_name == "len" {
+                    if args.len() != 1 {
+                        return None;
+                    }
+                    let arr = self.codegen_expr(&args[0])?;
+                    match arr.prim() {
+                        PrimitiveType::Array { len, .. } => {
+                            return Some(
+                                (
+                                    self.llvm_context_ref().SInt32(*len as u64),
+                                    PrimitiveType::Int(IntSize::Bits32),
+                                )
+                                    .into(),
+                            );
+                        }
+                        PrimitiveType::Slice { .. } => {
+                            return Some(
+                                (
+                                    self.llvm_builder_ref().build_extract_value(*arr, 1),
+                                    PrimitiveType::Int(IntSize::Bits32),
+                                )
+                                    .into(),
+                            );
+                        }
+                        _ => {
+                            self.add_error(CompileError::MismatchedArguments {
+                                function: String::from("len"),
+                                expected_ty: String::from("[x; n]"),
+                                found_ty: arr.prim().clone().fmt(),
+                            });
+                            return None;
+                        }
+                    }
+                }
+
                 let mut call_types = vec![];
 
                 let mut call_args = args
@@ -29,11 +65,12 @@ impl AatbeModule {
                             .map_or(None, |arg| match arg.prim().clone() {
                                 #[allow(unreachable_code, unused_variables)]
                                 PrimitiveType::Array { ty: box ty, len } => {
-                                    unimplemented!();
                                     let arr = self.llvm_builder_ref().build_bitcast(
                                         *arg,
-                                        self.llvm_context_ref()
-                                            .ArrayType(ty.llvm_ty_in_ctx(self), 0),
+                                        self.llvm_context_ref().PointerType(
+                                            self.llvm_context_ref()
+                                                .ArrayType(ty.llvm_ty_in_ctx(self), 0),
+                                        ),
                                     );
                                     let slice = Struct::new_const_struct(
                                         &mut [arr, self.llvm_context_ref().UInt32(len as u64)],
@@ -89,41 +126,6 @@ impl AatbeModule {
                             }),
                     })
                     .collect::<Vec<LLVMValueRef>>();
-
-                // TODO: fix this hack
-                if raw_name == "len" {
-                    if call_types.len() != 1 {
-                        return None;
-                    }
-                    match call_types[0] {
-                        PrimitiveType::Array { len, .. } => {
-                            return Some(
-                                (
-                                    self.llvm_context_ref().SInt32(len as u64),
-                                    PrimitiveType::Int(IntSize::Bits32),
-                                )
-                                    .into(),
-                            );
-                        }
-                        PrimitiveType::Slice { .. } => {
-                            return Some(
-                                (
-                                    self.llvm_builder_ref().build_extract_value(call_args[0], 1),
-                                    PrimitiveType::Int(IntSize::Bits32),
-                                )
-                                    .into(),
-                            );
-                        }
-                        _ => {
-                            self.add_error(CompileError::MismatchedArguments {
-                                function: String::from("len"),
-                                expected_ty: String::from("[x; n]"),
-                                found_ty: call_types[0].clone().fmt(),
-                            });
-                            return None;
-                        }
-                    }
-                }
 
                 let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
