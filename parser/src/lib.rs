@@ -34,10 +34,7 @@ impl Parser {
                 Some(Keyword::Bool) => Some(PrimitiveType::Bool),
                 _ => None,
             })
-            .or_else(|| match tok.ident() {
-                Some(s) => Some(PrimitiveType::TypeRef(s)),
-                None => None,
-            })
+            .or_else(|| Some(PrimitiveType::TypeRef(tok.ident()?)))
             .or_else(|| match tok.ty() {
                 Some(Type::Str) => Some(PrimitiveType::Str),
                 Some(Type::Char) => Some(PrimitiveType::Char),

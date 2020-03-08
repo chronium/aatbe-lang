@@ -134,10 +134,7 @@ impl Parser {
         if !sym!(bool Dollar, self) {
             return None;
         }
-        match capture!(self, parse_expression) {
-            None => None,
-            Some(e) => Some(AtomKind::Expr(box e)),
-        }
+        Some(AtomKind::Expr(box capture!(self, parse_expression)?))
     }
 
     fn parse_ident(&mut self) -> Option<AtomKind> {
@@ -166,20 +163,14 @@ impl Parser {
         }
 
         let mut values = vec![];
-        match capture!(self, parse_expression) {
-            None => return None,
-            Some(e) => values.push(e),
-        };
+        values.push(capture!(self, parse_expression)?);
 
         loop {
             if !sym!(bool Comma, self) {
                 break;
             }
 
-            match capture!(self, parse_expression) {
-                None => return None,
-                Some(e) => values.push(e),
-            };
+            values.push(capture!(self, parse_expression)?);
         }
         sym!(RBracket, self);
 

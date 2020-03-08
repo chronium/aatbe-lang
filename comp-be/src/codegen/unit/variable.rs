@@ -21,10 +21,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         if let box Expression::RecordInit { record, values: _ } = e {
                             PrimitiveType::TypeRef(record.clone())
                         } else {
-                            let pair = match module.codegen_expr(e) {
-                                None => return None,
-                                Some(pair) => pair,
-                            };
+                            let pair = module.codegen_expr(e)?;
 
                             let ty = pair.prim().clone();
                             vtp = Some(pair);
@@ -69,10 +66,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                     );
                 } else {
                     let val = if vtp.is_none() {
-                        let val = match module.codegen_expr(e) {
-                            None => return None,
-                            Some(val) => val,
-                        };
+                        let val = module.codegen_expr(e)?;
 
                         if val.prim() != ty.inner() {
                             module.add_error(CompileError::ExpectedType {
@@ -243,10 +237,7 @@ pub fn store_value(
     }
 
     get_lval(module, lval).and_then(|var| {
-        let val = match module.codegen_expr(value) {
-            None => return None,
-            Some(val) => val,
-        };
+        let val = module.codegen_expr(value)?;
         if var.prim() != val.prim().inner() {
             module.add_error(CompileError::AssignMismatch {
                 expected_ty: var.prim().fmt(),

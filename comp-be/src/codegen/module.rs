@@ -300,10 +300,7 @@ impl AatbeModule {
 
                 self.llvm_builder_ref().build_br(cond_bb);
                 self.llvm_builder_ref().position_at_end(cond_bb);
-                let cond = match self.codegen_expr(cond_expr) {
-                    Some(cond) => cond,
-                    None => return None,
-                };
+                let cond = self.codegen_expr(cond_expr)?;
 
                 if *cond.prim().inner() != PrimitiveType::Bool {
                     self.add_error(CompileError::ExpectedType {
@@ -348,10 +345,7 @@ impl AatbeModule {
                 };
                 let end_bb = func.append_basic_block(String::default());
 
-                let cond = match self.codegen_expr(cond_expr) {
-                    Some(cond) => cond,
-                    None => return None,
-                };
+                let cond = self.codegen_expr(cond_expr)?;
 
                 if *cond.prim().inner() != PrimitiveType::Bool {
                     self.add_error(CompileError::ExpectedType {

@@ -151,26 +151,22 @@ impl AatbeModule {
                 )
             }
             AtomKind::Ident(name) => {
-                let var_ref = self.get_var(name);
+                let var_ref = self.get_var(name)?;
 
-                match var_ref {
-                    None => None,
-                    Some(var) => {
-                        Some((var.load_var(self.llvm_builder_ref()), var.var_ty().clone()).into())
-                    }
-                }
+                Some(
+                    (
+                        var_ref.load_var(self.llvm_builder_ref()),
+                        var_ref.var_ty().clone(),
+                    )
+                        .into(),
+                )
             }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
-                let var_ref = self.get_var(name);
+                let var_ref = self.get_var(name)?;
 
-                match var_ref {
-                    None => None,
-                    Some(var) => {
-                        let var: ValueTypePair = var.into();
+                let var: ValueTypePair = var_ref.into();
 
-                        Some((*var, PrimitiveType::Ref(box var.prim().clone())).into())
-                    }
-                }
+                Some((*var, PrimitiveType::Ref(box var.prim().clone())).into())
             }
             atom @ (AtomKind::StringLiteral(_) | AtomKind::CharLiteral(_)) => {
                 const_atom(self, atom)
