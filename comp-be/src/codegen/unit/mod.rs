@@ -188,6 +188,7 @@ impl CodegenUnit {
         match self {
             CodegenUnit::Variable { mutable, .. } => mutable,
             CodegenUnit::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
+            CodegenUnit::FunctionArgument(_, PrimitiveType::Slice { .. }) => &Mutability::Mutable,
             _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }

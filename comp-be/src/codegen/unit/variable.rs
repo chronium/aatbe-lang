@@ -221,6 +221,15 @@ pub fn store_value(
 
                             Some((gep, ty.clone()).into())
                         }
+                        TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => {
+                            let arr = module.llvm_builder_ref().build_struct_gep(*val, 0);
+                            let gep = module.llvm_builder_ref().build_inbounds_gep(
+                                module.llvm_builder_ref().build_load(arr),
+                                &mut [module.llvm_context_ref().SInt32(0), *index],
+                            );
+
+                            Some((gep, ty.clone()).into())
+                        }
                         _ => {
                             module.add_error(CompileError::NotIndexable {
                                 ty: val.prim().fmt(),

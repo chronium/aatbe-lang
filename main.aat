@@ -2,7 +2,9 @@ use "aatlib/prelude"
 
 fn test arr: &i32[] = {
     println arr[0]
+    arr[1] = 22
     println len arr
+    println arr[1]
 }
 
 @entry
