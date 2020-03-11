@@ -1,21 +1,12 @@
-use "aatlib/prelude"
-
-fn test arr: &i32[] = {
-    println arr[0]
-    arr[1] = 22
-    println len arr
-    println arr[1]
-}
+rec Test<T>(value: T)
 
 @entry
 fn main () = {
-    var arr = [10, 15, 20]
-    var i = 0
-
-    while i < (len arr) {
-        println arr[i]
-        i = i + 1
+    val ti32 = Test<i32> {
+        value: 10
     }
 
-    test &arr
+    val tstr = Test<str> {
+        value: "Hello"
+    }
 }

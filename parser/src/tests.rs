@@ -534,6 +534,7 @@ fn main () -> ()
         let pt = parse_test!(
             "
 rec Record(msg: str, time: i64)
+rec Generic<T>(value: T)
 rec Unit()
 ",
             "Declare record"
@@ -544,6 +545,7 @@ rec Unit()
             AST::File(vec![
                 AST::Record(
                     "Record".to_string(),
+                    Vec::new(),
                     vec![
                         PrimitiveType::NamedType {
                             name: "msg".to_string(),
@@ -555,7 +557,15 @@ rec Unit()
                         }
                     ]
                 ),
-                AST::Record("Unit".to_string(), vec![PrimitiveType::Unit],)
+                AST::Record(
+                    "Generic".to_string(),
+                    vec![String::from("T")],
+                    vec![PrimitiveType::NamedType {
+                        name: "value".to_string(),
+                        ty: Some(box PrimitiveType::TypeRef(String::from("T"))),
+                    },]
+                ),
+                AST::Record("Unit".to_string(), Vec::new(), vec![PrimitiveType::Unit],)
             ])
         );
     }
@@ -565,8 +575,10 @@ rec Unit()
         let pt = parse_test!(
             "
 rec Record(msg: str, time: i32)
+rec Generic<T>(value: T)
 
 fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
+fn generic_test () = Generic<str> { value: \"Aloha\" }
 ",
             "Initialize record"
         );
@@ -576,6 +588,7 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
             AST::File(vec![
                 AST::Record(
                     "Record".to_string(),
+                    Vec::new(),
                     vec![
                         PrimitiveType::NamedType {
                             name: "msg".to_string(),
@@ -587,11 +600,20 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                         }
                     ]
                 ),
+                AST::Record(
+                    "Generic".to_string(),
+                    vec![String::from("T")],
+                    vec![PrimitiveType::NamedType {
+                        name: "value".to_string(),
+                        ty: Some(box PrimitiveType::TypeRef(String::from("T"))),
+                    },]
+                ),
                 AST::Expr(Expression::Function {
                     name: "rec_test".to_string(),
                     attributes: vec![],
                     body: Some(box Expression::RecordInit {
                         record: "Record".to_string(),
+                        types: Vec::new(),
                         values: vec![
                             AtomKind::NamedValue {
                                 name: "msg".to_string(),
@@ -614,6 +636,23 @@ fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
                                 ]))
                             }
                         ],
+                    }),
+                    ty: PrimitiveType::Function {
+                        ext: false,
+                        ret_ty: box PrimitiveType::Unit,
+                        params: vec![PrimitiveType::Unit],
+                    }
+                }),
+                AST::Expr(Expression::Function {
+                    name: "generic_test".to_string(),
+                    attributes: vec![],
+                    body: Some(box Expression::RecordInit {
+                        record: "Generic".to_string(),
+                        types: vec![PrimitiveType::Str],
+                        values: vec![AtomKind::NamedValue {
+                            name: "value".to_string(),
+                            val: box Expression::Atom(AtomKind::StringLiteral("Aloha".to_string()))
+                        },],
                     }),
                     ty: PrimitiveType::Function {
                         ext: false,

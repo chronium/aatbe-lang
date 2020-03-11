@@ -63,7 +63,6 @@ impl AatbeModule {
                         _ => self
                             .codegen_expr(arg)
                             .map_or(None, |arg| match arg.prim().clone() {
-                                #[allow(unreachable_code, unused_variables)]
                                 PrimitiveType::Array { ty: box ty, len } => {
                                     let arr = self.llvm_builder_ref().build_bitcast(
                                         *arg,

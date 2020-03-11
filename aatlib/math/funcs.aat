@@ -13,6 +13,7 @@ extern fn cosf f32 -> f32
 fn max a: f64, b: f64 -> f64 =
     if ret a > b then a
     else b
+
 fn max a: f32, b: f32 -> f32 =
     if ret a > b then a
     else b

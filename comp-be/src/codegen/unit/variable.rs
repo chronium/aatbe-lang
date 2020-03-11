@@ -6,6 +6,21 @@ use crate::{
 
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
+macro_rules! rec_name {
+    ($name:expr, $types:ident) => {{
+        use crate::codegen::mangle_v1::NameMangler;
+        format!(
+            "{}{}",
+            $name,
+            $types
+                .iter()
+                .map(|ty| ty.mangle())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }};
+}
+
 pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option<PrimitiveType> {
     match variable {
         Expression::Decl {
@@ -18,8 +33,13 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 Some(ty) => *ty.clone(),
                 None => {
                     if let Some(e) = value {
-                        if let box Expression::RecordInit { record, values: _ } = e {
-                            PrimitiveType::TypeRef(record.clone())
+                        if let box Expression::RecordInit {
+                            record,
+                            types,
+                            values: _,
+                        } = e
+                        {
+                            PrimitiveType::TypeRef(rec_name!(record.clone(), types))
                         } else {
                             let pair = module.codegen_expr(e)?;
 
@@ -48,8 +68,13 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
             );
 
             if let Some(e) = value {
-                if let box Expression::RecordInit { record, values } = e {
-                    if ty.inner() != &PrimitiveType::TypeRef(record.clone()) {
+                if let box Expression::RecordInit {
+                    record,
+                    types,
+                    values,
+                } = e
+                {
+                    if ty.inner() != &PrimitiveType::TypeRef(rec_name!(record.clone(), types)) {
                         module.add_error(CompileError::ExpectedType {
                             expected_ty: ty.inner().fmt(),
                             found_ty: record.clone(),
@@ -61,6 +86,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         &LValue::Ident(name.clone()),
                         &Expression::RecordInit {
                             record: record.clone(),
+                            types: types.clone(),
                             values: values.to_vec(),
                         },
                     );
@@ -136,7 +162,11 @@ pub fn init_record(
     }
 
     match rec {
-        Expression::RecordInit { record, values } => get_lval(module, lval).and_then(|var| {
+        Expression::RecordInit {
+            record,
+            types,
+            values,
+        } if types.len() == 0 => get_lval(module, lval).and_then(|var| {
             let mut err = false;
 
             values.iter().for_each(|val| match val {
@@ -176,6 +206,7 @@ pub fn init_record(
                 true => None,
             }
         }),
+        Expression::RecordInit { .. } => panic!("ICE init_record {:?}", rec),
         _ => unreachable!(),
     }
 }

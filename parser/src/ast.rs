@@ -6,7 +6,7 @@ pub enum AST {
     Error,
     Expr(Expression),
     Import(String),
-    Record(String, Vec<PrimitiveType>),
+    Record(String, Vec<String>, Vec<PrimitiveType>),
     Constant {
         ty: PrimitiveType,
         value: Box<Expression>,
@@ -50,6 +50,7 @@ pub enum Expression {
     },
     RecordInit {
         record: String,
+        types: Vec<PrimitiveType>,
         values: Vec<AtomKind>,
     },
     Loop {

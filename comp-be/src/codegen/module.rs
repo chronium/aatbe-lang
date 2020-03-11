@@ -94,7 +94,7 @@ impl AatbeModule {
         self.start_scope();
         match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
-            AST::Record(name, types) => {
+            AST::Record(name, type_names, types) if type_names.len() == 0 => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
                 self.typectx.get_record(name).unwrap().set_body(self, types);
@@ -168,7 +168,6 @@ impl AatbeModule {
         }
     }
 
-    #[allow(unreachable_code)]
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
             Expression::Ret(box _value) => {
@@ -195,7 +194,11 @@ impl AatbeModule {
                     Some((self.llvm_builder_ref().build_ret(*val), func_ret).into())
                 }
             }
-            Expression::RecordInit { record, values } => {
+            Expression::RecordInit {
+                record,
+                types,
+                values,
+            } if types.len() == 0 => {
                 let rec = self.llvm_builder_ref().build_alloca(
                     self.typectx_ref()
                         .get_type(record)
@@ -239,11 +242,16 @@ impl AatbeModule {
                 )
             }
             Expression::Assign { lval, value } => match value {
-                box Expression::RecordInit { record, values } => init_record(
+                box Expression::RecordInit {
+                    record,
+                    types,
+                    values,
+                } => init_record(
                     self,
                     lval,
                     &Expression::RecordInit {
                         record: record.clone(),
+                        types: types.clone(),
                         values: values.to_vec(),
                     },
                 ),
@@ -508,7 +516,7 @@ impl AatbeModule {
                 }
                 None
             }
-            AST::Record(_, _) => None,
+            AST::Record(_, type_names, _) if type_names.len() == 0 => None,
             _ => panic!("cannot codegen {:?}", ast),
         }
     }

@@ -1,6 +1,6 @@
-// spector:name Pass by reference disallowed
+// spector:name Pass slice
 
-fn double_first i: &i32[] = i[0] = i[0] * 2
+fn double_first i: &i32[] = { }
 
 @entry
 fn main () = {

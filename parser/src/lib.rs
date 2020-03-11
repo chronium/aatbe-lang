@@ -135,22 +135,47 @@ impl Parser {
         Ok(params)
     }
 
+    fn parse_type_names(&mut self) -> ParseResult<Vec<String>> {
+        let mut params = vec![];
+
+        params.push(ident!(res self)?);
+
+        loop {
+            if !sym!(bool Comma, self) {
+                break;
+            }
+
+            params.push(ident!(res self)?);
+        }
+        Ok(params)
+    }
+
     fn parse_record(&mut self) -> ParseResult<AST> {
         kw!(Record, self);
         let name = ident!(required self);
 
-        let types = if sym!(bool Unit, self) {
+        let type_names = if sym!(bool Lower, self) {
+            let type_names = self
+                .parse_type_names()
+                .expect(format!("Expected type name list at {}", name).as_str());
+            sym!(required Greater, self);
+            type_names
+        } else {
+            Vec::new()
+        };
+
+        let fields = if sym!(bool Unit, self) {
             vec![PrimitiveType::Unit]
         } else {
             sym!(required LParen, self);
-            let types = self
+            let fields = self
                 .parse_type_list()
                 .expect(format!("Expected type list at {}", name).as_str());
             sym!(required RParen, self);
-            types
+            fields
         };
 
-        Ok(AST::Record(name, types))
+        Ok(AST::Record(name, type_names, fields))
     }
 
     fn parse_const_global(&mut self) -> ParseResult<AST> {

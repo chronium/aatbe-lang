@@ -170,13 +170,28 @@ impl Parser {
 
     fn parse_record_init(&mut self) -> ParseResult<Expression> {
         let record = ident!(res self)?;
+
+        let types = if sym!(bool Lower, self) {
+            let types = self
+                .parse_type_list()
+                .expect(format!("Expected type list at {}", record).as_str());
+            sym!(required Greater, self);
+            types
+        } else {
+            Vec::new()
+        };
+
         sym!(required LCurly, self);
         let values = self
             .parse_named_value_list()
             .expect(format!("Expected a named argument list at {}", record).as_str());
         sym!(required RCurly, self);
 
-        Ok(Expression::RecordInit { record, values })
+        Ok(Expression::RecordInit {
+            record,
+            types,
+            values,
+        })
     }
 
     fn parse_ret(&mut self) -> ParseResult<Expression> {

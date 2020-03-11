@@ -84,9 +84,25 @@ impl AatbeFmt for &Expression {
         match self {
             Expression::Binary(lhs, op, rhs) => format!("{} {} {}", lhs.fmt(), op, rhs.fmt()),
             Expression::Atom(atom) => atom.fmt(),
-            Expression::RecordInit { record, values } => format!(
-                "{} {{ {} }}",
+            Expression::RecordInit {
                 record,
+                types,
+                values,
+            } => format!(
+                "{}{} {{ {} }}",
+                record,
+                if types.len() > 0 {
+                    format!(
+                        "<{}>",
+                        types
+                            .iter()
+                            .map(|val| val.fmt())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                } else {
+                    String::default()
+                },
                 values
                     .iter()
                     .map(|val| val.fmt())
