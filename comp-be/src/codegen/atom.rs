@@ -6,8 +6,6 @@ use crate::{
 
 use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
 
-use llvm_sys_wrapper::LLVMValueRef;
-
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
@@ -236,7 +234,7 @@ impl AatbeModule {
                 let values = exprs
                     .iter()
                     .filter_map(|expr| self.codegen_expr(expr))
-                    .collect::<Vec<ValueTypePair>>();
+                    .collect::<Vec<_>>();
                 if exprs.len() != values.len() {
                     return None;
                 }
@@ -244,7 +242,7 @@ impl AatbeModule {
                 let types = values
                     .iter()
                     .map(|val| val.prim().clone())
-                    .collect::<Vec<PrimitiveType>>();
+                    .collect::<Vec<_>>();
 
                 let fst = types.first().unwrap();
                 if !types.iter().all(|ty| ty == fst) {
@@ -254,7 +252,7 @@ impl AatbeModule {
                             exprs
                                 .iter()
                                 .map(|val| val.fmt())
-                                .collect::<Vec<String>>()
+                                .collect::<Vec<_>>()
                                 .join(", ")
                         ),
                     });
@@ -267,10 +265,7 @@ impl AatbeModule {
                     (
                         self.llvm_context_ref().ConstArray(
                             fst.clone().llvm_ty_in_ctx(self),
-                            &mut values
-                                .iter()
-                                .map(|val| **val)
-                                .collect::<Vec<LLVMValueRef>>(),
+                            &mut values.iter().map(|val| **val).collect::<Vec<_>>(),
                             len,
                         ),
                         PrimitiveType::Array {

@@ -79,7 +79,7 @@ impl Record {
         let mut types = types
             .iter()
             .map(|ty| ty.llvm_ty_in_ctx(module))
-            .collect::<Vec<LLVMTypeRef>>();
+            .collect::<Vec<_>>();
 
         self.inner.set_body(&mut types, false);
     }

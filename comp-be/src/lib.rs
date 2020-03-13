@@ -4,7 +4,8 @@
     type_ascription,
     vec_remove_item,
     option_expect_none,
-    or_patterns
+    or_patterns,
+    bindings_after_at
 )]
 
 pub mod codegen;

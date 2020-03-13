@@ -46,6 +46,15 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
             PrimitiveType::Function { ret_ty, .. } => ret_ty.clone().fmt(),
             PrimitiveType::Slice { ty } => format!("{}[]", ty.clone().fmt()),
+            PrimitiveType::GenericTypeRef(name, types) => format!(
+                "{}<{}>",
+                name,
+                types
+                    .iter()
+                    .map(|ty| ty.fmt())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -70,7 +79,7 @@ impl AatbeFmt for &AtomKind {
                 "[{}]",
                 vals.iter()
                     .map(|val| val.fmt())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(", ")
             ),
             AtomKind::Index(lval, index) => format!("{}[{}]", lval.fmt(), index.fmt()),
@@ -97,7 +106,7 @@ impl AatbeFmt for &Expression {
                         types
                             .iter()
                             .map(|val| val.fmt())
-                            .collect::<Vec<String>>()
+                            .collect::<Vec<_>>()
                             .join(", ")
                     )
                 } else {
@@ -106,7 +115,7 @@ impl AatbeFmt for &Expression {
                 values
                     .iter()
                     .map(|val| val.fmt())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(", ")
             ),
             Expression::Call { name, args } => format!(
@@ -114,7 +123,7 @@ impl AatbeFmt for &Expression {
                 name,
                 args.iter()
                     .map(|val| val.fmt())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(", ")
             ),
             Expression::Function {
@@ -133,7 +142,7 @@ impl AatbeFmt for &Expression {
                 params
                     .iter()
                     .map(|val| val.fmt())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(", "),
                 ret_ty.fmt(),
             ),

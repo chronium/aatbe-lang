@@ -124,6 +124,22 @@ impl LLVMTyInCtx for PrimitiveType {
                 .get_type(name)
                 .expect(format!("Type {} is not declared", name).as_str())
                 .llvm_ty_in_ctx(module),
+            PrimitiveType::GenericTypeRef(name, types) => {
+                let rec = format!(
+                    "{}<{}>",
+                    name,
+                    types
+                        .iter()
+                        .map(|ty| ty.fmt())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+                module
+                    .typectx_ref()
+                    .get_type(&rec)
+                    .expect(format!("Type {} is not declared", rec).as_str())
+                    .llvm_ty_in_ctx(module)
+            }
             PrimitiveType::Pointer(ty) => match ty {
                 box PrimitiveType::Char => ctx.CharPointerType(),
                 tr @ box PrimitiveType::TypeRef(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
@@ -149,7 +165,7 @@ impl LLVMTyInCtx for PrimitiveType {
                         }
                         _ => Some(t.llvm_ty_in_ctx(module)),
                     })
-                    .collect::<Vec<LLVMTypeRef>>();
+                    .collect::<Vec<_>>();
 
                 unsafe {
                     LLVMFunctionType(

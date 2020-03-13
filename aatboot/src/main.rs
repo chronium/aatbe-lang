@@ -7,7 +7,7 @@ use std::{
     fs::{File, OpenOptions},
     io,
     io::{Read, Write},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use glob::glob;
@@ -82,7 +82,7 @@ fn main() -> io::Result<()> {
             let globs = glob(format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib).as_ref())
                 .unwrap()
                 .filter_map(Result::ok)
-                .collect::<Vec<PathBuf>>();
+                .collect::<Vec<_>>();
             if globs.len() < 1 {
                 error!("lib{}.so cannot be found", lib);
             } else if globs.len() > 1 {
@@ -102,6 +102,7 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::NoGenericRecord { rec } => error!("No template found for {}", rec),
             CompileError::ExpectedReturn { function, ty } => {
                 error!("Expected return of type {} at `{}`", ty, function)
             }

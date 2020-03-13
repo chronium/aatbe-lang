@@ -6,7 +6,7 @@ fn main () = {
         value: 10
     }
 
-    val tstr = Test<str> {
+    val tstr: Test<str> = Test<str> {
         value: "Hello"
     }
 }

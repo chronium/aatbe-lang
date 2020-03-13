@@ -36,6 +36,7 @@ pub struct AatbeModule {
     current_function: Option<String>,
     typectx: TypeContext,
     compile_errors: Vec<CompileError>,
+    record_templates: HashMap<String, AST>,
 }
 
 impl AatbeModule {
@@ -57,6 +58,7 @@ impl AatbeModule {
             current_function: None,
             typectx: TypeContext::new(),
             compile_errors: Vec::new(),
+            record_templates: HashMap::new(),
         }
     }
 
@@ -98,6 +100,12 @@ impl AatbeModule {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
                 self.typectx.get_record(name).unwrap().set_body(self, types);
+            }
+            AST::Record(name, type_names, ..) => {
+                if self.record_templates.contains_key(name) {
+                    panic!("Record {}<{}> already exists", name, type_names.join(", "));
+                }
+                self.record_templates.insert(name.clone(), ast.clone());
             }
             AST::File(nodes) => nodes
                 .iter()
@@ -516,7 +524,7 @@ impl AatbeModule {
                 }
                 None
             }
-            AST::Record(_, type_names, _) if type_names.len() == 0 => None,
+            AST::Record(..) => None,
             _ => panic!("cannot codegen {:?}", ast),
         }
     }
@@ -585,6 +593,58 @@ impl AatbeModule {
             }) => val_ref,
             Some(CodegenUnit::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
+        }
+    }
+
+    pub fn propagate_types(&mut self, name: &String, types: Vec<PrimitiveType>) {
+        let rec = format!(
+            "{}<{}>",
+            name,
+            types
+                .iter()
+                .map(|ty| ty.fmt())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if !self.record_templates.contains_key(name) {
+            self.compile_errors
+                .push(CompileError::NoGenericRecord { rec: rec.clone() })
+        }
+
+        if let Some(AST::Record(_, type_names, fields)) = self.record_templates.get(name) {
+            if type_names.len() != types.len() {
+                self.compile_errors
+                    .push(CompileError::NoGenericRecord { rec: rec.clone() })
+            }
+
+            let type_refs = type_names.iter().zip(types).collect::<HashMap<_, _>>();
+            let fields = fields
+                .iter()
+                .map(|field| {
+                    if let PrimitiveType::NamedType { name, ty } = field {
+                        if let Some(box PrimitiveType::TypeRef(ty_name)) = ty {
+                            if type_refs.contains_key(ty_name) {
+                                PrimitiveType::NamedType {
+                                    name: name.clone(),
+                                    ty: Some(box type_refs.get(ty_name).unwrap().clone()),
+                                }
+                            } else {
+                                *ty.as_ref().unwrap().clone()
+                            }
+                        } else {
+                            *ty.as_ref().unwrap().clone()
+                        }
+                    } else {
+                        panic!("ICE propagate_type {:?}", field)
+                    }
+                })
+                .collect::<Vec<_>>();
+            self.typectx
+                .push_type(&rec, TypeKind::RecordType(Record::new(self, &rec, &fields)));
+            self.typectx
+                .get_record(&rec)
+                .unwrap()
+                .set_body(self, &fields);
         }
     }
 

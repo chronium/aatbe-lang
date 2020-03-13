@@ -8,15 +8,21 @@ use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
 macro_rules! rec_name {
     ($name:expr, $types:ident) => {{
-        use crate::codegen::mangle_v1::NameMangler;
         format!(
             "{}{}",
             $name,
-            $types
-                .iter()
-                .map(|ty| ty.mangle())
-                .collect::<Vec<_>>()
-                .join(", ")
+            if $types.len() > 0 {
+                format!(
+                    "<{}>",
+                    $types
+                        .iter()
+                        .map(|ty| ty.fmt())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            } else {
+                String::default()
+            }
         )
     }};
 }
@@ -30,7 +36,16 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
         } => {
             let mut vtp = None;
             let ty = match ty {
-                Some(ty) => *ty.clone(),
+                Some(ty) => match ty {
+                    box PrimitiveType::GenericTypeRef(name, types) => {
+                        let rec = rec_name!(name.clone(), types);
+                        if !module.typectx_ref().get_record(&rec).is_ok() {
+                            module.propagate_types(name, types.clone());
+                        }
+                        PrimitiveType::TypeRef(rec.clone())
+                    }
+                    _ => *ty.clone(),
+                },
                 None => {
                     if let Some(e) = value {
                         if let box Expression::RecordInit {
@@ -39,7 +54,16 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                             values: _,
                         } = e
                         {
-                            PrimitiveType::TypeRef(rec_name!(record.clone(), types))
+                            let rec = rec_name!(record.clone(), types);
+                            if types.len() == 0 {
+                                PrimitiveType::TypeRef(rec.clone())
+                            } else {
+                                if !module.typectx_ref().get_record(&rec).is_ok() {
+                                    module.propagate_types(record, types.clone());
+                                }
+
+                                PrimitiveType::TypeRef(rec.clone())
+                            }
                         } else {
                             let pair = module.codegen_expr(e)?;
 
@@ -166,8 +190,9 @@ pub fn init_record(
             record,
             types,
             values,
-        } if types.len() == 0 => get_lval(module, lval).and_then(|var| {
+        } => get_lval(module, lval).and_then(|var| {
             let mut err = false;
+            let rec = rec_name!(record, types);
 
             values.iter().for_each(|val| match val {
                 AtomKind::NamedValue { name, val } => {
@@ -181,8 +206,8 @@ pub fn init_record(
                         &lval.into(),
                         module
                             .typectx_ref()
-                            .get_record(record)
-                            .expect(format!("ICE could not find record {}", record).as_str()),
+                            .get_record(&rec)
+                            .expect(format!("ICE could not find record {}", rec).as_str()),
                         name,
                         val_ref,
                     ) {
@@ -206,7 +231,6 @@ pub fn init_record(
                 true => None,
             }
         }),
-        Expression::RecordInit { .. } => panic!("ICE init_record {:?}", rec),
         _ => unreachable!(),
     }
 }

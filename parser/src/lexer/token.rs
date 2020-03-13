@@ -148,7 +148,7 @@ macro_rules! from_tok {
                 _ => None,
             }
         }
-    }
+    };
 }
 
 impl Token {
@@ -186,7 +186,7 @@ impl Token {
     pub fn split_accessor(&self) -> Option<Vec<String>> {
         match &self.kind {
             TokenKind::Identifier(accessor) => {
-                match accessor.clone().split(".").collect::<Vec<&str>>() {
+                match accessor.clone().split(".").collect::<Vec<_>>() {
                     acc => Some(acc.iter().map(|val| String::from(*val)).collect()),
                 }
             }

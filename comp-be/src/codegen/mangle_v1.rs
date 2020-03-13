@@ -37,7 +37,7 @@ impl NameMangler for Expression {
                 name,
                 args.iter()
                     .map(|arg| arg.mangle())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(", ")
             ),
             _ => panic!("Cannot name mangle {:?}", self),
@@ -74,7 +74,7 @@ impl NameMangler for PrimitiveType {
                     .iter()
                     .map(|p| p.mangle())
                     .filter(|m| !m.is_empty())
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<_>>()
                     .join(".");
                 if !params_mangled.is_empty() {
                     format!("A{}", params_mangled)

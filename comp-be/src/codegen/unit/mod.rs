@@ -92,7 +92,7 @@ impl CodegenUnit {
                     } => Some(ty.clone()),
                     p => Some(p.clone()),
                 })
-                .collect::<Vec<PrimitiveType>>()
+                .collect::<Vec<_>>()
                 .clone(),
             _ => panic!("ICE param_types {:?}", self),
         }

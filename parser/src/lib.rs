@@ -34,7 +34,21 @@ impl Parser {
                 Some(Keyword::Bool) => Some(PrimitiveType::Bool),
                 _ => None,
             })
-            .or_else(|| Some(PrimitiveType::TypeRef(tok.ident()?)))
+            .or_else(|| match tok.ident() {
+                Some(tyref) => {
+                    if matches!(self.peek_symbol(Symbol::Lower), Some(true)) {
+                        self.next();
+                        let types = self
+                            .parse_type_list()
+                            .expect(format!("Expected type list at {}", tyref).as_str());
+                        sym!(Greater, self);
+                        Some(PrimitiveType::GenericTypeRef(tyref, types))
+                    } else {
+                        Some(PrimitiveType::TypeRef(tyref))
+                    }
+                }
+                None => None,
+            })
             .or_else(|| match tok.ty() {
                 Some(Type::Str) => Some(PrimitiveType::Str),
                 Some(Type::Char) => Some(PrimitiveType::Char),

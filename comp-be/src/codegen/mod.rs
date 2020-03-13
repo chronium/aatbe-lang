@@ -14,6 +14,9 @@ pub use unit::CodegenUnit;
 pub type GenRes = Result<ValueTypePair, CompileError>;
 
 pub enum CompileError {
+    NoGenericRecord {
+        rec: String,
+    },
     ExpectedReturn {
         function: String,
         ty: String,

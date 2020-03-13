@@ -6,7 +6,7 @@ use crate::{
 
 use parser::ast::{AtomKind, Expression, IntSize, PrimitiveType};
 
-use llvm_sys_wrapper::{LLVMValueRef, Struct};
+use llvm_sys_wrapper::Struct;
 
 impl AatbeModule {
     pub fn codegen_call(&mut self, call: &Expression) -> Option<ValueTypePair> {
@@ -124,7 +124,7 @@ impl AatbeModule {
                                 }
                             }),
                     })
-                    .collect::<Vec<LLVMValueRef>>();
+                    .collect::<Vec<_>>();
 
                 let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
@@ -133,7 +133,7 @@ impl AatbeModule {
                         call_types
                             .iter()
                             .map(|arg| arg.mangle())
-                            .collect::<Vec<String>>()
+                            .collect::<Vec<_>>()
                             .join(".")
                     )
                 } else {
@@ -150,7 +150,7 @@ impl AatbeModule {
                                 .iter()
                                 .zip(args)
                                 .map(|(ty, val)| format!("{}: {}", val.mangle(), ty.fmt()))
-                                .collect::<Vec<String>>()
+                                .collect::<Vec<_>>()
                                 .join(", "),
                         });
                         return None;
@@ -180,12 +180,12 @@ impl AatbeModule {
                         expected_ty: params
                             .iter()
                             .map(|p| p.fmt())
-                            .collect::<Vec<String>>()
+                            .collect::<Vec<_>>()
                             .join(", "),
                         found_ty: call_types
                             .iter()
                             .map(|arg| arg.fmt())
-                            .collect::<Vec<String>>()
+                            .collect::<Vec<_>>()
                             .join(", "),
                     });
                 }
