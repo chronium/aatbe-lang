@@ -534,7 +534,7 @@ fn main () -> ()
         let pt = parse_test!(
             "
 rec Record(msg: str, time: i64)
-rec Generic<T>(value: T)
+rec Generic[T](value: T)
 rec Unit()
 ",
             "Declare record"
@@ -575,10 +575,10 @@ rec Unit()
         let pt = parse_test!(
             "
 rec Record(msg: str, time: i32)
-rec Generic<T>(value: T)
+rec Generic[T](value: T)
 
 fn rec_test () -> () = Record { msg: \"Hello World\", time: 42, a: a.b }
-fn generic_test () = Generic<str> { value: \"Aloha\" }
+fn generic_test () = Generic[str] { value: \"Aloha\" }
 ",
             "Initialize record"
         );

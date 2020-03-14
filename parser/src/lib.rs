@@ -20,14 +20,28 @@ use std::path::PathBuf;
 impl Parser {
     fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
         let token = self.next();
-        let ty = if let Some(tok) = token {
+        if let Some(tok) = token {
             match tok.sym() {
                 Some(Symbol::Unit) => Some(PrimitiveType::Unit),
                 Some(Symbol::GoDot) => Some(PrimitiveType::Varargs),
-                Some(Symbol::Ampersand) => match capture!(res parse_type, self) {
-                    Err(_) => None,
-                    Ok(ty) => Some(PrimitiveType::Ref(box ty)),
-                },
+                Some(Symbol::Ampersand) => capture!(res parse_type, self)
+                    .ok()
+                    .and_then(|ty| Some(PrimitiveType::Ref(box ty))),
+                Some(Symbol::LBracket) => capture!(res parse_type, self).ok().and_then(|ty| {
+                    let len = if sym!(bool Comma, self) {
+                        self.peek().and_then(|tok| tok.int()).map(|len| len as u32)
+                    } else {
+                        None
+                    };
+                    if len.is_some() {
+                        self.next();
+                    }
+                    sym!(RBracket, self);
+                    Some(match len {
+                        None => PrimitiveType::Slice { ty: box ty },
+                        Some(len) => PrimitiveType::Array { ty: box ty, len },
+                    })
+                }),
                 _ => None,
             }
             .or_else(|| match tok.kw() {
@@ -36,12 +50,12 @@ impl Parser {
             })
             .or_else(|| match tok.ident() {
                 Some(tyref) => {
-                    if matches!(self.peek_symbol(Symbol::Lower), Some(true)) {
+                    if matches!(self.peek_symbol(Symbol::LBracket), Some(true)) {
                         self.next();
                         let types = self
                             .parse_type_list()
                             .expect(format!("Expected type list at {}", tyref).as_str());
-                        sym!(Greater, self);
+                        sym!(RBracket, self);
                         Some(PrimitiveType::GenericTypeRef(tyref, types))
                     } else {
                         Some(PrimitiveType::TypeRef(tyref))
@@ -66,28 +80,15 @@ impl Parser {
             })
         } else {
             None
-        };
-
-        if ty.is_none() {
-            Err(ParseError::ExpectedType)
-        } else {
-            let ty = ty.unwrap();
-            Ok(if sym!(bool Star, self) {
-                PrimitiveType::Pointer(box ty)
-            } else if sym!(bool LBracket, self) {
-                let len = self.peek().and_then(|tok| tok.int()).map(|len| len as u32);
-                if len.is_some() {
-                    self.next();
-                }
-                sym!(required RBracket, self);
-                match len {
-                    None => PrimitiveType::Slice { ty: box ty },
-                    Some(len) => PrimitiveType::Array { ty: box ty, len },
-                }
-            } else {
-                ty
-            })
         }
+        .and_then(|ty| {
+            if sym!(bool Star, self) {
+                Some(PrimitiveType::Pointer(box ty))
+            } else {
+                Some(ty)
+            }
+        })
+        .ok_or(ParseError::ExpectedType)
     }
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
@@ -168,11 +169,11 @@ impl Parser {
         kw!(Record, self);
         let name = ident!(required self);
 
-        let type_names = if sym!(bool Lower, self) {
+        let type_names = if sym!(bool LBracket, self) {
             let type_names = self
                 .parse_type_names()
                 .expect(format!("Expected type name list at {}", name).as_str());
-            sym!(required Greater, self);
+            sym!(required RBracket, self);
             type_names
         } else {
             Vec::new()

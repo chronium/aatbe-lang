@@ -171,11 +171,9 @@ impl Parser {
     fn parse_record_init(&mut self) -> ParseResult<Expression> {
         let record = ident!(res self)?;
 
-        let types = if sym!(bool Lower, self) {
-            let types = self
-                .parse_type_list()
-                .expect(format!("Expected type list at {}", record).as_str());
-            sym!(required Greater, self);
+        let types = if sym!(bool LBracket, self) {
+            let types = self.parse_type_list()?;
+            sym!(required RBracket, self);
             types
         } else {
             Vec::new()

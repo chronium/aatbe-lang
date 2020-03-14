@@ -1,6 +1,6 @@
 use "../aatlib/prelude"
 
-fn bubble_sort arr: &i32[] = {
+fn bubble_sort arr: &[i32] = {
     var i = 0
     var j = 0
     var swapped: bool

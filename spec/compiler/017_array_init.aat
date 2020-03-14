@@ -4,5 +4,5 @@
 fn main () = {
     val arr = [1, 2, 3, 4]
     val buf = ['a', 'b', 'c']
-    val decl: u8[6] = [0u8, 2u8, 4u8, 6u8, 8u8, 10u8]
+    val decl: [u8, 6] = [0u8, 2u8, 4u8, 6u8, 8u8, 10u8]
 }

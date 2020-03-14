@@ -1,6 +1,6 @@
 // spector:name Pass slice
 
-fn double_first i: &i32[] = { }
+fn double_first i: &[i32] = { }
 
 @entry
 fn main () = {

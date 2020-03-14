@@ -1,0 +1,14 @@
+// spector:name Declare and initialize generic type
+
+rec Generic[T](value: T)
+
+@entry
+fn main () = {
+    val ti32 = Generic[i32] {
+        value: 10
+    }
+
+    val tstr: Generic[str] = Generic[str] {
+        value: "Hello"
+    }
+}

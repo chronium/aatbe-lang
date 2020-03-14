@@ -1,7 +1,7 @@
 // spector:name Pass by reference disallowed
 // spector:shouldfail
 
-fn double_first i: &i32[3] = i[0] = i[0] * 2
+fn double_first i: &[i32, 3] = i[0] = i[0] * 2
 
 @entry
 fn main () = {
