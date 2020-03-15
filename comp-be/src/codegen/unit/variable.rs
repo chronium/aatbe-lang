@@ -7,13 +7,13 @@ use crate::{
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
 macro_rules! rec_name {
-    ($name:expr, $types:ident) => {{
+    ($name:expr, $types:expr) => {{
         format!(
             "{}{}",
             $name,
             if $types.len() > 0 {
                 format!(
-                    "<{}>",
+                    "[{}]",
                     $types
                         .iter()
                         .map(|ty| ty.fmt())
@@ -40,7 +40,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                     box PrimitiveType::GenericTypeRef(name, types) => {
                         let rec = rec_name!(name.clone(), types);
                         if !module.typectx_ref().get_record(&rec).is_ok() {
-                            module.propagate_types(name, types.clone());
+                            module.propagate_types_in_record(name, types.clone());
                         }
                         PrimitiveType::TypeRef(rec.clone())
                     }
@@ -59,7 +59,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                                 PrimitiveType::TypeRef(rec.clone())
                             } else {
                                 if !module.typectx_ref().get_record(&rec).is_ok() {
-                                    module.propagate_types(record, types.clone());
+                                    module.propagate_types_in_record(record, types.clone());
                                 }
 
                                 PrimitiveType::TypeRef(rec.clone())

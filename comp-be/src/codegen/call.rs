@@ -13,6 +13,7 @@ impl AatbeModule {
         match call {
             Expression::Call {
                 name: raw_name,
+                types,
                 args,
             } => {
                 // TODO: fix this hack
@@ -128,8 +129,13 @@ impl AatbeModule {
 
                 let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
                     format!(
-                        "{}A{}",
+                        "{}{}A{}",
                         raw_name,
+                        if types.len() > 0 {
+                            format!("G{}", types.len())
+                        } else {
+                            String::default()
+                        },
                         call_types
                             .iter()
                             .map(|arg| arg.mangle())
@@ -142,14 +148,28 @@ impl AatbeModule {
 
                 let mut mismatch = false;
 
-                let params = match self.get_params(&name) {
+                let params = match self.get_params_generic(&raw_name, &name, types.to_vec()) {
                     None => {
                         self.add_error(CompileError::UnknownFunction {
-                            name: raw_name.clone(),
-                            values: call_types
+                            name: format!(
+                                "{}{}",
+                                raw_name.clone(),
+                                if types.len() > 0 {
+                                    format!(
+                                        "[{}]",
+                                        types
+                                            .iter()
+                                            .map(|ty| ty.fmt())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    )
+                                } else {
+                                    String::default()
+                                }
+                            ),
+                            values: args
                                 .iter()
-                                .zip(args)
-                                .map(|(ty, val)| format!("{}: {}", val.mangle(), ty.fmt()))
+                                .map(|val| format!("{}", val.fmt()))
                                 .collect::<Vec<_>>()
                                 .join(", "),
                         });
@@ -166,7 +186,6 @@ impl AatbeModule {
                                     mismatch = true;
                                 };
                             }
-
                             _ => mismatch = true,
                         },
                         PrimitiveType::Varargs => break,

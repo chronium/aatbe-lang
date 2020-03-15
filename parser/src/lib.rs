@@ -93,7 +93,11 @@ impl Parser {
 
     fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
         let name = ident!(required self);
-        if sym!(bool Comma, self) | sym!(bool Arrow, self) {
+        if sym!(bool Comma, self)
+            | sym!(bool Arrow, self)
+            | sym!(bool LBracket, self)
+            | sym!(bool RBracket, self)
+        {
             return Err(ParseError::Continue);
         };
         let ty = if sym!(bool Colon, self) {
@@ -174,9 +178,9 @@ impl Parser {
                 .parse_type_names()
                 .expect(format!("Expected type name list at {}", name).as_str());
             sym!(required RBracket, self);
-            type_names
+            Some(type_names)
         } else {
-            Vec::new()
+            None
         };
 
         let fields = if sym!(bool Unit, self) {
@@ -214,7 +218,7 @@ impl Parser {
     }
 
     fn parse_function(&mut self) -> ParseResult<AST> {
-        let mut attributes = Vec::new();
+        let mut attributes = vec![];
 
         loop {
             match capture!(self, parse_attribute) {
@@ -227,12 +231,25 @@ impl Parser {
         kw!(Fn, self);
         let name = ident!(required self);
 
+        let type_names = if sym!(bool LBracket, self) {
+            let type_names = self
+                .parse_type_names()
+                .expect(format!("Expected type name list at {}", name).as_str());
+            sym!(required RBracket, self);
+            type_names
+        } else {
+            vec![]
+        };
+
         let params = self
             .parse_type_list()
             .expect(format!("Expected type list at {}", name).as_str());
-        sym!(bool Arrow, self);
 
-        let ret_ty = box capture!(res parse_type, self).unwrap_or(PrimitiveType::Unit);
+        let ret_ty = box if sym!(bool Arrow, self) {
+            capture!(res parse_type, self)?
+        } else {
+            PrimitiveType::Unit
+        };
 
         let mut body = None;
         if sym!(bool Assign, self) {
@@ -243,6 +260,7 @@ impl Parser {
             name,
             attributes,
             body,
+            type_names,
             ty: PrimitiveType::Function {
                 ext,
                 ret_ty,

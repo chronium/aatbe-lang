@@ -14,7 +14,7 @@ pub struct Lexer<'c> {
 impl<'c> Lexer<'c> {
     pub fn new(code: &'c str) -> Self {
         Self {
-            tokens: Vec::new(),
+            tokens: vec![],
             chars: code.chars().peekable(),
             col: 1,
             row: 1,

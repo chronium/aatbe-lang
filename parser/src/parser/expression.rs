@@ -48,6 +48,15 @@ impl Parser {
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
         let name = ident!(required self);
+
+        let types = if sym!(bool LBracket, self) {
+            let types = self.parse_type_list()?;
+            sym!(required RBracket, self);
+            types
+        } else {
+            vec![]
+        };
+
         if self.nl()
             || sym!(bool Comma, self)
             || !(self.sep() || self.peek_symbol(Symbol::Unit).unwrap_or(false))
@@ -74,7 +83,7 @@ impl Parser {
         if args.len() < 1 {
             Err(ParseError::ExpectedExpression)
         } else {
-            Ok(Expression::Call { name, args })
+            Ok(Expression::Call { name, types, args })
         }
     }
 
@@ -176,7 +185,7 @@ impl Parser {
             sym!(required RBracket, self);
             types
         } else {
-            Vec::new()
+            vec![]
         };
 
         sym!(required LCurly, self);

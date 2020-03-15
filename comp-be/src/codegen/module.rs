@@ -1,13 +1,14 @@
-use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module, Phi, LLVM};
+use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, Phi, LLVM};
 use std::{collections::HashMap, fs::File, io, io::prelude::Read};
 
 use crate::{
     codegen::{
         codegen_binary,
         expr::const_expr::fold_constant,
+        mangle_v1::NameMangler,
         unit::{
-            alloc_variable, codegen_function, declare_function, init_record,
-            inject_function_in_scope, store_value,
+            alloc_variable, declare_and_compile_function, declare_function, init_record,
+            store_value,
         },
         CodegenUnit, CompileError, Scope, ValueTypePair,
     },
@@ -28,15 +29,14 @@ use parser::{
 pub struct AatbeModule {
     llvm_context: Context,
     llvm_module: Module,
-    llvm_builder: Builder,
     name: String,
     scope_stack: Vec<Scope>,
     imported: HashMap<String, AST>,
     imported_cg: Vec<String>,
-    current_function: Option<String>,
     typectx: TypeContext,
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
+    function_templates: HashMap<String, Expression>,
 }
 
 impl AatbeModule {
@@ -45,20 +45,18 @@ impl AatbeModule {
 
         let llvm_context = Context::new();
         let llvm_module = llvm_context.create_module(name.as_ref());
-        let llvm_builder = llvm_context.create_builder();
 
         Self {
             llvm_context,
             llvm_module,
-            llvm_builder,
             name,
             imported: HashMap::new(),
-            imported_cg: Vec::new(),
-            scope_stack: Vec::new(),
-            current_function: None,
+            imported_cg: vec![],
+            scope_stack: vec![],
             typectx: TypeContext::new(),
-            compile_errors: Vec::new(),
+            compile_errors: vec![],
             record_templates: HashMap::new(),
+            function_templates: HashMap::new(),
         }
     }
 
@@ -87,23 +85,40 @@ impl AatbeModule {
 
     pub fn decl_expr(&mut self, expr: &Expression) {
         match expr {
-            Expression::Function { .. } => declare_function(self, expr),
+            Expression::Function { type_names, .. } if type_names.len() == 0 => {
+                declare_function(self, expr)
+            }
+            Expression::Function {
+                type_names, name, ..
+            } => {
+                if self.function_templates.contains_key(name) {
+                    panic!(
+                        "Function {}[{}] already exists",
+                        name,
+                        type_names.join(", ")
+                    );
+                }
+                self.function_templates.insert(name.clone(), expr.clone());
+            }
             _ => panic!("Top level {:?} unsupported", expr),
         }
     }
 
     pub fn decl_pass(&mut self, ast: &AST) {
-        self.start_scope();
+        self.scope_stack
+            .push(Scope::with_builder(Builder::new_in_context(
+                self.llvm_context.as_ref(),
+            )));
         match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
-            AST::Record(name, type_names, types) if type_names.len() == 0 => {
+            AST::Record(name, None, types) => {
                 let rec = Record::new(self, name, types);
                 self.typectx.push_type(name, TypeKind::RecordType(rec));
                 self.typectx.get_record(name).unwrap().set_body(self, types);
             }
-            AST::Record(name, type_names, ..) => {
+            AST::Record(name, Some(type_names), ..) => {
                 if self.record_templates.contains_key(name) {
-                    panic!("Record {}<{}> already exists", name, type_names.join(", "));
+                    panic!("Record {}[{}] already exists", name, type_names.join(", "));
                 }
                 self.record_templates.insert(name.clone(), ast.clone());
             }
@@ -182,11 +197,7 @@ impl AatbeModule {
                 let val = self.codegen_expr(_value).unwrap();
 
                 let func_ret = self
-                    .get_func(
-                        self.current_function
-                            .as_ref()
-                            .expect("Compiler borked rets"),
-                    )
+                    .get_func(self.get_function().as_ref().expect("Compiler borked rets"))
                     .expect("Must be in a function for ret statement")
                     .ret_ty()
                     .clone();
@@ -305,13 +316,9 @@ impl AatbeModule {
                 cond_expr,
                 body,
             } => {
-                let func = self
-                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
-                    .expect("Must be in a function for if statement");
-
-                let cond_bb = func.append_basic_block(String::default());
-                let body_bb = func.append_basic_block(String::default());
-                let end_bb = func.append_basic_block(String::default());
+                let cond_bb = self.basic_block(String::default());
+                let body_bb = self.basic_block(String::default());
+                let end_bb = self.basic_block(String::default());
 
                 self.llvm_builder_ref().build_br(cond_bb);
                 self.llvm_builder_ref().position_at_end(cond_bb);
@@ -348,17 +355,13 @@ impl AatbeModule {
                 else_expr,
                 is_expr,
             } => {
-                let func = self
-                    .get_func(self.current_function.as_ref().expect("Compiler borked ifs"))
-                    .expect("Must be in a function for if statement");
-
-                let then_bb = func.append_basic_block(String::default());
+                let then_bb = self.basic_block(String::default());
                 let else_bb = if let Some(_) = else_expr {
-                    Some(func.append_basic_block(String::default()))
+                    Some(self.basic_block(String::default()))
                 } else {
                     None
                 };
-                let end_bb = func.append_basic_block(String::default());
+                let end_bb = self.basic_block(String::default());
 
                 let cond = self.codegen_expr(cond_expr)?;
 
@@ -370,15 +373,15 @@ impl AatbeModule {
                     });
                 }
 
-                self.llvm_builder
+                self.llvm_builder_ref()
                     .build_cond_br(*cond, then_bb, else_bb.unwrap_or(end_bb));
 
-                self.llvm_builder.position_at_end(then_bb);
+                self.llvm_builder_ref().position_at_end(then_bb);
 
                 let then_val = self.codegen_expr(then_expr);
                 let else_val = if let Some(bb) = else_bb {
-                    self.llvm_builder.build_br(end_bb);
-                    self.llvm_builder.position_at_end(bb);
+                    self.llvm_builder_ref().build_br(end_bb);
+                    self.llvm_builder_ref().position_at_end(bb);
 
                     if let Some(else_expr) = else_expr {
                         self.codegen_expr(&*else_expr)
@@ -389,9 +392,9 @@ impl AatbeModule {
                     None
                 };
                 if !self.has_ret(then_expr) {
-                    self.llvm_builder.build_br(end_bb);
+                    self.llvm_builder_ref().build_br(end_bb);
                 }
-                self.llvm_builder.position_at_end(end_bb);
+                self.llvm_builder_ref().position_at_end(end_bb);
 
                 if !is_expr {
                     return None;
@@ -439,44 +442,15 @@ impl AatbeModule {
                     None
                 }
             },
-            Expression::Function { ty, body, .. } => {
-                match ty {
-                    PrimitiveType::Function {
-                        ret_ty: _,
-                        params: _,
-                        ext: true,
-                    } => None,
-                    _ => {
-                        let name = codegen_function(self, expr);
-                        self.current_function = Some(name.clone());
-                        self.start_scope_with_name(&name);
-                        inject_function_in_scope(self, expr);
-                        let ret = self.codegen_expr(
-                            &body
-                                .as_ref()
-                                .expect("ICE Function with no body but not external"),
-                        );
-
-                        // TODO: Typechecks
-                        if has_return_type(ty) {
-                            if let Some(ret) = ret {
-                                self.llvm_builder.build_ret(ret.0);
-                            } else {
-                                self.add_error(CompileError::ExpectedReturn {
-                                    function: expr.clone().fmt(),
-                                    ty: ty.fmt(),
-                                })
-                            }
-                        } else {
-                            self.llvm_builder.build_ret_void();
-                        }
-
-                        self.exit_scope();
-
-                        None
-                    }
-                }
-            }
+            Expression::Function { ty, type_names, .. } if type_names.len() == 0 => match ty {
+                PrimitiveType::Function {
+                    ret_ty: _,
+                    params: _,
+                    ext: true,
+                } => None,
+                _ => declare_and_compile_function(self, expr),
+            },
+            Expression::Function { .. } => None,
             Expression::Block(nodes) if nodes.len() == 0 => None,
             Expression::Block(nodes) => {
                 self.start_scope();
@@ -534,7 +508,11 @@ impl AatbeModule {
     }
 
     pub fn start_scope_with_name(&mut self, name: &String) {
-        self.scope_stack.push(Scope::new_with_name(name));
+        self.scope_stack.push(Scope::with_name(name));
+    }
+
+    pub fn start_scope_with_function(&mut self, name: &String, builder: Builder) {
+        self.scope_stack.push(Scope::with_function(name, builder));
     }
 
     pub fn exit_scope(&mut self) {
@@ -549,6 +527,23 @@ impl AatbeModule {
         }
 
         None
+    }
+
+    pub fn get_function(&self) -> Option<String> {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(function) = scope.function() {
+                return Some(function);
+            }
+        }
+        None
+    }
+
+    pub fn basic_block(&self, name: String) -> LLVMBasicBlockRef {
+        let func = self
+            .get_func(self.get_function().as_ref().expect("Compiler borked ifs"))
+            .expect("Must be in a function for if statement");
+
+        func.append_basic_block(name)
     }
 
     pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
@@ -574,6 +569,52 @@ impl AatbeModule {
         }
     }
 
+    pub fn get_params_generic(
+        &mut self,
+        template: &String,
+        name: &String,
+        types: Vec<PrimitiveType>,
+    ) -> Option<Vec<PrimitiveType>> {
+        self.get_params(name).or_else(|| {
+            self.propagate_types_in_function(template, types)
+                .and_then(|ty| match self.function_templates.get(template) {
+                    Some(Expression::Function {
+                        name: fname,
+                        body,
+                        attributes,
+                        type_names,
+                        ..
+                    }) => {
+                        let function = Expression::Function {
+                            name: fname.clone(),
+                            ty: ty.clone(),
+                            body: body.clone(),
+                            attributes: attributes.clone(),
+                            type_names: type_names.clone(),
+                        };
+                        declare_and_compile_function(self, &function);
+                        if let PrimitiveType::Function { params, .. } = ty {
+                            Some(
+                                params
+                                    .iter()
+                                    .map(|p| match p {
+                                        PrimitiveType::NamedType {
+                                            ty: Some(box ty), ..
+                                        } => ty.clone(),
+                                        _ => p.clone(),
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                    Some(_) => unreachable!(),
+                    None => unreachable!(),
+                })
+        })
+    }
+
     pub fn is_extern(&self, name: &String) -> bool {
         let val_ref = self.get_in_scope(name);
         match val_ref {
@@ -596,9 +637,117 @@ impl AatbeModule {
         }
     }
 
-    pub fn propagate_types(&mut self, name: &String, types: Vec<PrimitiveType>) {
+    pub fn propagate_types_in_function(
+        &mut self,
+        name: &String,
+        types: Vec<PrimitiveType>,
+    ) -> Option<PrimitiveType> {
+        if types.len() == 0 {
+            return None;
+        }
+
+        let func = format!(
+            "{}[{}]",
+            name,
+            types
+                .iter()
+                .map(|ty| ty.fmt())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if !self.function_templates.contains_key(name) {
+            self.add_error(CompileError::NoGenericFunction {
+                function: func.clone(),
+            });
+            return None;
+        }
+
+        if let Some(Expression::Function {
+            type_names,
+            ty: PrimitiveType::Function { ret_ty, params, .. },
+            ..
+        }) = self.function_templates.get(name)
+        {
+            if type_names.len() != types.len() {
+                self.compile_errors
+                    .push(CompileError::NoGenericFunction { function: func });
+                return None;
+            }
+
+            let type_refs = type_names.iter().zip(types).collect::<HashMap<_, _>>();
+
+            let ret_ty = match ret_ty {
+                box PrimitiveType::TypeRef(ty) => {
+                    if type_refs.contains_key(ty) {
+                        box type_refs[ty].clone()
+                    } else {
+                        box PrimitiveType::TypeRef(ty.clone())
+                    }
+                }
+                _ => ret_ty.clone(),
+            };
+            let params = params
+                .iter()
+                .map(|param| match param {
+                    PrimitiveType::TypeRef(ty) => {
+                        if type_refs.contains_key(ty) {
+                            type_refs[ty].clone()
+                        } else {
+                            PrimitiveType::TypeRef(ty.clone())
+                        }
+                    }
+                    PrimitiveType::NamedType {
+                        name,
+                        ty: Some(box PrimitiveType::TypeRef(ty)),
+                    } => {
+                        if type_refs.contains_key(ty) {
+                            PrimitiveType::NamedType {
+                                name: name.clone(),
+                                ty: Some(box type_refs[ty].clone()),
+                            }
+                        } else {
+                            PrimitiveType::NamedType {
+                                name: name.clone(),
+                                ty: Some(box PrimitiveType::TypeRef(ty.clone())),
+                            }
+                        }
+                    }
+                    _ => param.clone(),
+                })
+                .collect::<Vec<_>>();
+
+            let ty = PrimitiveType::Function {
+                ext: false,
+                ret_ty,
+                params,
+            };
+
+            let function = Expression::Function {
+                name: name.clone(),
+                type_names: type_names.clone(),
+                ty: ty.clone(),
+                body: None,
+                attributes: vec![],
+            };
+            let mangled = function.mangle();
+
+            self.push_in_scope(
+                &mangled,
+                CodegenUnit::Function(
+                    self.llvm_module_ref()
+                        .get_or_add_function(mangled.as_ref(), ty.llvm_ty_in_ctx(self)),
+                    ty.clone(),
+                ),
+            );
+            Some(ty)
+        } else {
+            None
+        }
+    }
+
+    pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<PrimitiveType>) {
         let rec = format!(
-            "{}<{}>",
+            "{}[{}]",
             name,
             types
                 .iter()
@@ -607,11 +756,10 @@ impl AatbeModule {
                 .join(", ")
         );
         if !self.record_templates.contains_key(name) {
-            self.compile_errors
-                .push(CompileError::NoGenericRecord { rec: rec.clone() })
+            self.add_error(CompileError::NoGenericRecord { rec: rec.clone() })
         }
 
-        if let Some(AST::Record(_, type_names, fields)) = self.record_templates.get(name) {
+        if let Some(AST::Record(_, Some(type_names), fields)) = self.record_templates.get(name) {
             if type_names.len() != types.len() {
                 self.compile_errors
                     .push(CompileError::NoGenericRecord { rec: rec.clone() })
@@ -626,7 +774,7 @@ impl AatbeModule {
                             if type_refs.contains_key(ty_name) {
                                 PrimitiveType::NamedType {
                                     name: name.clone(),
-                                    ty: Some(box type_refs.get(ty_name).unwrap().clone()),
+                                    ty: Some(box type_refs[ty_name].clone()),
                                 }
                             } else {
                                 *ty.as_ref().unwrap().clone()
@@ -653,7 +801,12 @@ impl AatbeModule {
     }
 
     pub fn llvm_builder_ref(&self) -> &Builder {
-        &self.llvm_builder
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(builder) = scope.builder() {
+                return builder;
+            }
+        }
+        unreachable!();
     }
 
     pub fn llvm_module_ref(&self) -> &Module {
@@ -674,19 +827,5 @@ impl AatbeModule {
 
     pub fn errors(&self) -> &Vec<CompileError> {
         &self.compile_errors
-    }
-}
-
-fn has_return_type(ty: &PrimitiveType) -> bool {
-    match ty {
-        PrimitiveType::Function {
-            ret_ty,
-            params: _,
-            ext: _,
-        } => match ret_ty {
-            box PrimitiveType::Unit => false,
-            _ => true,
-        },
-        _ => panic!("Not a function type {:?}", ty),
     }
 }

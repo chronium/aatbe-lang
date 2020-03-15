@@ -130,7 +130,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> ParseResult<()> {
-        let mut res = Vec::new();
+        let mut res = vec![];
         let err = loop {
             match self.peek() {
                 Some(tok) if tok.kind == TokenKind::EOF => break Ok(()),

@@ -4,7 +4,9 @@ use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::{BindType, PrimitiveType};
 
 pub mod function;
-pub use function::{codegen_function, declare_function, inject_function_in_scope};
+pub use function::{
+    codegen_function, declare_and_compile_function, declare_function, inject_function_in_scope,
+};
 
 pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};

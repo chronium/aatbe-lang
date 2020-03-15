@@ -12,6 +12,7 @@ impl NameMangler for Expression {
                 ty,
                 body: _,
                 attributes,
+                type_names,
             } => match ty {
                 PrimitiveType::Function {
                     ext: false,
@@ -19,7 +20,16 @@ impl NameMangler for Expression {
                     params: _,
                 } => {
                     if !attributes.contains(&String::from("entry")) {
-                        format!("{}{}", name, ty.mangle())
+                        format!(
+                            "{}{}{}",
+                            name,
+                            if type_names.len() > 0 {
+                                format!("G{}", type_names.len())
+                            } else {
+                                String::default()
+                            },
+                            ty.mangle(),
+                        )
                     } else {
                         name.clone()
                     }
@@ -31,15 +41,6 @@ impl NameMangler for Expression {
                 } => name.clone(),
                 _ => panic!("ICE non function type mangle"),
             },
-            Expression::Atom(atom) => atom.mangle(),
-            Expression::Call { name, args } => format!(
-                "{} {}",
-                name,
-                args.iter()
-                    .map(|arg| arg.mangle())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }

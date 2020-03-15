@@ -102,6 +102,9 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::NoGenericFunction { function } => {
+                error!("No template found for {}", function)
+            }
             CompileError::NoGenericRecord { rec } => error!("No template found for {}", rec),
             CompileError::ExpectedReturn { function, ty } => {
                 error!("Expected return of type {} at `{}`", ty, function)

@@ -1,12 +1,13 @@
+use "aatlib/prelude"
+
 rec Test[T](value: T)
+
+fn test[T] value: T = {
+    println value
+}
 
 @entry
 fn main () = {
-    val ti32 = Test[i32] {
-        value: 10
-    }
-
-    val tstr: Test[str] = Test[str] {
-        value: "Hello"
-    }
+    test[i32] 64
+    test[str] "Hello World!"
 }

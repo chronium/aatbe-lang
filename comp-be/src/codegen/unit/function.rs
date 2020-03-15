@@ -1,9 +1,15 @@
 use crate::{
-    codegen::{mangle_v1::NameMangler, unit::Mutability, AatbeModule, CodegenUnit},
+    codegen::{
+        mangle_v1::NameMangler, unit::Mutability, AatbeModule, CodegenUnit, CompileError,
+        ValueTypePair,
+    },
+    fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
 
 use parser::ast::{Expression, PrimitiveType};
+
+use llvm_sys_wrapper::Builder;
 
 pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     match function {
@@ -12,7 +18,8 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
             ty,
             attributes: _,
             body: _,
-        } => {
+            type_names,
+        } if type_names.len() == 0 => {
             let name = function.mangle();
 
             let func = module
@@ -25,13 +32,59 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     }
 }
 
-pub fn codegen_function(module: &mut AatbeModule, function: &Expression) -> String {
+pub fn declare_and_compile_function(
+    module: &mut AatbeModule,
+    func: &Expression,
+) -> Option<ValueTypePair> {
+    match func {
+        Expression::Function { ty, body, .. } => match ty {
+            PrimitiveType::Function {
+                ret_ty: _,
+                params: _,
+                ext: true,
+            } => None,
+            _ => {
+                let builder = Builder::new_in_context(module.llvm_context_ref().as_ref());
+                module.start_scope_with_function(&func.mangle(), builder);
+                codegen_function(module, func);
+                inject_function_in_scope(module, func);
+                let ret = module.codegen_expr(
+                    &body
+                        .as_ref()
+                        .expect("ICE Function with no body but not external"),
+                );
+
+                // TODO: Typechecks
+                if has_return_type(ty) {
+                    if let Some(ret) = ret {
+                        module.llvm_builder_ref().build_ret(ret.0);
+                    } else {
+                        module.add_error(CompileError::ExpectedReturn {
+                            function: func.clone().fmt(),
+                            ty: ty.fmt(),
+                        })
+                    }
+                } else {
+                    module.llvm_builder_ref().build_ret_void();
+                }
+
+                module.exit_scope();
+
+                None
+            }
+        },
+        _ => unreachable!(),
+    }
+}
+
+pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
     match function {
         Expression::Function {
             name: _,
             ty: _,
             attributes,
             body: _,
+            type_names: _,
         } => {
             let name = &function.mangle();
             let func = module.get_func(name).unwrap();
@@ -50,8 +103,6 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) -> Stri
                     .llvm_builder_ref()
                     .position_at_end(func.append_basic_block(String::default()));
             }
-
-            return name.clone();
         }
         _ => unreachable!(),
     }
@@ -64,6 +115,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
             ty,
             attributes: _,
             body: _,
+            type_names: _,
         } => {
             let fun_name = function.mangle();
             match ty {
@@ -139,5 +191,19 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
             };
         }
         _ => unreachable!(),
+    }
+}
+
+fn has_return_type(ty: &PrimitiveType) -> bool {
+    match ty {
+        PrimitiveType::Function {
+            ret_ty,
+            params: _,
+            ext: _,
+        } => match ret_ty {
+            box PrimitiveType::Unit => false,
+            _ => true,
+        },
+        _ => panic!("Not a function type {:?}", ty),
     }
 }

@@ -126,7 +126,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 .llvm_ty_in_ctx(module),
             PrimitiveType::GenericTypeRef(name, types) => {
                 let rec = format!(
-                    "{}<{}>",
+                    "{}[{}]",
                     name,
                     types
                         .iter()

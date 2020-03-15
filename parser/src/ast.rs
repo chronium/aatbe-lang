@@ -6,7 +6,7 @@ pub enum AST {
     Error,
     Expr(Expression),
     Import(String),
-    Record(String, Vec<String>, Vec<PrimitiveType>),
+    Record(String, Option<Vec<String>>, Vec<PrimitiveType>),
     Constant {
         ty: PrimitiveType,
         value: Box<Expression>,
@@ -34,6 +34,7 @@ pub enum Expression {
     },
     Call {
         name: String,
+        types: Vec<PrimitiveType>,
         args: Vec<Expression>,
     },
     Function {
@@ -41,6 +42,7 @@ pub enum Expression {
         ty: PrimitiveType,
         body: Option<Box<Expression>>,
         attributes: Vec<String>,
+        type_names: Vec<String>,
     },
     If {
         cond_expr: Box<Expression>,

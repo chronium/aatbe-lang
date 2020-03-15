@@ -1,0 +1,10 @@
+// spector:name Declare and initialize generic type
+
+fn generic[T] value: T = { }
+
+@entry
+fn main () = {
+    generic[u8] 18u8
+    generic[i32] 64
+    generic[str] "Hello World!"
+}

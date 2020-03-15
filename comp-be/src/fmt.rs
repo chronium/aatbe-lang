@@ -47,7 +47,7 @@ impl AatbeFmt for &PrimitiveType {
             PrimitiveType::Function { ret_ty, .. } => ret_ty.clone().fmt(),
             PrimitiveType::Slice { ty } => format!("{}[]", ty.clone().fmt()),
             PrimitiveType::GenericTypeRef(name, types) => format!(
-                "{}<{}>",
+                "{}[{}]",
                 name,
                 types
                     .iter()
@@ -102,7 +102,7 @@ impl AatbeFmt for &Expression {
                 record,
                 if types.len() > 0 {
                     format!(
-                        "<{}>",
+                        "[{}]",
                         types
                             .iter()
                             .map(|val| val.fmt())
@@ -118,9 +118,21 @@ impl AatbeFmt for &Expression {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Expression::Call { name, args } => format!(
-                "{} {}",
+            Expression::Call { name, types, args } => format!(
+                "{}{} {}",
                 name,
+                if types.len() > 0 {
+                    format!(
+                        "[{}]",
+                        types
+                            .iter()
+                            .map(|val| val.fmt())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    String::default()
+                },
                 args.iter()
                     .map(|val| val.fmt())
                     .collect::<Vec<_>>()
