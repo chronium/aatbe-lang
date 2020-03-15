@@ -1,0 +1,49 @@
+use "libc"
+use "aatrt"
+
+rec String(ptr: str, len: i32, max_len: i32, factor: i32)
+
+fn new String, value: str -> String = {
+    val len = strlen value
+
+    var buf: str = (calloc len + 1, 1) as str
+    strncpy buf as char*, value as char*, len
+
+    String {
+        ptr: buf,
+        len: len,
+        max_len: len,
+        factor: 16
+    }
+}
+
+fn resize self: &String, len: i32 = {
+    var new_buf = (calloc len + 1, 1) as str
+    strncpy new_buf as char*, self.ptr as char*, (strlen self.ptr)
+    free self.ptr as char*
+    self.max_len = len
+    self.ptr = new_buf
+}
+
+fn append self: &String, c: char = {
+    until self.len < self.max_len {
+        resize &self, self.len + self.factor
+    }
+    self.ptr[self.len] = c
+    self.len = self.len + 1
+}
+
+fn put_char self: &String, ind: i32, c: char = {
+    until ind < self.max_len {
+        resize &self, self.len + self.factor
+    }
+    self.ptr[ind] = c
+}
+
+fn print value: String = {
+    printf "%s", value.ptr
+}
+
+fn println value: String = {
+    printf "%s\n", value.ptr
+}

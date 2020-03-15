@@ -1,13 +1,12 @@
 use "aatlib/prelude"
 
-rec Test[T](value: T)
-
-fn test[T] value: T = {
-    println value
-}
-
 @entry
 fn main () = {
-    test[i32] 64
-    test[str] "Hello World!"
+    var hello = new :String, "Hello World!"
+    println hello
+    put_char &hello, 0, 'J'
+    println hello
+    append &hello, '!'
+    println hello.len
+    println hello
 }
