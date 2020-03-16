@@ -6,7 +6,7 @@ rec String(ptr: str, len: i32, max_len: i32, factor: i32)
 fn new String, value: str -> String = {
     val len = strlen value
 
-    var buf: str = (calloc len + 1, 1) as str
+    var buf: str = calloc[str] len + 1, 1
     strncpy buf as char*, value as char*, len
 
     String {
@@ -22,7 +22,7 @@ fn drop self: String = {
 }
 
 fn resize self: &String, len: i32 = {
-    var new_buf = (calloc len + 1, 1) as str
+    var new_buf = calloc[str] len + 1, 1
     strncpy new_buf as char*, self.ptr as char*, (strlen self.ptr)
     free self.ptr as char*
     self.max_len = len

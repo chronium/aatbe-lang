@@ -88,17 +88,10 @@ impl AatbeModule {
             Expression::Function { type_names, .. } if type_names.len() == 0 => {
                 declare_function(self, expr)
             }
-            Expression::Function {
-                type_names, name, ..
-            } => {
-                if self.function_templates.contains_key(name) {
-                    panic!(
-                        "Function {}[{}] already exists",
-                        name,
-                        type_names.join(", ")
-                    );
+            Expression::Function { name, .. } => {
+                if !self.function_templates.contains_key(name) {
+                    self.function_templates.insert(name.clone(), expr.clone());
                 }
-                self.function_templates.insert(name.clone(), expr.clone());
             }
             _ => panic!("Top level {:?} unsupported", expr),
         }
@@ -569,6 +562,24 @@ impl AatbeModule {
         }
     }
 
+    pub fn propagate_generic_body(
+        body: Box<Expression>,
+        type_map: HashMap<&String, PrimitiveType>,
+    ) -> Box<Expression> {
+        box match body {
+            box Expression::Atom(atom) => Expression::Atom(match atom {
+                AtomKind::Cast(box atom, PrimitiveType::TypeRef(ty_ref)) => {
+                    AtomKind::Cast(box atom, type_map[&ty_ref].clone())
+                }
+                AtomKind::Parenthesized(expr) => AtomKind::Parenthesized(
+                    AatbeModule::propagate_generic_body(expr, type_map.clone()),
+                ),
+                atom => atom,
+            }),
+            box expr => expr,
+        }
+    }
+
     pub fn get_params_generic(
         &mut self,
         template: &String,
@@ -576,7 +587,7 @@ impl AatbeModule {
         types: Vec<PrimitiveType>,
     ) -> Option<Vec<PrimitiveType>> {
         self.get_params(name).or_else(|| {
-            self.propagate_types_in_function(template, types)
+            self.propagate_types_in_function(template, types.clone())
                 .and_then(|ty| match self.function_templates.get(template) {
                     Some(Expression::Function {
                         name: fname,
@@ -585,10 +596,13 @@ impl AatbeModule {
                         type_names,
                         ..
                     }) => {
+                        let type_map = type_names.iter().zip(types).collect::<HashMap<_, _>>();
                         let function = Expression::Function {
                             name: fname.clone(),
                             ty: ty.clone(),
-                            body: body.clone(),
+                            body: body.as_ref().map(|body| {
+                                AatbeModule::propagate_generic_body(body.clone(), type_map)
+                            }),
                             attributes: attributes.clone(),
                             type_names: type_names.clone(),
                         };
@@ -674,12 +688,12 @@ impl AatbeModule {
                 return None;
             }
 
-            let type_refs = type_names.iter().zip(types).collect::<HashMap<_, _>>();
+            let type_map = type_names.iter().zip(types).collect::<HashMap<_, _>>();
 
             let ret_ty = match ret_ty {
                 box PrimitiveType::TypeRef(ty) => {
-                    if type_refs.contains_key(ty) {
-                        box type_refs[ty].clone()
+                    if type_map.contains_key(ty) {
+                        box type_map[ty].clone()
                     } else {
                         box PrimitiveType::TypeRef(ty.clone())
                     }
@@ -690,8 +704,8 @@ impl AatbeModule {
                 .iter()
                 .map(|param| match param {
                     PrimitiveType::TypeRef(ty) => {
-                        if type_refs.contains_key(ty) {
-                            type_refs[ty].clone()
+                        if type_map.contains_key(ty) {
+                            type_map[ty].clone()
                         } else {
                             PrimitiveType::TypeRef(ty.clone())
                         }
@@ -700,10 +714,10 @@ impl AatbeModule {
                         name,
                         ty: Some(box PrimitiveType::TypeRef(ty)),
                     } => {
-                        if type_refs.contains_key(ty) {
+                        if type_map.contains_key(ty) {
                             PrimitiveType::NamedType {
                                 name: name.clone(),
-                                ty: Some(box type_refs[ty].clone()),
+                                ty: Some(box type_map[ty].clone()),
                             }
                         } else {
                             PrimitiveType::NamedType {
@@ -765,16 +779,16 @@ impl AatbeModule {
                     .push(CompileError::NoGenericRecord { rec: rec.clone() })
             }
 
-            let type_refs = type_names.iter().zip(types).collect::<HashMap<_, _>>();
+            let type_map = type_names.iter().zip(types).collect::<HashMap<_, _>>();
             let fields = fields
                 .iter()
                 .map(|field| {
                     if let PrimitiveType::NamedType { name, ty } = field {
                         if let Some(box PrimitiveType::TypeRef(ty_name)) = ty {
-                            if type_refs.contains_key(ty_name) {
+                            if type_map.contains_key(ty_name) {
                                 PrimitiveType::NamedType {
                                     name: name.clone(),
-                                    ty: Some(box type_refs[ty_name].clone()),
+                                    ty: Some(box type_map[ty_name].clone()),
                                 }
                             } else {
                                 *ty.as_ref().unwrap().clone()

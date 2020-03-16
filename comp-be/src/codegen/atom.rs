@@ -10,11 +10,7 @@ impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
             AtomKind::Cast(box val, ty) => {
-                let (val, val_ty) = self
-                    .codegen_atom(val)
-                    .expect("ICE codegen_atom cast val")
-                    .into();
-                println!("from {:?} to {:?}", val_ty, ty);
+                let (val, val_ty) = self.codegen_atom(val)?.into();
                 match (val_ty, ty) {
                     (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
                         if from < *to =>

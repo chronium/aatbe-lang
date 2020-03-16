@@ -127,7 +127,8 @@ impl AatbeModule {
                     })
                     .collect::<Vec<_>>();
 
-                let name = if !self.is_extern(raw_name) && call_types.len() > 0 {
+                let name = if (!self.is_extern(raw_name) || types.len() > 0) && call_types.len() > 0
+                {
                     format!(
                         "{}{}A{}",
                         raw_name,
