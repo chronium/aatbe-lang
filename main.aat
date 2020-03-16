@@ -9,4 +9,7 @@ fn main () = {
     append &hello, '!'
     println hello.len
     println hello
+    drop hello
+
+    println cat "Hello", " world!"
 }

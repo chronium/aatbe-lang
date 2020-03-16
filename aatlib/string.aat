@@ -17,6 +17,10 @@ fn new String, value: str -> String = {
     }
 }
 
+fn drop self: String = {
+    free self.ptr as char*
+}
+
 fn resize self: &String, len: i32 = {
     var new_buf = (calloc len + 1, 1) as str
     strncpy new_buf as char*, self.ptr as char*, (strlen self.ptr)

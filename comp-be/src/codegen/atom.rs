@@ -14,12 +14,135 @@ impl AatbeModule {
                     .codegen_atom(val)
                     .expect("ICE codegen_atom cast val")
                     .into();
+                println!("from {:?} to {:?}", val_ty, ty);
                 match (val_ty, ty) {
+                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
+                        if from < *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
+                        if from > *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::UInt(to))
+                        if from < *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::UInt(to))
+                        if from > *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::UInt(from)), PrimitiveType::Int(to))
+                        if from < *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::UInt(from)), PrimitiveType::Int(to))
+                        if from > *to =>
+                    {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
                     (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Pointer(_)) => {
                         return Some(
                             (
                                 self.llvm_builder_ref()
                                     .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Pointer(_)), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Str), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Str), PrimitiveType::UInt(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::UInt(_)), PrimitiveType::Pointer(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
+                    (TypeKind::Primitive(PrimitiveType::Pointer(_)), PrimitiveType::UInt(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
                                 ty.clone(),
                             )
                                 .into(),

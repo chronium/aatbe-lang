@@ -171,7 +171,7 @@ pub enum Boolean {
     False,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum IntSize {
     Bits8,
     Bits16,

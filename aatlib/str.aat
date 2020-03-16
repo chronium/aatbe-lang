@@ -1,0 +1,15 @@
+use "libc"
+
+fn cat a: str, b: str -> str = {
+    val lena = strlen a
+    val lenb = strlen b
+    val len = lena + lenb + 1
+    var buf = (malloc len) as str
+    val aptr = a as char*
+    val bptr = b as char*
+    val boffs = (buf as u64) + (lena as u64)
+    strncpy buf as char*, aptr, lena
+    strncpy boffs as char*, bptr, lenb
+    buf[len - 1] = 0 as char
+    buf
+}
