@@ -1,5 +1,11 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, Phi, LLVM};
-use std::{collections::HashMap, fs::File, io, io::prelude::Read};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io,
+    io::prelude::Read,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     codegen::{
@@ -37,10 +43,11 @@ pub struct AatbeModule {
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
+    stdlib_path: Option<PathBuf>,
 }
 
 impl AatbeModule {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, stdlib_path: Option<PathBuf>) -> Self {
         LLVM::initialize();
 
         let llvm_context = Context::new();
@@ -57,11 +64,18 @@ impl AatbeModule {
             compile_errors: vec![],
             record_templates: HashMap::new(),
             function_templates: HashMap::new(),
+            stdlib_path,
         }
     }
 
     pub fn parse_import(&mut self, module: &String) -> io::Result<AST> {
-        let mut f = File::open(format!("{}.aat", module))?;
+        let mut f = File::open(format!("{}.aat", module)).or_else(|err| {
+            if let Some(stdlib) = &self.stdlib_path {
+                File::open(stdlib.join(&Path::new(format!("{}.aat", module).as_str())))
+            } else {
+                Err(err)
+            }
+        })?;
         let mut code = String::new();
 
         f.read_to_string(&mut code)?;

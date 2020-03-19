@@ -118,10 +118,10 @@ impl Parser {
         if let Some(path) = self.peek_str() {
             self.next();
 
-            let pb = PathBuf::from(self.path.clone())
-                .parent()
-                .unwrap_or(&PathBuf::default())
-                .join(PathBuf::from(path));
+            let pb = PathBuf::from(path); /*PathBuf::from(self.path.clone())
+                                          .parent()
+                                          .unwrap_or(&PathBuf::default())
+                                          .join(PathBuf::from(path));*/
 
             Ok(AST::Import(
                 pb.to_str().expect("ICE parse_use pb.to_str").to_string(),

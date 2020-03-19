@@ -63,7 +63,7 @@ impl AatbeFmt for &PrimitiveType {
 impl AatbeFmt for &AtomKind {
     fn fmt(self) -> String {
         match self {
-            AtomKind::StringLiteral(lit) => format!("{}", lit),
+            AtomKind::StringLiteral(lit) => format!("\"{}\"", lit),
             AtomKind::CharLiteral(lit) => format!("{}", lit),
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Floating(val, ty) => format!("{}{}", val, ty.fmt()),
@@ -83,6 +83,7 @@ impl AatbeFmt for &AtomKind {
                     .join(", ")
             ),
             AtomKind::Index(lval, index) => format!("{}[{}]", lval.fmt(), index.fmt()),
+            AtomKind::Ref(val) => format!("&{}", val.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

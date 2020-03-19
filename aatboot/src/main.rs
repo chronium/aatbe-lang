@@ -3,19 +3,22 @@ use parser::{lexer::Lexer, parser::Parser};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
+    env,
     ffi::CString,
     fs::{File, OpenOptions},
     io,
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
+use dotenv::dotenv;
 use glob::glob;
 use llvm_sys::support::LLVMLoadLibraryPermanently;
 use log::{error, warn};
 use simplelog::*;
 
 fn main() -> io::Result<()> {
+    dotenv().ok();
     let matches = clap_app!(aatboot =>
     (version: crate_version!())
     (author: crate_authors!())
@@ -24,8 +27,9 @@ fn main() -> io::Result<()> {
     (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
     (@arg LLVM_JIT: --("jit") -j "JIT the code")
-    (@arg bitcode: -c --bitcode "Emit LLVM Bitcode")
-    (@arg lib: -l ... +takes_value "Link with library without prefix or extension"))
+    (@arg BITCODE: -c --bitcode "Emit LLVM Bitcode")
+    (@arg STDLIB: --("stdlib") +takes_value "Set the Aatbe stdlib path")
+    (@arg LIB: -l ... +takes_value "Link with library without prefix or extension"))
     .get_matches();
 
     if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
@@ -33,7 +37,7 @@ fn main() -> io::Result<()> {
             .expect("No logger should be already set")
     }
 
-    if matches.is_present("bitcode") {
+    if matches.is_present("BITCODE") {
         warn!("LLVM Bitcode output not yet implemented")
     }
 
@@ -67,17 +71,24 @@ fn main() -> io::Result<()> {
 
     let pt = parser.pt().as_ref().expect("Empty parse tree");
 
+    let stdlib: Option<PathBuf> = matches
+        .value_of("STDLIB")
+        .map(|stdlib| String::from(stdlib))
+        .or_else(|| env::var("AATBE_STDLIB").ok())
+        .map(|stdlib| Path::new(&stdlib).to_path_buf());
+
     let mut module = AatbeModule::new(
         input_path
             .file_stem()
             .and_then(|stem| stem.to_str())
             .map(|stem_str| stem_str.to_string())
             .expect("Could not get spice name from path"),
+        stdlib,
     );
     module.decl_pass(&pt);
     module.codegen_pass(&pt);
 
-    if let Some(libs) = matches.values_of("lib") {
+    if let Some(libs) = matches.values_of("LIB") {
         for lib in libs {
             let globs = glob(format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib).as_ref())
                 .unwrap()

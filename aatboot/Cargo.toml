@@ -11,8 +11,9 @@ description = "Åtbe bootstrap compiler"
 comp-be = { path="../comp-be" }
 parser = { path="../parser" }
 
-clap = "2.33.0"
+clap = "^2.33.0"
 simplelog = "^0.7.4"
-log = "0.4"
-glob = "0.3.0"
+log = "^0.4"
+glob = "^0.3.0"
 llvm-sys = "60.0"
+dotenv = "^0.15.0"
