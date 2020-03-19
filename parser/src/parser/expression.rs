@@ -6,9 +6,9 @@ use crate::{
 
 fn prec(symbol: Symbol) -> u32 {
     match symbol {
-        Symbol::LogicalOr => 10,
-        Symbol::LogicalAnd => 15,
-        Symbol::Or => 20,
+        Symbol::Or => 10,
+        Symbol::And => 15,
+        Symbol::Pipe => 20,
         Symbol::Xor => 25,
         Symbol::Ampersand => 30,
         Symbol::Equal | Symbol::NotEqual => 40,

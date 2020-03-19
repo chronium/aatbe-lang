@@ -52,9 +52,9 @@ pub enum Symbol {
     Lower,
     LowerEqual,
     Not,
-    LogicalAnd,
+    And,
+    Pipe,
     Or,
-    LogicalOr,
     Xor,
     Modulo,
     Dot,
@@ -76,10 +76,10 @@ impl From<Symbol> for String {
             Symbol::GreaterEqual => String::from(">="),
             Symbol::Lower => String::from("<"),
             Symbol::LowerEqual => String::from("<="),
-            Symbol::Or => String::from("|"),
-            Symbol::LogicalOr => String::from("||"),
+            Symbol::Pipe => String::from("|"),
+            Symbol::Or => String::from("||"),
             Symbol::Ampersand => String::from("&"),
-            Symbol::LogicalAnd => String::from("&&"),
+            Symbol::And => String::from("&&"),
             Symbol::Xor => String::from("^"),
             Symbol::Modulo => String::from("%"),
             _ => panic!("Symbol to str {:?}", sym),
@@ -111,6 +111,7 @@ pub enum Keyword {
     Ret,
     While,
     Until,
+    Type,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -173,9 +174,9 @@ impl Token {
                 | Symbol::LowerEqual
                 | Symbol::Not
                 | Symbol::Ampersand
-                | Symbol::LogicalAnd
+                | Symbol::And
+                | Symbol::Pipe
                 | Symbol::Or
-                | Symbol::LogicalOr
                 | Symbol::Xor
                 | Symbol::Modulo => Some(sym),
                 _ => None,
@@ -246,6 +247,7 @@ impl FromStr for Keyword {
             "ret" => Ok(Self::Ret),
             "while" => Ok(Self::While),
             "until" => Ok(Self::Until),
+            "type" => Ok(Self::Type),
             _ => Err(()),
         }
     }

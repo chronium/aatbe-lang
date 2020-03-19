@@ -29,7 +29,7 @@ pub fn codegen_boolean(
     (
         match op.as_str() {
             "&&" => module.llvm_builder_ref().build_and(lhs, rhs),
-            "||" => module.llvm_builder_ref().build_and(lhs, rhs),
+            "||" => module.llvm_builder_ref().build_or(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
         },
         PrimitiveType::Bool,

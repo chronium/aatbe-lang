@@ -6,7 +6,7 @@ rec String(ptr: str, len: i32, max_len: i32, factor: i32)
 fn new String, value: str -> String = {
     val len = strlen value
 
-    var buf: str = calloc[str] len + 1, 1
+    var buf = calloc[str] len + 1, 1
     strncpy buf as char*, value as char*, len
 
     String {

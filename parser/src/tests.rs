@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod parser_tests {
     use crate::{
-        ast::{AtomKind, BindType, Boolean, IntSize, LValue},
+        ast::{AtomKind, BindType, Boolean, IntSize, LValue, TypeKind},
         lexer::{token::Token, Lexer},
         Expression, ParseError, Parser, PrimitiveType, AST,
     };
@@ -694,7 +694,7 @@ rec Generic[T](value: T)
 fn generic_record_test[T] Generic[T]
 fn generic_test[T] value: T
 ",
-            "Initialize record"
+            "Declare generic record and type"
         );
 
         assert_eq!(
@@ -747,7 +747,7 @@ fn generic_test[T] value: T
 fn generic_test[T] value: T
 fn test () = generic_test[i32] 64
 ",
-            "Initialize record"
+            "Initialize generic record"
         );
 
         assert_eq!(
@@ -785,6 +785,53 @@ fn test () = generic_test[i32] 64
                         params: vec![PrimitiveType::Unit],
                     }
                 }),
+            ])
+        );
+    }
+
+    #[test]
+    fn typedefs() {
+        let pt = parse_test!(
+            "
+type Opaque
+type Generic[T]
+type Newtype = u32
+type Option[T] = None | Some T
+",
+            "Typedef tests"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![
+                AST::Typedef {
+                    name: String::from("Opaque"),
+                    type_names: None,
+                    variants: None,
+                },
+                AST::Typedef {
+                    name: String::from("Generic"),
+                    type_names: Some(vec![String::from("T")]),
+                    variants: None,
+                },
+                AST::Typedef {
+                    name: String::from("Newtype"),
+                    type_names: None,
+                    variants: Some(vec![TypeKind::Newtype(PrimitiveType::UInt(
+                        IntSize::Bits32
+                    ))]),
+                },
+                AST::Typedef {
+                    name: String::from("Option"),
+                    type_names: Some(vec![String::from("T")]),
+                    variants: Some(vec![
+                        TypeKind::Variant(String::from("None"), None),
+                        TypeKind::Variant(
+                            String::from("Some"),
+                            Some(vec![PrimitiveType::TypeRef(String::from("T"))])
+                        )
+                    ]),
+                },
             ])
         );
     }

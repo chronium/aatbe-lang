@@ -7,13 +7,14 @@ pub mod parser;
 
 mod tests;
 
-use ast::{Expression, FloatSize, IntSize, PrimitiveType, AST};
-use lexer::{
-    token,
-    token::{Keyword, Symbol, Type},
+use crate::{
+    ast::{Expression, FloatSize, IntSize, PrimitiveType, TypeKind, AST},
+    lexer::{
+        token,
+        token::{Keyword, Symbol, Type},
+    },
+    parser::{ParseError, ParseResult, Parser},
 };
-
-use crate::parser::{ParseError, ParseResult, Parser};
 
 use std::path::PathBuf;
 
@@ -134,22 +135,29 @@ impl Parser {
     fn parse_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
         let mut params = vec![];
 
-        params.push(
-            capture!(res parse_named_type, self)
-                .or_else(|_| capture!(res parse_type, self))
-                .or(Err(ParseError::ExpectedType))?,
-        );
-
         loop {
-            if !sym!(bool Comma, self) {
-                break;
-            }
-
             params.push(
                 capture!(res parse_named_type, self)
                     .or_else(|_| capture!(res parse_type, self))
                     .or(Err(ParseError::ExpectedType))?,
             );
+
+            if !sym!(bool Comma, self) {
+                break;
+            }
+        }
+        Ok(params)
+    }
+
+    fn parse_free_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
+        let mut params = vec![];
+
+        loop {
+            params.push(capture!(res parse_type, self).or(Err(ParseError::ExpectedType))?);
+
+            if !sym!(bool Comma, self) {
+                break;
+            }
         }
         Ok(params)
     }
@@ -157,14 +165,12 @@ impl Parser {
     fn parse_type_names(&mut self) -> ParseResult<Vec<String>> {
         let mut params = vec![];
 
-        params.push(ident!(res self)?);
-
         loop {
+            params.push(ident!(res self)?);
+
             if !sym!(bool Comma, self) {
                 break;
             }
-
-            params.push(ident!(res self)?);
         }
         Ok(params)
     }
@@ -174,9 +180,7 @@ impl Parser {
         let name = ident!(required self);
 
         let type_names = if sym!(bool LBracket, self) {
-            let type_names = self
-                .parse_type_names()
-                .expect(format!("Expected type name list at {}", name).as_str());
+            let type_names = self.parse_type_names()?;
             sym!(required RBracket, self);
             Some(type_names)
         } else {
@@ -217,6 +221,61 @@ impl Parser {
         })
     }
 
+    fn parse_typedef(&mut self) -> ParseResult<AST> {
+        kw!(Type, self);
+        let name = ident!(res self)?;
+
+        let type_names = if sym!(bool LBracket, self) {
+            let type_names = self.parse_type_names()?;
+            sym!(required RBracket, self);
+            Some(type_names)
+        } else {
+            None
+        };
+
+        let variants = if sym!(bool Assign, self) {
+            let ty = capture!(res parse_type, self)?;
+            let vars = self.parse_free_type_list().ok();
+            Some(if sym!(bool Pipe, self) {
+                if let PrimitiveType::TypeRef(name) = ty {
+                    let mut variants = vec![TypeKind::Variant(name, vars)];
+                    loop {
+                        variants.push(TypeKind::Variant(
+                            ident!(res self)?,
+                            self.parse_free_type_list().ok(),
+                        ));
+
+                        if !sym!(bool Pipe, self) {
+                            break;
+                        }
+                    }
+
+                    variants
+                } else {
+                    return Err(ParseError::ExpectedIdent);
+                }
+            } else {
+                if vars.is_some() {
+                    if let PrimitiveType::TypeRef(name) = ty {
+                        vec![TypeKind::Variant(name, vars)]
+                    } else {
+                        return Err(ParseError::ExpectedIdent);
+                    }
+                } else {
+                    vec![TypeKind::Newtype(ty)]
+                }
+            })
+        } else {
+            None
+        };
+
+        Ok(AST::Typedef {
+            name,
+            type_names,
+            variants,
+        })
+    }
+
     fn parse_function(&mut self) -> ParseResult<AST> {
         let mut attributes = vec![];
 
@@ -232,9 +291,7 @@ impl Parser {
         let name = ident!(required self);
 
         let type_names = if sym!(bool LBracket, self) {
-            let type_names = self
-                .parse_type_names()
-                .expect(format!("Expected type name list at {}", name).as_str());
+            let type_names = self.parse_type_names()?;
             sym!(required RBracket, self);
             type_names
         } else {

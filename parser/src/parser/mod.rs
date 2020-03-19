@@ -143,6 +143,7 @@ impl Parser {
                     .or_else(|_| capture!(res parse_function, self))
                     .or_else(|_| capture!(res parse_record, self))
                     .or_else(|_| capture!(res parse_const_global, self))
+                    .or_else(|_| capture!(res parse_typedef, self))
                     .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
             );
         };

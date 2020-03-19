@@ -7,6 +7,11 @@ pub enum AST {
     Expr(Expression),
     Import(String),
     Record(String, Option<Vec<String>>, Vec<PrimitiveType>),
+    Typedef {
+        name: String,
+        type_names: Option<Vec<String>>,
+        variants: Option<Vec<TypeKind>>,
+    },
     Constant {
         ty: PrimitiveType,
         value: Box<Expression>,
@@ -15,6 +20,12 @@ pub enum AST {
         ty: PrimitiveType,
         value: Box<Expression>,
     },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypeKind {
+    Newtype(PrimitiveType),
+    Variant(String, Option<Vec<PrimitiveType>>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
