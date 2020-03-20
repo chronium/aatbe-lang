@@ -237,23 +237,26 @@ impl Parser {
             let ty = capture!(res parse_type, self)?;
             let vars = self.parse_free_type_list().ok();
             Some(if sym!(bool Pipe, self) {
-                if let PrimitiveType::TypeRef(name) = ty {
-                    let mut variants = vec![TypeKind::Variant(name, vars)];
-                    loop {
-                        variants.push(TypeKind::Variant(
-                            ident!(res self)?,
-                            self.parse_free_type_list().ok(),
-                        ));
+                let mut variants = vec![];
 
-                        if !sym!(bool Pipe, self) {
-                            break;
-                        }
+                if let PrimitiveType::TypeRef(name) = ty {
+                    variants.push(TypeKind::Variant(name, vars));
+                } else {
+                    variants.push(TypeKind::Newtype(ty));
+                }
+                loop {
+                    if let Ok(name) = ident!(res self) {
+                        variants.push(TypeKind::Variant(name, self.parse_free_type_list().ok()));
+                    } else {
+                        variants.push(TypeKind::Newtype(capture!(res parse_type, self)?));
                     }
 
-                    variants
-                } else {
-                    return Err(ParseError::ExpectedIdent);
+                    if !sym!(bool Pipe, self) {
+                        break;
+                    }
                 }
+
+                variants
             } else {
                 if vars.is_some() {
                     if let PrimitiveType::TypeRef(name) = ty {

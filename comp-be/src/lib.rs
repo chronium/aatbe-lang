@@ -5,7 +5,8 @@
     vec_remove_item,
     option_expect_none,
     or_patterns,
-    bindings_after_at
+    bindings_after_at,
+    type_alias_impl_trait
 )]
 
 pub mod codegen;

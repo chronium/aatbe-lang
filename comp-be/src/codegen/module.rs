@@ -1,10 +1,11 @@
-use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, Phi, LLVM};
+use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, LLVM};
 use std::{
     collections::HashMap,
     fs::File,
     io,
     io::prelude::Read,
     path::{Path, PathBuf},
+    rc::{Rc, Weak},
 };
 
 use crate::{
@@ -21,15 +22,18 @@ use crate::{
     fmt::AatbeFmt,
     ty::{
         record::{store_named_field, Record},
-        LLVMTyInCtx, TypeContext, TypeKind,
+        LLVMTyInCtx, TypeContext, TypeKind, TypedefKind,
     },
 };
 
 use parser::{
-    ast::{AtomKind, Expression, LoopType, PrimitiveType, AST},
+    ast,
+    ast::{AtomKind, Expression, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
+
+pub type InternalFunc = dyn Fn(&mut AatbeModule, &Vec<Expression>, String) -> Option<ValueTypePair>;
 
 #[allow(dead_code)]
 pub struct AatbeModule {
@@ -44,6 +48,7 @@ pub struct AatbeModule {
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
     stdlib_path: Option<PathBuf>,
+    internal_functions: HashMap<String, Rc<InternalFunc>>,
 }
 
 impl AatbeModule {
@@ -52,6 +57,9 @@ impl AatbeModule {
 
         let llvm_context = Context::new();
         let llvm_module = llvm_context.create_module(name.as_ref());
+
+        let mut internal_functions: HashMap<String, Rc<InternalFunc>> = HashMap::new();
+        internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
 
         Self {
             llvm_context,
@@ -65,6 +73,7 @@ impl AatbeModule {
             record_templates: HashMap::new(),
             function_templates: HashMap::new(),
             stdlib_path,
+            internal_functions,
         }
     }
 
@@ -145,7 +154,74 @@ impl AatbeModule {
                         .expect_none(format!("Module {} already imported", module).as_ref());
                 }
             }
+            AST::Typedef {
+                name,
+                type_names: None,
+                variants: None,
+            } => {
+                self.typectx.push_type(
+                    &name,
+                    TypeKind::Typedef(TypedefKind::Opaque(
+                        self.llvm_context_ref()
+                            .StructTypeNamed(name.as_ref())
+                            .as_ref(),
+                    )),
+                );
+            }
+            AST::Typedef {
+                type_names: None, ..
+            } => self.gen_newtype_ctors(&ast),
             _ => panic!("cannot decl {:?}", ast),
+        }
+    }
+
+    pub fn gen_newtype_ctors(&mut self, typedef: &AST) {
+        match typedef {
+            AST::Typedef {
+                name,
+                type_names: None,
+                variants: Some(variants),
+            } => {
+                if variants.len() == 1 {
+                    match &variants[0] {
+                        ast::TypeKind::Newtype(ty) => {
+                            let newtystruct =
+                                self.llvm_context_ref().StructTypeNamed(name.as_ref());
+                            newtystruct.set_body(&mut vec![ty.llvm_ty_in_ctx(self)], false);
+
+                            self.internal_functions.insert(
+                                name.clone(),
+                                Rc::new(|module, values, name| {
+                                    let newtystruct = module
+                                        .typectx_ref()
+                                        .get_type(&name)?
+                                        .llvm_ty_in_ctx(module);
+                                    if values.len() != 1 {
+                                        return None;
+                                    }
+
+                                    let val = *(module.codegen_expr(&values[0])?);
+                                    let res = module.llvm_builder_ref().build_alloca(newtystruct);
+                                    module.llvm_builder_ref().build_store(
+                                        val,
+                                        module.llvm_builder_ref().build_struct_gep(res, 0),
+                                    );
+                                    Some((res, PrimitiveType::Newtype(name.clone())).into())
+                                }),
+                            );
+                            self.typectx.push_type(
+                                &name.clone(),
+                                TypeKind::Typedef(TypedefKind::Newtype(
+                                    newtystruct.as_ref(),
+                                    ty.clone(),
+                                )),
+                            );
+                        }
+                        td => panic!("ICE gen_newtype_ctors {:?}", td),
+                    }
+                }
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -318,129 +394,8 @@ impl AatbeModule {
                     )
                 })
             }
-            Expression::Loop {
-                loop_type,
-                cond_expr,
-                body,
-            } => {
-                let cond_bb = self.basic_block(String::default());
-                let body_bb = self.basic_block(String::default());
-                let end_bb = self.basic_block(String::default());
-
-                self.llvm_builder_ref().build_br(cond_bb);
-                self.llvm_builder_ref().position_at_end(cond_bb);
-                let cond = self.codegen_expr(cond_expr)?;
-
-                if *cond.prim().inner() != PrimitiveType::Bool {
-                    self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
-                        found_ty: cond.prim().fmt(),
-                        value: cond_expr.fmt(),
-                    });
-                };
-
-                match loop_type {
-                    LoopType::While => self
-                        .llvm_builder_ref()
-                        .build_cond_br(*cond, body_bb, end_bb),
-                    LoopType::Until => self
-                        .llvm_builder_ref()
-                        .build_cond_br(*cond, end_bb, body_bb),
-                };
-
-                self.llvm_builder_ref().position_at_end(body_bb);
-                self.codegen_expr(body);
-
-                self.llvm_builder_ref().build_br(cond_bb);
-                self.llvm_builder_ref().position_at_end(end_bb);
-
-                None
-            }
-            Expression::If {
-                cond_expr,
-                then_expr,
-                else_expr,
-                is_expr,
-            } => {
-                let then_bb = self.basic_block(String::default());
-                let else_bb = if let Some(_) = else_expr {
-                    Some(self.basic_block(String::default()))
-                } else {
-                    None
-                };
-                let end_bb = self.basic_block(String::default());
-
-                let cond = self.codegen_expr(cond_expr)?;
-
-                if *cond.prim().inner() != PrimitiveType::Bool {
-                    self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
-                        found_ty: cond.prim().fmt(),
-                        value: cond_expr.fmt(),
-                    });
-                }
-
-                self.llvm_builder_ref()
-                    .build_cond_br(*cond, then_bb, else_bb.unwrap_or(end_bb));
-
-                self.llvm_builder_ref().position_at_end(then_bb);
-
-                let then_val = self.codegen_expr(then_expr);
-                let else_val = if let Some(bb) = else_bb {
-                    self.llvm_builder_ref().build_br(end_bb);
-                    self.llvm_builder_ref().position_at_end(bb);
-
-                    if let Some(else_expr) = else_expr {
-                        self.codegen_expr(&*else_expr)
-                    } else {
-                        unreachable!()
-                    }
-                } else {
-                    None
-                };
-                if !self.has_ret(then_expr) {
-                    self.llvm_builder_ref().build_br(end_bb);
-                }
-                self.llvm_builder_ref().position_at_end(end_bb);
-
-                if !is_expr {
-                    return None;
-                }
-
-                if let Some(then_val) = then_val {
-                    let ty = then_val.prim().clone();
-                    if ty != PrimitiveType::Unit {
-                        if else_val.is_some() {
-                            let phi = Phi::new(
-                                self.llvm_builder_ref().as_ref(),
-                                ty.llvm_ty_in_ctx(self),
-                                "",
-                            );
-
-                            phi.add_incoming(*then_val, then_bb);
-
-                            if let Some(else_val) = else_val {
-                                if &ty != else_val.prim() {
-                                    self.add_error(CompileError::ExpectedType {
-                                        expected_ty: ty.clone().fmt(),
-                                        found_ty: else_val.prim().fmt(),
-                                        value: else_expr.as_ref().unwrap().fmt(),
-                                    });
-                                }
-                                phi.add_incoming(*else_val, else_bb.unwrap());
-                            }
-
-                            Some((phi.as_ref(), ty).into())
-                        } else {
-                            Some((*then_val, ty).into())
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
+            Expression::Loop { .. } => self.codegen_basic_loop(expr),
+            Expression::If { .. } => self.codegen_if(expr),
             Expression::Call { .. } => self.codegen_call(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
@@ -506,6 +461,7 @@ impl AatbeModule {
                 None
             }
             AST::Record(..) => None,
+            AST::Typedef { .. } => None,
             _ => panic!("cannot codegen {:?}", ast),
         }
     }
@@ -855,5 +811,13 @@ impl AatbeModule {
 
     pub fn errors(&self) -> &Vec<CompileError> {
         &self.compile_errors
+    }
+
+    pub fn has_internal(&self, key: &String) -> bool {
+        self.internal_functions.contains_key(key)
+    }
+
+    pub fn get_internal(&self, key: &String) -> Weak<InternalFunc> {
+        Rc::downgrade(&self.internal_functions[key])
     }
 }

@@ -797,6 +797,8 @@ type Opaque
 type Generic[T]
 type Newtype = u32
 type Option[T] = None | Some T
+type Number = u8 | u16
+type Complex = u8 | u16 | Comp str
 ",
             "Typedef tests"
         );
@@ -830,6 +832,23 @@ type Option[T] = None | Some T
                             String::from("Some"),
                             Some(vec![PrimitiveType::TypeRef(String::from("T"))])
                         )
+                    ]),
+                },
+                AST::Typedef {
+                    name: String::from("Number"),
+                    type_names: None,
+                    variants: Some(vec![
+                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits8)),
+                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits16)),
+                    ]),
+                },
+                AST::Typedef {
+                    name: String::from("Complex"),
+                    type_names: None,
+                    variants: Some(vec![
+                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits8)),
+                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits16)),
+                        TypeKind::Variant(String::from("Comp"), Some(vec![PrimitiveType::Str]))
                     ]),
                 },
             ])

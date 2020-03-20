@@ -38,6 +38,9 @@ impl Parser {
 
     fn parse_expr(&mut self, rbp: u32) -> ParseResult<Expression> {
         let mut left = Expression::Atom(capture!(res parse_unary, self)?);
+        if self.nl() {
+            return Ok(left);
+        }
 
         while binds_tighter(self.peek(), rbp) {
             left = self.parse_rhs(left)?;

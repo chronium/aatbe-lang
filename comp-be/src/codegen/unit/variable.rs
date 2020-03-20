@@ -77,6 +77,19 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 }
             };
 
+            if let PrimitiveType::Newtype(..) = ty {
+                module.push_in_scope(
+                    name,
+                    CodegenUnit::Variable {
+                        mutable: Mutability::from(exterior_bind),
+                        name: name.clone(),
+                        ty: ty.clone(),
+                        value: *vtp.unwrap(),
+                    },
+                );
+                return Some(ty.clone());
+            }
+
             let var_ref = module
                 .llvm_builder_ref()
                 .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());

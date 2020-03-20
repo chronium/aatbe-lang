@@ -16,40 +16,12 @@ impl AatbeModule {
                 types,
                 args,
             } => {
-                // TODO: fix this hack
-                if raw_name == "len" {
-                    if args.len() != 1 {
-                        return None;
-                    }
-                    let arr = self.codegen_expr(&args[0])?;
-                    match arr.prim() {
-                        PrimitiveType::Array { len, .. } => {
-                            return Some(
-                                (
-                                    self.llvm_context_ref().SInt32(*len as u64),
-                                    PrimitiveType::Int(IntSize::Bits32),
-                                )
-                                    .into(),
-                            );
-                        }
-                        PrimitiveType::Slice { .. } => {
-                            return Some(
-                                (
-                                    self.llvm_builder_ref().build_extract_value(*arr, 1),
-                                    PrimitiveType::Int(IntSize::Bits32),
-                                )
-                                    .into(),
-                            );
-                        }
-                        _ => {
-                            self.add_error(CompileError::MismatchedArguments {
-                                function: String::from("len"),
-                                expected_ty: String::from("[x; n]"),
-                                found_ty: arr.prim().clone().fmt(),
-                            });
-                            return None;
-                        }
-                    }
+                if self.has_internal(&raw_name) {
+                    return self.get_internal(&raw_name).upgrade().unwrap()(
+                        self,
+                        &args,
+                        raw_name.clone(),
+                    );
                 }
 
                 let mut call_types = vec![];
@@ -222,6 +194,45 @@ impl AatbeModule {
                 )
             }
             _ => unreachable!(),
+        }
+    }
+
+    pub fn internal_len(
+        module: &mut AatbeModule,
+        values: &Vec<Expression>,
+        _name: String,
+    ) -> Option<ValueTypePair> {
+        if values.len() != 1 {
+            return None;
+        }
+        let arr = module.codegen_expr(&values[0])?;
+        match arr.prim() {
+            PrimitiveType::Array { len, .. } => {
+                return Some(
+                    (
+                        module.llvm_context_ref().SInt32(*len as u64),
+                        PrimitiveType::Int(IntSize::Bits32),
+                    )
+                        .into(),
+                );
+            }
+            PrimitiveType::Slice { .. } => {
+                return Some(
+                    (
+                        module.llvm_builder_ref().build_extract_value(*arr, 1),
+                        PrimitiveType::Int(IntSize::Bits32),
+                    )
+                        .into(),
+                );
+            }
+            _ => {
+                module.add_error(CompileError::MismatchedArguments {
+                    function: String::from("len"),
+                    expected_ty: String::from("[x; n]"),
+                    found_ty: arr.prim().clone().fmt(),
+                });
+                return None;
+            }
         }
     }
 }

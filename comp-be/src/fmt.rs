@@ -55,6 +55,7 @@ impl AatbeFmt for &PrimitiveType {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            PrimitiveType::Newtype(name) => name.clone(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }
@@ -84,6 +85,7 @@ impl AatbeFmt for &AtomKind {
             ),
             AtomKind::Index(lval, index) => format!("{}[{}]", lval.fmt(), index.fmt()),
             AtomKind::Ref(val) => format!("&{}", val.fmt()),
+            AtomKind::Deref(val) => format!("*{}", val.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

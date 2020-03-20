@@ -17,6 +17,13 @@ pub type TypeResult<T> = Result<T, TypeError>;
 pub enum TypeKind {
     RecordType(Record),
     Primitive(PrimitiveType),
+    Typedef(TypedefKind),
+}
+
+#[derive(Debug)]
+pub enum TypedefKind {
+    Opaque(LLVMTypeRef),
+    Newtype(LLVMTypeRef, PrimitiveType),
 }
 
 impl fmt::Debug for TypeKind {
@@ -24,6 +31,7 @@ impl fmt::Debug for TypeKind {
         match self {
             TypeKind::Primitive(prim) => write!(f, "Primitive({})", AatbeFmt::fmt(prim)),
             TypeKind::RecordType(rec) => write!(f, "RecordType({})", rec.name()),
+            TypeKind::Typedef(tk) => write!(f, "Typedef({:?})", tk),
         }
     }
 }
@@ -33,6 +41,8 @@ impl LLVMTyInCtx for TypeKind {
         match self {
             TypeKind::RecordType(record) => record.llvm_ty_in_ctx(module),
             TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
+            TypeKind::Typedef(TypedefKind::Opaque(ty)) => *ty,
+            TypeKind::Typedef(TypedefKind::Newtype(ty, _)) => *ty,
         }
     }
 }
@@ -41,7 +51,7 @@ impl TypeKind {
     fn record(&self) -> Option<&Record> {
         match self {
             TypeKind::RecordType(record) => Some(record),
-            TypeKind::Primitive(_) => None,
+            _ => None,
         }
     }
 }
@@ -176,6 +186,14 @@ impl LLVMTyInCtx for PrimitiveType {
                     )
                 }
             }
+            PrimitiveType::Newtype(name) => module
+                .typectx_ref()
+                .get_type(&name)
+                .map(|ty| match ty {
+                    TypeKind::Typedef(TypedefKind::Newtype(_, ty)) => ty.llvm_ty_in_ctx(module),
+                    _ => unreachable!(),
+                })
+                .expect(format!("Cannot find type for {:?}", self).as_ref()),
             _ => panic!("ICE: llvm_ty_in_ctx {:?}", self),
         }
     }

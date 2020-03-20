@@ -1,7 +1,7 @@
 use crate::{
     codegen::{expr::const_expr::const_atom, AatbeModule, CompileError, ValueTypePair},
     fmt::AatbeFmt,
-    ty::{LLVMTyInCtx, TypeKind},
+    ty::{LLVMTyInCtx, TypeKind, TypedefKind},
 };
 
 use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
@@ -257,10 +257,25 @@ impl AatbeModule {
                 Some((self.llvm_builder_ref().build_load(gep), ty).into())
             }
             AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
-            /*AtomKind::Deref(path) => {
-                let acc = self.codegen_atom(path).expect("");
-                Some(self.llvm_builder_ref().build_load(acc))
-            }*/
+            AtomKind::Deref(path) => {
+                let acc = self.codegen_atom(path)?;
+                match acc.prim() {
+                    PrimitiveType::Newtype(name) => {
+                        let val = self.llvm_builder_ref().build_struct_gep(*acc, 0);
+                        match self.typectx_ref().get_type(name) {
+                            Some(TypeKind::Typedef(TypedefKind::Newtype(_, ty))) => Some(
+                                (
+                                    self.llvm_builder_ref().build_load(val),
+                                    TypeKind::Primitive(ty.clone()),
+                                )
+                                    .into(),
+                            ),
+                            _ => unimplemented!(),
+                        }
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             AtomKind::Access(path) => {
                 let int = self.get_interior_pointer(path.to_vec());
                 Some(
@@ -275,13 +290,13 @@ impl AatbeModule {
             AtomKind::Ident(name) => {
                 let var_ref = self.get_var(name)?;
 
-                Some(
-                    (
-                        var_ref.load_var(self.llvm_builder_ref()),
-                        var_ref.var_ty().clone(),
-                    )
-                        .into(),
-                )
+                match var_ref.var_ty() {
+                    ty @ PrimitiveType::Newtype(_) => {
+                        let val: ValueTypePair = var_ref.into();
+                        Some((*val, ty.clone()).into())
+                    }
+                    ty => Some((var_ref.load_var(self.llvm_builder_ref()), ty.clone()).into()),
+                }
             }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
                 let var_ref = self.get_var(name)?;
