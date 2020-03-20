@@ -167,7 +167,9 @@ impl LLVMTyInCtx for PrimitiveType {
                 let mut param_types = params
                     .iter()
                     .filter_map(|t| match t {
-                        PrimitiveType::TypeRef(_name) => None,
+                        PrimitiveType::TypeRef(name) => {
+                            Some(module.typectx_ref().get_type(name)?.llvm_ty_in_ctx(module))
+                        }
                         PrimitiveType::Unit => None,
                         PrimitiveType::Varargs => {
                             varargs = true;

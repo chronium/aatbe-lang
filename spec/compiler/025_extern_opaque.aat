@@ -1,0 +1,5 @@
+// spector:name Declare opaque type and extern function
+
+type Opaque
+
+extern fn opaque_fn Opaque -> ()

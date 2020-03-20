@@ -1,0 +1,8 @@
+// spector:name Declare and initialize newtype
+
+type Newtype = i32
+
+@entry
+fn main () = {
+    val nt = Newtype 128
+}
