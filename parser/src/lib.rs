@@ -23,6 +23,7 @@ impl Parser {
         let token = self.next();
         if let Some(tok) = token {
             match tok.sym() {
+                Some(Symbol::Colon) => Some(PrimitiveType::Symbol(ident!(res self)?)),
                 Some(Symbol::Unit) => Some(PrimitiveType::Unit),
                 Some(Symbol::GoDot) => Some(PrimitiveType::Varargs),
                 Some(Symbol::Ampersand) => capture!(res parse_type, self)

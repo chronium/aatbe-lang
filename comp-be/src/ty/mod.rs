@@ -170,6 +170,7 @@ impl LLVMTyInCtx for PrimitiveType {
                         PrimitiveType::TypeRef(name) => {
                             Some(module.typectx_ref().get_type(name)?.llvm_ty_in_ctx(module))
                         }
+                        PrimitiveType::Symbol(_) => None,
                         PrimitiveType::Unit => None,
                         PrimitiveType::Varargs => {
                             varargs = true;

@@ -3,7 +3,7 @@ use "aatrt"
 
 rec String(ptr: str, len: i32, max_len: i32, factor: i32)
 
-fn new String, value: str -> String = {
+fn new :String, value: str -> String = {
     val len = strlen value
 
     var buf = calloc[str] len + 1, 1

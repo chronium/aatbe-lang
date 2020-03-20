@@ -127,7 +127,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                     for (pos, ty) in params
                         .into_iter()
                         .filter(|ty| match ty {
-                            PrimitiveType::TypeRef(_name) => false,
+                            PrimitiveType::Symbol(_) => false,
                             _ => true,
                         })
                         .enumerate()
@@ -182,7 +182,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     ),
                                 );
                             }
-                            PrimitiveType::Unit => {}
+                            PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
                             _ => panic!("ICE: Unimplemented func args for {:?}", ty),
                         }
                     }

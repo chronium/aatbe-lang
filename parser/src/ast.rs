@@ -125,6 +125,7 @@ pub enum PrimitiveType {
     Slice {
         ty: Box<PrimitiveType>,
     },
+    Symbol(String),
 }
 
 impl PrimitiveType {

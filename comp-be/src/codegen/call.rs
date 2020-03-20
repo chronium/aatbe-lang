@@ -30,7 +30,7 @@ impl AatbeModule {
                     .iter()
                     .filter_map(|arg| match arg {
                         Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
-                            call_types.push(PrimitiveType::TypeRef(sym.clone()));
+                            call_types.push(PrimitiveType::Symbol(sym.clone()));
                             None
                         }
                         _ => self
