@@ -42,13 +42,13 @@ pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair
             Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
         }
         AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits16)) => {
-            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+            Some((module.llvm_context_ref().UInt16(*val), prim.clone()).into())
         }
         AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits32)) => {
-            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+            Some((module.llvm_context_ref().UInt32(*val), prim.clone()).into())
         }
         AtomKind::Integer(val, prim @ PrimitiveType::UInt(IntSize::Bits64)) => {
-            Some((module.llvm_context_ref().UInt8(*val), prim.clone()).into())
+            Some((module.llvm_context_ref().UInt64(*val), prim.clone()).into())
         }
         AtomKind::Floating(val, prim @ PrimitiveType::Float(FloatSize::Bits32)) => {
             Some((module.llvm_context_ref().Float(*val), prim.clone()).into())
