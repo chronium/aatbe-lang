@@ -1,9 +1,59 @@
-type NewInt32 = i32
+type SDL_Window
+type SDL_Renderer
+
+const SDL_INIT_VIDEO: u32 = 0x00000020u32
+const SDL_QUIT: u32 = 256u32
+
+const SDL_WINDOWPOS_UNDEFINED: u32 = 0x1FFF0000u32
+const SDL_WINDOW_SHOWN: u32 = 0x00000004u32
+
+const WIDTH: i32 = 800
+const HEIGHT: i32 = 600
+
+rec SDL_Event(_type: u32, padding: [u8, 56])
+
+extern fn SDL_Init flags: u32 -> i32
+extern fn SDL_Quit () -> ()
+
+extern fn SDL_Delay ms: u32 -> ()
+
+extern fn SDL_CreateWindow title: str, x: i32, y: i32, w: i32, h: i32, flags: u32 -> SDL_Window*
+extern fn SDL_DestroyWindow window: SDL_Window* -> ()
+
+extern fn SDL_UpdateWindowSurface window: SDL_Window* -> i32
+
+extern fn SDL_CreateRenderer window: SDL_Window*, index: i32, flags: u32 -> SDL_Renderer*
+extern fn SDL_DestroyRenderer renderer: SDL_Renderer* -> ()
+extern fn SDL_SetRenderDrawColor renderer: SDL_Renderer*, r: u8, g: u8, b: u8, a: u8 -> i32
+extern fn SDL_RenderClear renderer: SDL_Renderer* -> i32
+extern fn SDL_RenderPresent renderer: SDL_Renderer* -> ()
+
+extern fn SDL_PollEvent event: SDL_Event* -> i32
 
 @entry
 fn main () = {
-    val a = NewInt32 7
-    val b = NewInt32 8
+    SDL_Init SDL_INIT_VIDEO
 
-    *a + *b
+    val window = SDL_CreateWindow "SDL Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN
+    val renderer = SDL_CreateRenderer window, -1, 0u32
+
+    SDL_SetRenderDrawColor renderer, 100u8, 149u8, 237u8, 255u8
+
+    var running = true
+    var event: SDL_Event
+
+    while running == true {
+        SDL_RenderClear renderer
+        SDL_RenderPresent renderer
+
+        while (SDL_PollEvent &event) == 1 {
+            if event._type == SDL_QUIT then running = false
+        }
+
+        SDL_Delay 1000u32 / 16u32
+    }
+
+    SDL_DestroyRenderer renderer
+    SDL_DestroyWindow window
+    SDL_Quit ()
 }
