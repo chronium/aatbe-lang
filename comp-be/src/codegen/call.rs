@@ -161,6 +161,14 @@ impl AatbeModule {
                             }
                             _ => mismatch = true,
                         },
+                        PrimitiveType::Pointer(ty) => match &call_types[i] {
+                            PrimitiveType::Ref(pty) | PrimitiveType::Pointer(pty) => {
+                                if ty != pty {
+                                    mismatch = true;
+                                }
+                            }
+                            _ => mismatch = true,
+                        },
                         PrimitiveType::Varargs => break,
                         _ => mismatch = &call_types[i] != fty,
                     }
