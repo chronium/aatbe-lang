@@ -1,9 +1,12 @@
-type NewInt32 = i32
+use "prelude"
+
+type Color = RGB u8, u8, u8
 
 @entry
 fn main () = {
-    val a = NewInt32 7
-    val b = NewInt32 8
+    val color = RGB 100u8, 149u8, 237u8
 
-    *a + *b
+    println color._0
+    println color._1
+    println color._2
 }

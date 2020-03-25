@@ -12,7 +12,7 @@ pub struct Record {
     name: String,
     inner: Struct,
     body: HashMap<String, u32>,
-    types: HashMap<String, PrimitiveType>,
+    types: HashMap<u32, PrimitiveType>,
 }
 
 impl Record {
@@ -22,7 +22,7 @@ impl Record {
         types.iter().enumerate().for_each(|(index, ty)| match ty {
             PrimitiveType::NamedType { name, ty: Some(ty) } => {
                 body.insert(name.clone(), index as u32);
-                types_map.insert(name.clone(), *ty.clone());
+                types_map.insert(index as u32, *ty.clone());
             }
             _ => panic!("ICE rec new {:?}", ty),
         });
@@ -35,6 +35,27 @@ impl Record {
         }
     }
 
+    pub fn read_index(
+        &self,
+        module: &AatbeModule,
+        reference: LLVMValueRef,
+        record: &String,
+        index: u32,
+    ) -> ValueTypePair {
+        (
+            module.llvm_builder_ref().build_struct_gep_with_name(
+                reference,
+                index,
+                format!("{}._{}", record, index).as_str(),
+            ),
+            self.types
+                .get(&index)
+                .expect(format!("ICE read_index types.get {}._{}", self.name, index).as_str())
+                .clone(),
+        )
+            .into()
+    }
+
     pub fn read_field(
         &self,
         module: &AatbeModule,
@@ -43,24 +64,26 @@ impl Record {
         fields: Vec<String>,
     ) -> ValueTypePair {
         if let ([member], rest) = fields.split_at(1) {
-            let ty = self
-                .types
-                .get(member)
-                .expect(
-                    format!(
-                        "ICE read_field found field externally but not internally {}.{:?}",
-                        self.name, fields
+            let ty =
+                self.types
+                    .get(self.body.get(member).expect(
+                        format!("ICE read_field body.get {}.{:?}", self.name, fields).as_str(),
+                    ))
+                    .expect(
+                        format!(
+                            "ICE read_field found field externally but not internally {}.{:?}",
+                            self.name, fields
+                        )
+                        .as_str(),
                     )
-                    .as_str(),
-                )
-                .clone();
+                    .clone();
 
             let gep = module.llvm_builder_ref().build_struct_gep_with_name(
                 reference,
                 self.get_field_index_ty(&member)
                     .expect(format!("Cannot find field {}.{}", record, &member).as_str())
                     .0,
-                format!("{}.{}\0", record, member).as_str(),
+                format!("{}.{}", record, member).as_str(),
             );
             match ty {
                 PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
@@ -85,11 +108,8 @@ impl Record {
     }
 
     pub fn get_field_index_ty(&self, name: &String) -> Option<(u32, PrimitiveType)> {
-        (
-            self.body.get(name).map(|i| *i),
-            self.types.get(name).map(|i| i.clone()),
-        )
-            .transpose()
+        let idx = self.body.get(name).map(|i| *i);
+        (idx, self.types.get(&idx?).map(|i| i.clone())).transpose()
     }
 
     pub fn name(&self) -> String {

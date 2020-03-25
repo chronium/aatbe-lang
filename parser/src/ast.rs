@@ -107,6 +107,7 @@ pub enum PrimitiveType {
     TypeRef(String),
     GenericTypeRef(String, Vec<PrimitiveType>),
     Newtype(String),
+    Variant(String),
     Function {
         ext: bool,
         ret_ty: Box<PrimitiveType>,

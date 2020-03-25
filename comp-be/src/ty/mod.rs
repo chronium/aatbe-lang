@@ -1,7 +1,11 @@
-use crate::{codegen::AatbeModule, fmt::AatbeFmt, ty::record::Record};
+use crate::{
+    codegen::{AatbeModule, ValueTypePair},
+    fmt::AatbeFmt,
+    ty::record::Record,
+};
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
-use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef};
+use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 
 use std::{collections::HashMap, fmt};
 
@@ -24,6 +28,12 @@ pub enum TypeKind {
 pub enum TypedefKind {
     Opaque(LLVMTypeRef),
     Newtype(LLVMTypeRef, PrimitiveType),
+    Variant {
+        type_name: String,
+        variant_name: String,
+        types: Option<Vec<PrimitiveType>>,
+        ty: LLVMTypeRef,
+    },
 }
 
 impl fmt::Debug for TypeKind {
@@ -43,6 +53,7 @@ impl LLVMTyInCtx for TypeKind {
             TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
             TypeKind::Typedef(TypedefKind::Opaque(ty)) => *ty,
             TypeKind::Typedef(TypedefKind::Newtype(ty, _)) => *ty,
+            TypeKind::Typedef(TypedefKind::Variant { .. }) => unimplemented!(),
         }
     }
 }
@@ -79,11 +90,70 @@ impl TypeContext {
         self.types.get(name)
     }
 
+    pub fn get_type_for_variant(&self, name: &String) -> Option<&TypeKind> {
+        self.types
+            .values()
+            .filter(|ty| match ty {
+                TypeKind::Typedef(TypedefKind::Variant { variant_name, .. })
+                    if variant_name == name =>
+                {
+                    true
+                }
+                _ => false,
+            })
+            .nth(0)
+    }
+
     pub fn get_record(&self, name: &String) -> TypeResult<&Record> {
         self.types
             .get(name)
             .and_then(|ty| ty.record())
             .ok_or(TypeError::NotRecord(name.clone()))
+    }
+
+    pub fn get_field_named(
+        &self,
+        module: &AatbeModule,
+        name: &String,
+        reference: LLVMValueRef,
+        record: &String,
+        fields: Vec<String>,
+    ) -> Option<ValueTypePair> {
+        Some(
+            self.get_record(name)
+                .ok()?
+                .read_field(module, reference, record, fields),
+        )
+    }
+
+    pub fn get_field_indexed(
+        &self,
+        module: &AatbeModule,
+        name: &String,
+        reference: LLVMValueRef,
+        record: &String,
+        index: u32,
+    ) -> Option<ValueTypePair> {
+        if let Ok(rec) = self.get_record(name) {
+            Some(rec.read_index(module, reference, record, index))
+        } else if let Some(TypeKind::Typedef(TypedefKind::Variant {
+            types: Some(types), ..
+        })) = self.get_type_for_variant(name)
+        {
+            Some(
+                (
+                    module.llvm_builder_ref().build_struct_gep_with_name(
+                        reference,
+                        index,
+                        format!("{}._{}", record, index).as_str(),
+                    ),
+                    types[index as usize].clone(),
+                )
+                    .into(),
+            )
+        } else {
+            None
+        }
     }
 }
 
