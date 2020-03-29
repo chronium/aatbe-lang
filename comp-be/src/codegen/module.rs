@@ -556,7 +556,7 @@ impl AatbeModule {
 
     pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
         self.scope_stack
-            .first_mut()
+            .last_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
     }
