@@ -292,19 +292,20 @@ impl AatbeModule {
     }
 
     pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
-        if let ([agg_ref], tail) = parts.split_at(1) {
-            let agg_bind = self.get_var(&agg_ref)?;
-            let agg_ty = self
-                .typectx_ref()
-                .get_aggregate_from_prim(&agg_bind.var_ty())?;
+        match parts.as_slice() {
+            [field, access @ ..] => {
+                let agg_bind = self.get_var(&field)?;
+                let agg_ty = self
+                    .typectx_ref()
+                    .get_aggregate_from_prim(&agg_bind.var_ty())?;
 
-            Some(
-                self.typectx_ref()
-                    .get_field_named(self, agg_bind.into(), agg_ty, tail.to_vec())
-                    .expect(format!("ICE get_field_named {}", agg_ref).as_str()),
-            )
-        } else {
-            unreachable!()
+                Some(
+                    self.typectx_ref()
+                        .gep_fields(self, agg_ty, access.to_vec(), agg_bind.into())
+                        .expect(format!("ICE get_field_named {}", field).as_str()),
+                )
+            }
+            [] => unreachable!(),
         }
     }
 

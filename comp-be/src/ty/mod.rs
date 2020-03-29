@@ -104,12 +104,16 @@ impl TypeContext {
 
     pub fn get_aggregate_from_prim(&self, prim: &PrimitiveType) -> Option<&dyn Aggregate> {
         match prim {
-            PrimitiveType::TypeRef(name) => match self.types.get(name)? {
+            PrimitiveType::TypeRef(name) | PrimitiveType::Variant(name) => match self
+                .types
+                .get(name)
+                .or_else(|| self.get_type_for_variant(name))?
+            {
                 TypeKind::RecordType(record) => Some(record),
                 TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
                 _ => None,
             },
-            _ => unreachable!(),
+            _ => panic!("ICE get_aggregate_from_prim {:?}", prim),
         }
     }
 
@@ -134,26 +138,36 @@ impl TypeContext {
             .ok_or(TypeError::NotFound(name.clone()))
     }
 
-    pub fn get_field_named(
+    pub fn gep_fields(
         &self,
         module: &AatbeModule,
-        reference: LLVMValueRef,
         ty: &dyn Aggregate,
         fields: Vec<String>,
+        reference: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
         match fields.as_slice() {
-            [field] => ty.gep_named_field(module, field, reference),
+            [field] => ty.gep_field(module, field, reference),
             [field, subfields @ ..] => {
-                let field = ty.gep_named_field(module, field, reference)?;
+                let field = ty.gep_field(module, field, reference)?;
                 let prim = field.prim();
                 let ty = self
                     .get_aggregate_from_prim(&prim.clone())
                     .ok_or(TypeError::NotFoundPrim(prim.clone()))?;
 
-                self.get_field_named(module, *field, ty, subfields.to_vec())
+                self.gep_fields(module, ty, subfields.to_vec(), *field)
             }
             [] => unreachable!(),
         }
+    }
+
+    pub fn gep_field(
+        &self,
+        module: &AatbeModule,
+        ty: &dyn Aggregate,
+        field: &String,
+        reference: LLVMValueRef,
+    ) -> TypeResult<ValueTypePair> {
+        ty.gep_field(module, field, reference)
     }
 }
 

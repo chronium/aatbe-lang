@@ -1,17 +1,12 @@
 use "prelude"
 
 rec TestA(a: i32)
-rec TestB(b: i32, a: TestA)
+type Test = B i32, TestA
 
 @entry
 fn main () = {
-    val testb = TestB {
-        b: 128,
-        a: TestA {
-            a: 256
-        }
-    }
+    val test = B 128, TestA { a: 256 }
 
-    println testb.b
-    println testb.a.a
+    println test.0
+    println test.1.a
 }
