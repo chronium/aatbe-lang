@@ -67,6 +67,35 @@ impl Into<LLVMValueRef> for &CodegenUnit {
 }
 
 impl CodegenUnit {
+    pub fn get_aggregate_name(&self) -> Option<String> {
+        match self {
+            CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::TypeRef(rec)
+                    | PrimitiveType::NamedType {
+                        name: _,
+                        ty: Some(box PrimitiveType::TypeRef(rec)),
+                    },
+                ..
+            } => Some(rec.clone()),
+            CodegenUnit::FunctionArgument(
+                _arg,
+                PrimitiveType::TypeRef(rec)
+                | PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
+            ) => Some(rec.clone()),
+            CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::Variant(name)
+                    | PrimitiveType::NamedType {
+                        name: _,
+                        ty: Some(box PrimitiveType::Variant(name)),
+                    },
+                ..
+            } => Some(name.clone()),
+            _ => None,
+        }
+    }
+
     pub fn ret_ty(&self) -> PrimitiveType {
         match self {
             CodegenUnit::Function(

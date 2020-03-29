@@ -277,7 +277,7 @@ impl AatbeModule {
                 }
             }
             AtomKind::Access(path) => {
-                let int = self.get_interior_pointer(path.to_vec());
+                let int = self.get_interior_pointer(path.to_vec())?;
                 Some(
                     (
                         self.llvm_builder_ref()

@@ -1,6 +1,6 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
-    ty::LLVMTyInCtx,
+    ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 use parser::ast::PrimitiveType;
 
@@ -35,69 +35,6 @@ impl Record {
         }
     }
 
-    pub fn read_index(
-        &self,
-        module: &AatbeModule,
-        reference: LLVMValueRef,
-        record: &String,
-        index: u32,
-    ) -> ValueTypePair {
-        (
-            module.llvm_builder_ref().build_struct_gep_with_name(
-                reference,
-                index,
-                format!("{}._{}", record, index).as_str(),
-            ),
-            self.types
-                .get(&index)
-                .expect(format!("ICE read_index types.get {}._{}", self.name, index).as_str())
-                .clone(),
-        )
-            .into()
-    }
-
-    pub fn read_field(
-        &self,
-        module: &AatbeModule,
-        reference: LLVMValueRef,
-        record: &String,
-        fields: Vec<String>,
-    ) -> ValueTypePair {
-        if let ([member], rest) = fields.split_at(1) {
-            let ty =
-                self.types
-                    .get(self.body.get(member).expect(
-                        format!("ICE read_field body.get {}.{:?}", self.name, fields).as_str(),
-                    ))
-                    .expect(
-                        format!(
-                            "ICE read_field found field externally but not internally {}.{:?}",
-                            self.name, fields
-                        )
-                        .as_str(),
-                    )
-                    .clone();
-
-            let gep = module.llvm_builder_ref().build_struct_gep_with_name(
-                reference,
-                self.get_field_index_ty(&member)
-                    .expect(format!("Cannot find field {}.{}", record, &member).as_str())
-                    .0,
-                format!("{}.{}", record, member).as_str(),
-            );
-            match ty {
-                PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
-                    .typectx_ref()
-                    .get_record(&typeref)
-                    .expect(format!("ICE no type associated with {}", typeref).as_str())
-                    .read_field(module, gep, &member, rest.to_vec()),
-                _ => (gep, ty.clone()).into(),
-            }
-        } else {
-            unreachable!()
-        }
-    }
-
     pub fn set_body(&self, module: &AatbeModule, types: &Vec<PrimitiveType>) {
         let mut types = types
             .iter()
@@ -114,6 +51,47 @@ impl Record {
 
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+}
+
+impl Aggregate for Record {
+    fn gep_indexed_field(
+        &self,
+        module: &AatbeModule,
+        index: u32,
+        aggregate_ref: LLVMValueRef,
+    ) -> TypeResult<ValueTypePair> {
+        Ok((
+            module
+                .llvm_builder_ref()
+                .build_struct_gep(aggregate_ref, index),
+            self.types
+                .get(&index)
+                .ok_or(TypeError::RecordIndexOOB(self.name.clone(), index))?
+                .clone(),
+        )
+            .into())
+    }
+
+    fn gep_named_field(
+        &self,
+        module: &AatbeModule,
+        name: &String,
+        aggregate_ref: LLVMValueRef,
+    ) -> TypeResult<ValueTypePair> {
+        match self.body.get(name) {
+            None => Err(TypeError::RecordNameNotFound(
+                self.name.clone(),
+                name.clone(),
+            )),
+            Some(index) => {
+                let ty = self.types.get(index).cloned().unwrap();
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_struct_gep(aggregate_ref, *index);
+                Ok((gep, ty).into())
+            }
+        }
     }
 }
 

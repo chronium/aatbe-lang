@@ -1,12 +1,17 @@
 use "prelude"
 
-type Color = RGB u8, u8, u8
+rec TestA(a: i32)
+rec TestB(b: i32, a: TestA)
 
 @entry
 fn main () = {
-    val color = RGB 100u8, 149u8, 237u8
+    val testb = TestB {
+        b: 128,
+        a: TestA {
+            a: 256
+        }
+    }
 
-    println color._0
-    println color._1
-    println color._2
+    println testb.b
+    println testb.a.a
 }

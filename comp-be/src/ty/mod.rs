@@ -1,7 +1,7 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
     fmt::AatbeFmt,
-    ty::record::Record,
+    ty::{record::Record, variant::VariantType},
 };
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
@@ -9,11 +9,20 @@ use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 
 use std::{collections::HashMap, fmt};
 
+pub mod aggregate;
 pub mod record;
+pub mod variant;
+
+pub use aggregate::Aggregate;
 
 #[derive(Debug)]
 pub enum TypeError {
-    NotRecord(String),
+    NotFound(String),
+    NotFoundPrim(PrimitiveType),
+    VariantOOB(String, u32),
+    RecordIndexOOB(String, u32),
+    NamedOnVariant(String, String),
+    RecordNameNotFound(String, String),
 }
 
 pub type TypeResult<T> = Result<T, TypeError>;
@@ -28,12 +37,7 @@ pub enum TypeKind {
 pub enum TypedefKind {
     Opaque(LLVMTypeRef),
     Newtype(LLVMTypeRef, PrimitiveType),
-    Variant {
-        type_name: String,
-        variant_name: String,
-        types: Option<Vec<PrimitiveType>>,
-        ty: LLVMTypeRef,
-    },
+    Variant(VariantType),
 }
 
 impl fmt::Debug for TypeKind {
@@ -90,11 +94,30 @@ impl TypeContext {
         self.types.get(name)
     }
 
+    pub fn get_aggregate(&self, name: &String) -> Option<&dyn Aggregate> {
+        match self.types.get(name)? {
+            TypeKind::RecordType(record) => Some(record),
+            TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
+            _ => None,
+        }
+    }
+
+    pub fn get_aggregate_from_prim(&self, prim: &PrimitiveType) -> Option<&dyn Aggregate> {
+        match prim {
+            PrimitiveType::TypeRef(name) => match self.types.get(name)? {
+                TypeKind::RecordType(record) => Some(record),
+                TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
+                _ => None,
+            },
+            _ => unreachable!(),
+        }
+    }
+
     pub fn get_type_for_variant(&self, name: &String) -> Option<&TypeKind> {
         self.types
             .values()
             .filter(|ty| match ty {
-                TypeKind::Typedef(TypedefKind::Variant { variant_name, .. })
+                TypeKind::Typedef(TypedefKind::Variant(VariantType { variant_name, .. }))
                     if variant_name == name =>
                 {
                     true
@@ -108,51 +131,28 @@ impl TypeContext {
         self.types
             .get(name)
             .and_then(|ty| ty.record())
-            .ok_or(TypeError::NotRecord(name.clone()))
+            .ok_or(TypeError::NotFound(name.clone()))
     }
 
     pub fn get_field_named(
         &self,
         module: &AatbeModule,
-        name: &String,
         reference: LLVMValueRef,
-        record: &String,
+        ty: &dyn Aggregate,
         fields: Vec<String>,
-    ) -> Option<ValueTypePair> {
-        Some(
-            self.get_record(name)
-                .ok()?
-                .read_field(module, reference, record, fields),
-        )
-    }
+    ) -> TypeResult<ValueTypePair> {
+        match fields.as_slice() {
+            [field] => ty.gep_named_field(module, field, reference),
+            [field, subfields @ ..] => {
+                let field = ty.gep_named_field(module, field, reference)?;
+                let prim = field.prim();
+                let ty = self
+                    .get_aggregate_from_prim(&prim.clone())
+                    .ok_or(TypeError::NotFoundPrim(prim.clone()))?;
 
-    pub fn get_field_indexed(
-        &self,
-        module: &AatbeModule,
-        name: &String,
-        reference: LLVMValueRef,
-        record: &String,
-        index: u32,
-    ) -> Option<ValueTypePair> {
-        if let Ok(rec) = self.get_record(name) {
-            Some(rec.read_index(module, reference, record, index))
-        } else if let Some(TypeKind::Typedef(TypedefKind::Variant {
-            types: Some(types), ..
-        })) = self.get_type_for_variant(name)
-        {
-            Some(
-                (
-                    module.llvm_builder_ref().build_struct_gep_with_name(
-                        reference,
-                        index,
-                        format!("{}._{}", record, index).as_str(),
-                    ),
-                    types[index as usize].clone(),
-                )
-                    .into(),
-            )
-        } else {
-            None
+                self.get_field_named(module, *field, ty, subfields.to_vec())
+            }
+            [] => unreachable!(),
         }
     }
 }

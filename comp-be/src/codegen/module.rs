@@ -22,6 +22,7 @@ use crate::{
     fmt::AatbeFmt,
     ty::{
         record::{store_named_field, Record},
+        variant::VariantType,
         LLVMTyInCtx, TypeContext, TypeKind, TypedefKind,
     },
 };
@@ -231,12 +232,14 @@ impl AatbeModule {
                             self.internal_functions.insert(
                                 variant_name.clone(),
                                 Rc::new(|module, values, name| {
-                                    if let Some(TypeKind::Typedef(TypedefKind::Variant {
-                                        variant_name,
-                                        types: Some(types),
-                                        ty,
-                                        ..
-                                    })) = module.typectx_ref().get_type_for_variant(&name)
+                                    if let Some(TypeKind::Typedef(TypedefKind::Variant(
+                                        VariantType {
+                                            variant_name,
+                                            types: Some(types),
+                                            ty,
+                                            ..
+                                        },
+                                    ))) = module.typectx_ref().get_type_for_variant(&name)
                                     {
                                         let types = types.clone();
                                         let ty = ty.clone();
@@ -272,12 +275,12 @@ impl AatbeModule {
 
                             self.typectx.push_type(
                                 name,
-                                TypeKind::Typedef(TypedefKind::Variant {
+                                TypeKind::Typedef(TypedefKind::Variant(VariantType {
                                     type_name: name.clone(),
                                     variant_name: variant_name.clone(),
                                     ty: variant_struct.as_ref(),
                                     types: Some(types.clone()),
-                                }),
+                                })),
                             );
                         }
                         td => panic!("ICE gen_newtype_ctors {:?}", td),
@@ -288,79 +291,18 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> ValueTypePair {
-        if let ([rec_ref], tail) = parts.split_at(1) {
-            match self.get_var(&rec_ref) {
-                None => panic!("Could not find binding {}", rec_ref),
-                Some(rec) => {
-                    let rec_type = match rec {
-                        CodegenUnit::Variable {
-                            ty: PrimitiveType::TypeRef(rec),
-                            ..
-                        } => rec.clone(),
-                        CodegenUnit::Variable {
-                            ty:
-                                PrimitiveType::NamedType {
-                                    name: _,
-                                    ty: Some(box PrimitiveType::TypeRef(rec)),
-                                },
-                            ..
-                        } => rec.clone(),
-                        CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
-                            rec.clone()
-                        }
-                        CodegenUnit::FunctionArgument(
-                            _arg,
-                            PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
-                        ) => rec.clone(),
-                        CodegenUnit::Variable {
-                            ty: PrimitiveType::Variant(name),
-                            ..
-                        } => {
-                            if let Some(TypeKind::Typedef(TypedefKind::Variant {
-                                variant_name,
-                                types: Some(types),
-                                ty,
-                                ..
-                            })) = self.typectx_ref().get_type_for_variant(&name)
-                            {
-                                if tail.len() == 1 {
-                                    match &tail[0].split_at(1) {
-                                        ("_", index) => {
-                                            if let Ok(index) = u32::from_str_radix(*index, 10) {
-                                                return self
-                                                    .typectx_ref()
-                                                    .get_field_indexed(
-                                                        self,
-                                                        &variant_name,
-                                                        rec.into(),
-                                                        rec_ref,
-                                                        index,
-                                                    )
-                                                    .expect(
-                                                        format!("ICE get_field_named {}", rec_ref)
-                                                            .as_str(),
-                                                    );
-                                            } else {
-                                                unimplemented!();
-                                            }
-                                        }
-                                        _ => unimplemented!(),
-                                    }
-                                } else {
-                                    unimplemented!();
-                                }
-                            }
-                            unreachable!()
-                        }
-                        _ => panic!("ICE get_interior_pointer {:?}", rec),
-                    };
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
+        if let ([agg_ref], tail) = parts.split_at(1) {
+            let agg_bind = self.get_var(&agg_ref)?;
+            let agg_ty = self
+                .typectx_ref()
+                .get_aggregate_from_prim(&agg_bind.var_ty())?;
 
-                    self.typectx_ref()
-                        .get_field_named(self, &rec_type, rec.into(), rec_ref, tail.to_vec())
-                        .expect(format!("ICE get_field_named {}", rec_ref).as_str())
-                }
-            }
+            Some(
+                self.typectx_ref()
+                    .get_field_named(self, agg_bind.into(), agg_ty, tail.to_vec())
+                    .expect(format!("ICE get_field_named {}", agg_ref).as_str()),
+            )
         } else {
             unreachable!()
         }
