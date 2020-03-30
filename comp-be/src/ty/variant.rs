@@ -39,7 +39,6 @@ impl Aggregate for Variant {
         index: u32,
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
-        let index = index + 1;
         match &self.types {
             None => Err(TypeError::VariantOOB(self.name.clone(), index)),
             Some(types) if types.len() < index as usize => {
@@ -48,7 +47,7 @@ impl Aggregate for Variant {
             Some(types) => Ok((
                 module
                     .llvm_builder_ref()
-                    .build_struct_gep(aggregate_ref, index),
+                    .build_struct_gep(aggregate_ref, index + 1),
                 types[index as usize].clone(),
             )
                 .into()),

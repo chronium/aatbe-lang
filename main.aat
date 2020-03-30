@@ -1,7 +1,13 @@
-type su8 = A u8 | B u16
+use "prelude"
+
+type su8 = A u8 | B u16, str
 
 @entry
 fn main () = {
     var a = A 32u8
-    var b = B 1024u16
+    var b = B 1024u16, "Hello"
+
+    println a.0
+    println b.0
+    println b.1
 }
