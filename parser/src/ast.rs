@@ -193,6 +193,18 @@ pub enum IntSize {
     Bits64,
 }
 
+impl From<usize> for IntSize {
+    fn from(size: usize) -> IntSize {
+        match size {
+            1 => IntSize::Bits8,
+            2 => IntSize::Bits16,
+            4 => IntSize::Bits32,
+            8 => IntSize::Bits64,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum FloatSize {
     Bits32,

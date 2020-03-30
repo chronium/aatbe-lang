@@ -21,15 +21,16 @@ use crate::{
     },
     fmt::AatbeFmt,
     ty::{
-        record::{store_named_field, Record},
-        variant::VariantType,
-        LLVMTyInCtx, TypeContext, TypeKind, TypedefKind,
+        record::store_named_field,
+        size::AatbeSizeOf,
+        variant::{Variant, VariantType},
+        LLVMTyInCtx, Record, TypeContext, TypeKind, TypedefKind,
     },
 };
 
 use parser::{
     ast,
-    ast::{AtomKind, Expression, PrimitiveType, AST},
+    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -176,6 +177,155 @@ impl AatbeModule {
         }
     }
 
+    pub fn gen_variants(&mut self, typedef: &AST) {
+        match typedef {
+            AST::Typedef {
+                name,
+                type_names: None,
+                variants: Some(variants),
+            } => {
+                let max_size = variants.iter().map(|vari| vari.size_of()).max().unwrap();
+                let smallest = variants.iter().map(|vari| vari.smallest()).min().unwrap();
+                let size = max_size / smallest;
+
+                let smallest_ty = PrimitiveType::UInt(smallest.into());
+
+                let td_struct = self.llvm_context_ref().StructTypeNamed(name.as_ref());
+                td_struct.set_body(
+                    &mut vec![
+                        smallest_ty.llvm_ty_in_ctx(self),
+                        self.llvm_context_ref()
+                            .ArrayType(smallest_ty.llvm_ty_in_ctx(self), size as u32),
+                    ],
+                    false,
+                );
+
+                let ty_variants = variants
+                    .iter()
+                    .map(|variant| match variant {
+                        ast::TypeKind::Variant(variant_name, types) => {
+                            let ty = self
+                                .llvm_context_ref()
+                                .StructTypeNamed(variant_name.as_ref());
+                            let mut tys = vec![smallest_ty.llvm_ty_in_ctx(self)];
+                            if let Some(types) = types {
+                                tys.extend(types.iter().map(|ty| ty.llvm_ty_in_ctx(self)));
+                            };
+                            ty.set_body(tys.as_mut(), false);
+                            (
+                                variant_name.clone(),
+                                Variant {
+                                    parent_name: name.clone(),
+                                    name: variant_name.clone(),
+                                    types: types.clone(),
+                                    ty: ty.as_ref(),
+                                },
+                            )
+                        }
+                        _ => unimplemented!("{:?}", variant),
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                self.typectx.push_type(
+                    name,
+                    TypeKind::Typedef(TypedefKind::VariantType(VariantType {
+                        type_name: name.clone(),
+                        variants: ty_variants,
+                        discriminant_type: smallest_ty,
+                        ty: td_struct.as_ref(),
+                    })),
+                );
+
+                variants
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, variant)| match variant {
+                        ast::TypeKind::Variant(variant_name, _) => {
+                            self.internal_functions.insert(
+                                variant_name.clone(),
+                                Rc::new(move |module, values, name| {
+                                    let values = values
+                                        .iter()
+                                        .filter_map(|value| module.codegen_expr(&value))
+                                        .collect::<Vec<_>>();
+                                    if let Some(Variant {
+                                        name, types, ty, ..
+                                    }) = module.typectx_ref().get_variant(&name)
+                                    {
+                                        let parent_ty = module
+                                            .typectx_ref()
+                                            .get_parent_for_variant(&name)
+                                            .unwrap();
+                                        let parent =
+                                            module.llvm_builder_ref().build_alloca(parent_ty.ty);
+                                        let discriminator =
+                                            module.llvm_builder_ref().build_bitcast(
+                                                parent,
+                                                module.llvm_context_ref().PointerType(
+                                                    parent_ty
+                                                        .discriminant_type
+                                                        .llvm_ty_in_ctx(module),
+                                                ),
+                                            );
+                                        match parent_ty.discriminant_type {
+                                            PrimitiveType::UInt(IntSize::Bits8) => {
+                                                module.llvm_builder_ref().build_store(
+                                                    module.llvm_context_ref().UInt8(i as u64),
+                                                    discriminator,
+                                                )
+                                            }
+                                            PrimitiveType::UInt(IntSize::Bits16) => {
+                                                module.llvm_builder_ref().build_store(
+                                                    module.llvm_context_ref().UInt16(i as u64),
+                                                    discriminator,
+                                                )
+                                            }
+                                            PrimitiveType::UInt(IntSize::Bits32) => {
+                                                module.llvm_builder_ref().build_store(
+                                                    module.llvm_context_ref().UInt32(i as u64),
+                                                    discriminator,
+                                                )
+                                            }
+                                            PrimitiveType::UInt(IntSize::Bits64) => {
+                                                module.llvm_builder_ref().build_store(
+                                                    module.llvm_context_ref().UInt64(i as u64),
+                                                    discriminator,
+                                                )
+                                            }
+                                            _ => unreachable!(),
+                                        };
+                                        let variant = module.llvm_builder_ref().build_bitcast(
+                                            parent,
+                                            module.llvm_context_ref().PointerType(*ty),
+                                        );
+                                        if let Some(types) = types {
+                                            if types.len() != values.len() {
+                                                return None;
+                                            }
+
+                                            values.iter().enumerate().for_each(|(i, value)| {
+                                                module.llvm_builder_ref().build_store(
+                                                    **value,
+                                                    module
+                                                        .llvm_builder_ref()
+                                                        .build_struct_gep(variant, (i + 1) as u32),
+                                                );
+                                            });
+                                        }
+                                        Some((variant, PrimitiveType::Variant(name.clone())).into())
+                                    } else {
+                                        None
+                                    }
+                                }),
+                            );
+                        }
+                        _ => unimplemented!(),
+                    });
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub fn gen_newtype_ctors(&mut self, typedef: &AST) {
         match typedef {
             AST::Typedef {
@@ -218,73 +368,10 @@ impl AatbeModule {
                                 )),
                             );
                         }
-                        ast::TypeKind::Variant(variant_name, Some(types)) => {
-                            let variant_struct =
-                                self.llvm_context_ref().StructTypeNamed(name.as_ref());
-                            variant_struct.set_body(
-                                &mut types
-                                    .iter()
-                                    .map(|ty| ty.llvm_ty_in_ctx(self))
-                                    .collect::<Vec<_>>(),
-                                false,
-                            );
-
-                            self.internal_functions.insert(
-                                variant_name.clone(),
-                                Rc::new(|module, values, name| {
-                                    if let Some(TypeKind::Typedef(TypedefKind::Variant(
-                                        VariantType {
-                                            variant_name,
-                                            types: Some(types),
-                                            ty,
-                                            ..
-                                        },
-                                    ))) = module.typectx_ref().get_type_for_variant(&name)
-                                    {
-                                        let types = types.clone();
-                                        let ty = ty.clone();
-                                        let variant_name = variant_name.clone();
-                                        let values = values
-                                            .iter()
-                                            .filter_map(|val| {
-                                                module.codegen_expr(val).map(|val| *val)
-                                            })
-                                            .collect::<Vec<_>>();
-                                        if values.len() != types.len() {
-                                            None
-                                        } else {
-                                            let res = module.llvm_builder_ref().build_alloca(ty);
-                                            for (index, val) in values.iter().enumerate() {
-                                                module.llvm_builder_ref().build_store(
-                                                    *val,
-                                                    module
-                                                        .llvm_builder_ref()
-                                                        .build_struct_gep(res, index as u32),
-                                                );
-                                            }
-                                            Some(
-                                                (res, PrimitiveType::Variant(variant_name.clone()))
-                                                    .into(),
-                                            )
-                                        }
-                                    } else {
-                                        None
-                                    }
-                                }),
-                            );
-
-                            self.typectx.push_type(
-                                name,
-                                TypeKind::Typedef(TypedefKind::Variant(VariantType {
-                                    type_name: name.clone(),
-                                    variant_name: variant_name.clone(),
-                                    ty: variant_struct.as_ref(),
-                                    types: Some(types.clone()),
-                                })),
-                            );
-                        }
-                        td => panic!("ICE gen_newtype_ctors {:?}", td),
+                        ast::TypeKind::Variant(..) => self.gen_variants(typedef),
                     }
+                } else {
+                    self.gen_variants(typedef);
                 }
             }
             _ => unreachable!(),

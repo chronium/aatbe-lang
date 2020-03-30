@@ -163,7 +163,7 @@ pub fn init_record(
                 Some(var) => Some(var.into()),
             },
             LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())?),
-            LValue::Deref(_) => unimplemented!(),
+            LValue::Deref(_) => unimplemented!("{:?}", lvalue),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE init_record index");
@@ -266,7 +266,7 @@ pub fn store_value(
                 }
             },
             LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())?),
-            LValue::Deref(_) => unimplemented!(),
+            LValue::Deref(_) => unimplemented!("{:?}", lvalue),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE store_value index");

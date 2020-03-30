@@ -1,7 +1,7 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
     fmt::AatbeFmt,
-    ty::{record::Record, variant::VariantType},
+    ty::variant::{Variant, VariantType},
 };
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
@@ -11,9 +11,11 @@ use std::{collections::HashMap, fmt};
 
 pub mod aggregate;
 pub mod record;
+pub mod size;
 pub mod variant;
 
 pub use aggregate::Aggregate;
+pub use record::Record;
 
 #[derive(Debug)]
 pub enum TypeError {
@@ -33,11 +35,10 @@ pub enum TypeKind {
     Typedef(TypedefKind),
 }
 
-#[derive(Debug)]
 pub enum TypedefKind {
     Opaque(LLVMTypeRef),
     Newtype(LLVMTypeRef, PrimitiveType),
-    Variant(VariantType),
+    VariantType(VariantType),
 }
 
 impl fmt::Debug for TypeKind {
@@ -50,6 +51,18 @@ impl fmt::Debug for TypeKind {
     }
 }
 
+impl fmt::Debug for TypedefKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TypedefKind::Opaque(ty) => write!(f, "Opaque({:?})", ty),
+            TypedefKind::Newtype(ty, prim) => {
+                write!(f, "RecordType({:?}, {})", ty, AatbeFmt::fmt(prim))
+            }
+            TypedefKind::VariantType(ty) => write!(f, "Opaque({:?})", ty),
+        }
+    }
+}
+
 impl LLVMTyInCtx for TypeKind {
     fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
         match self {
@@ -57,7 +70,7 @@ impl LLVMTyInCtx for TypeKind {
             TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
             TypeKind::Typedef(TypedefKind::Opaque(ty)) => *ty,
             TypeKind::Typedef(TypedefKind::Newtype(ty, _)) => *ty,
-            TypeKind::Typedef(TypedefKind::Variant { .. }) => unimplemented!(),
+            TypeKind::Typedef(TypedefKind::VariantType { .. }) => unimplemented!("{:?}", self),
         }
     }
 }
@@ -97,36 +110,48 @@ impl TypeContext {
     pub fn get_aggregate(&self, name: &String) -> Option<&dyn Aggregate> {
         match self.types.get(name)? {
             TypeKind::RecordType(record) => Some(record),
-            TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
+            //TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
             _ => None,
         }
     }
 
     pub fn get_aggregate_from_prim(&self, prim: &PrimitiveType) -> Option<&dyn Aggregate> {
         match prim {
-            PrimitiveType::TypeRef(name) | PrimitiveType::Variant(name) => match self
-                .types
-                .get(name)
-                .or_else(|| self.get_type_for_variant(name))?
-            {
-                TypeKind::RecordType(record) => Some(record),
-                TypeKind::Typedef(TypedefKind::Variant(variant)) => Some(variant),
+            PrimitiveType::TypeRef(name) => match self.types.get(name) {
+                Some(TypeKind::RecordType(record)) => Some(record as &dyn Aggregate),
                 _ => None,
             },
-            _ => panic!("ICE get_aggregate_from_prim {:?}", prim),
+            _ => None,
         }
+        .or_else(|| match prim {
+            PrimitiveType::Variant(name) => match self.get_variant(name) {
+                Some(variant) => Some(variant as &dyn Aggregate),
+                _ => None,
+            },
+            _ => None,
+        })
     }
 
-    pub fn get_type_for_variant(&self, name: &String) -> Option<&TypeKind> {
+    pub fn get_variant(&self, name: &String) -> Option<&Variant> {
         self.types
             .values()
-            .filter(|ty| match ty {
-                TypeKind::Typedef(TypedefKind::Variant(VariantType { variant_name, .. }))
-                    if variant_name == name =>
+            .filter_map(|ty| match ty {
+                TypeKind::Typedef(TypedefKind::VariantType(variant)) => variant.get_variant(name),
+                _ => None,
+            })
+            .nth(0)
+    }
+
+    pub fn get_parent_for_variant(&self, name: &String) -> Option<&VariantType> {
+        self.types
+            .values()
+            .filter_map(|ty| match ty {
+                TypeKind::Typedef(TypedefKind::VariantType(variant))
+                    if variant.has_variant(name) =>
                 {
-                    true
+                    Some(variant)
                 }
-                _ => false,
+                _ => None,
             })
             .nth(0)
     }
@@ -158,16 +183,6 @@ impl TypeContext {
             }
             [] => unreachable!(),
         }
-    }
-
-    pub fn gep_field(
-        &self,
-        module: &AatbeModule,
-        ty: &dyn Aggregate,
-        field: &String,
-        reference: LLVMValueRef,
-    ) -> TypeResult<ValueTypePair> {
-        ty.gep_field(module, field, reference)
     }
 }
 

@@ -28,7 +28,7 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
 
             module.push_in_scope(&name, CodegenUnit::Function(func, ty.clone()));
         }
-        _ => panic!("Unimplemented declare_function {:?}", function),
+        _ => unimplemented!("{:?}", function),
     }
 }
 
@@ -183,7 +183,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                 );
                             }
                             PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
-                            _ => panic!("ICE: Unimplemented func args for {:?}", ty),
+                            _ => unimplemented!("{:?}", ty),
                         }
                     }
                 }

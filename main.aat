@@ -1,12 +1,7 @@
-use "prelude"
-
-rec TestA(a: i32)
-type Test = B i32, TestA
+type su8 = A u8 | B u16
 
 @entry
 fn main () = {
-    val test = B 128, TestA { a: 256 }
-
-    println test.0
-    println test.1.a
+    var a = A 32u8
+    var b = B 1024u16
 }
