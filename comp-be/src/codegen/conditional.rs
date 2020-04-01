@@ -25,6 +25,7 @@ impl AatbeModule {
                 };
                 let end_bb = self.basic_block(String::default());
 
+                self.start_scope();
                 let cond = self.codegen_expr(cond_expr)?;
 
                 if *cond.prim().inner() != PrimitiveType::Bool {
@@ -41,6 +42,7 @@ impl AatbeModule {
                 self.llvm_builder_ref().position_at_end(then_bb);
 
                 let then_val = self.codegen_expr(then_expr);
+                self.exit_scope();
                 let else_val = if let Some(bb) = else_bb {
                     self.llvm_builder_ref().build_br(end_bb);
                     self.llvm_builder_ref().position_at_end(bb);

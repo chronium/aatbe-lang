@@ -1,5 +1,7 @@
 use crate::{
-    codegen::{expr::const_expr::const_atom, AatbeModule, CompileError, ValueTypePair},
+    codegen::{
+        expr::const_expr::const_atom, AatbeModule, CodegenUnit, CompileError, ValueTypePair,
+    },
     fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind, TypedefKind},
 };
@@ -291,7 +293,7 @@ impl AatbeModule {
                 let var_ref = self.get_var(name)?;
 
                 match var_ref.var_ty() {
-                    ty @ PrimitiveType::Newtype(_) => {
+                    ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
                         let val: ValueTypePair = var_ref.into();
                         Some((*val, ty.clone()).into())
                     }
@@ -410,6 +412,69 @@ impl AatbeModule {
                         .into(),
                 )
             }
+            AtomKind::Is(box val, ty) => match val {
+                AtomKind::Ident(val) => {
+                    let var_ref = self.get_var(val).expect("").clone();
+                    if let PrimitiveType::TypeRef(var) = var_ref.var_ty().clone() {
+                        let variant_ty = self.typectx_ref().get_typedef(&var);
+                        match variant_ty {
+                            Ok(TypedefKind::VariantType(variant)) if variant.has_variant(ty) => {
+                                let discriminant = self
+                                    .llvm_builder_ref()
+                                    .build_struct_gep(var_ref.clone().into(), 0);
+
+                                let disc = self.typectx_ref().get_variant(ty).unwrap();
+                                let var_disc = *const_atom(
+                                    self,
+                                    &AtomKind::Integer(
+                                        disc.discriminant as u64,
+                                        variant.discriminant_type.clone(),
+                                    ),
+                                )
+                                .unwrap();
+
+                                let variant_cast = self.llvm_builder_ref().build_bitcast(
+                                    var_ref.clone().into(),
+                                    self.llvm_context_ref().PointerType(disc.ty),
+                                );
+
+                                self.push_in_scope(
+                                    val,
+                                    CodegenUnit::Variable {
+                                        mutable: var_ref.get_mutability().clone(),
+                                        name: val.clone(),
+                                        ty: PrimitiveType::Variant {
+                                            parent: var,
+                                            variant: ty.clone(),
+                                        },
+                                        value: variant_cast,
+                                    },
+                                );
+
+                                Some(
+                                    (
+                                        self.llvm_builder_ref().build_icmp_eq(
+                                            self.llvm_builder_ref().build_load(discriminant),
+                                            var_disc,
+                                        ),
+                                        PrimitiveType::Bool,
+                                    )
+                                        .into(),
+                                )
+                            }
+                            _ => {
+                                Some((self.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into())
+                            }
+                        }
+                    } else {
+                        panic!("{} must be a variant", val);
+                    }
+                }
+                _ => panic!(
+                    "ICE only identifiers are supported on a lhs for 'is' at {}",
+                    atom.fmt()
+                ),
+            },
             _ => panic!("ICE codegen_atom {:?}", atom),
         }
     }

@@ -56,6 +56,7 @@ impl AatbeFmt for &PrimitiveType {
                     .join(", ")
             ),
             PrimitiveType::Newtype(name) => name.clone(),
+            PrimitiveType::VariantType(name) => name.clone(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

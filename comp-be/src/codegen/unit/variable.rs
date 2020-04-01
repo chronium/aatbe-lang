@@ -77,7 +77,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 }
             };
 
-            if let PrimitiveType::Newtype(..) | PrimitiveType::Variant(..) = ty {
+            if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
                 module.push_in_scope(
                     name,
                     CodegenUnit::Variable {

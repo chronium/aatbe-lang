@@ -58,7 +58,7 @@ impl fmt::Debug for TypedefKind {
             TypedefKind::Newtype(ty, prim) => {
                 write!(f, "RecordType({:?}, {})", ty, AatbeFmt::fmt(prim))
             }
-            TypedefKind::VariantType(ty) => write!(f, "Opaque({:?})", ty),
+            TypedefKind::VariantType(ty) => write!(f, "VariantType({:?})", ty),
         }
     }
 }
@@ -70,7 +70,7 @@ impl LLVMTyInCtx for TypeKind {
             TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
             TypeKind::Typedef(TypedefKind::Opaque(ty)) => *ty,
             TypeKind::Typedef(TypedefKind::Newtype(ty, _)) => *ty,
-            TypeKind::Typedef(TypedefKind::VariantType { .. }) => unimplemented!("{:?}", self),
+            TypeKind::Typedef(TypedefKind::VariantType(VariantType { ty, .. })) => *ty,
         }
     }
 }
@@ -79,6 +79,13 @@ impl TypeKind {
     fn record(&self) -> Option<&Record> {
         match self {
             TypeKind::RecordType(record) => Some(record),
+            _ => None,
+        }
+    }
+
+    fn typedef(&self) -> Option<&TypedefKind> {
+        match self {
+            TypeKind::Typedef(ty) => Some(ty),
             _ => None,
         }
     }
@@ -121,15 +128,16 @@ impl TypeContext {
                 Some(TypeKind::RecordType(record)) => Some(record as &dyn Aggregate),
                 _ => None,
             },
-            _ => None,
-        }
-        .or_else(|| match prim {
-            PrimitiveType::Variant(name) => match self.get_variant(name) {
+            PrimitiveType::VariantType(name) => match self.get_variant(name) {
+                Some(variant) => Some(variant as &dyn Aggregate),
+                _ => None,
+            },
+            PrimitiveType::Variant { variant, .. } => match self.get_variant(variant) {
                 Some(variant) => Some(variant as &dyn Aggregate),
                 _ => None,
             },
             _ => None,
-        })
+        }
     }
 
     pub fn get_variant(&self, name: &String) -> Option<&Variant> {
@@ -160,6 +168,13 @@ impl TypeContext {
         self.types
             .get(name)
             .and_then(|ty| ty.record())
+            .ok_or(TypeError::NotFound(name.clone()))
+    }
+
+    pub fn get_typedef(&self, name: &String) -> TypeResult<&TypedefKind> {
+        self.types
+            .get(name)
+            .and_then(|ty| ty.typedef())
             .ok_or(TypeError::NotFound(name.clone()))
     }
 

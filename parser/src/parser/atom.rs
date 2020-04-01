@@ -251,6 +251,10 @@ impl Parser {
             let ty = capture!(res parse_type, self)?;
 
             Ok(AtomKind::Cast(box index.unwrap(), ty))
+        } else if kw!(bool Is, self) && index.is_ok() {
+            let ty = ident!(res self)?;
+
+            Ok(AtomKind::Is(box index.unwrap(), ty))
         } else {
             index
         }

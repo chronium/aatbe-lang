@@ -11,7 +11,7 @@ use std::{
 use crate::{
     codegen::{
         codegen_binary,
-        expr::const_expr::fold_constant,
+        expr::const_expr::{const_atom, fold_constant},
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
@@ -30,7 +30,7 @@ use crate::{
 
 use parser::{
     ast,
-    ast::{AtomKind, Expression, IntSize, PrimitiveType, AST},
+    ast::{AtomKind, Expression, PrimitiveType, AST},
     lexer::Lexer,
     parser::Parser,
 };
@@ -202,7 +202,8 @@ impl AatbeModule {
 
                 let ty_variants = variants
                     .iter()
-                    .map(|variant| match variant {
+                    .enumerate()
+                    .map(|(i, variant)| match variant {
                         ast::TypeKind::Variant(variant_name, types) => {
                             let ty = self
                                 .llvm_context_ref()
@@ -211,7 +212,7 @@ impl AatbeModule {
                             if let Some(types) = types {
                                 tys.extend(types.iter().map(|ty| ty.llvm_ty_in_ctx(self)));
                             };
-                            ty.set_body(tys.as_mut(), false);
+                            ty.set_body(tys.as_mut(), true);
                             (
                                 variant_name.clone(),
                                 Variant {
@@ -219,6 +220,7 @@ impl AatbeModule {
                                     name: variant_name.clone(),
                                     types: types.clone(),
                                     ty: ty.as_ref(),
+                                    discriminant: i as u32,
                                 },
                             )
                         }
@@ -256,8 +258,9 @@ impl AatbeModule {
                                             .typectx_ref()
                                             .get_parent_for_variant(&name)
                                             .unwrap();
-                                        let parent =
-                                            module.llvm_builder_ref().build_alloca(parent_ty.ty);
+                                        let parent = module
+                                            .llvm_builder_ref()
+                                            .build_alloca(parent_ty.llvm_ty_in_ctx(module));
                                         let discriminator =
                                             module.llvm_builder_ref().build_bitcast(
                                                 parent,
@@ -267,33 +270,18 @@ impl AatbeModule {
                                                         .llvm_ty_in_ctx(module),
                                                 ),
                                             );
-                                        match parent_ty.discriminant_type {
-                                            PrimitiveType::UInt(IntSize::Bits8) => {
-                                                module.llvm_builder_ref().build_store(
-                                                    module.llvm_context_ref().UInt8(i as u64),
-                                                    discriminator,
-                                                )
-                                            }
-                                            PrimitiveType::UInt(IntSize::Bits16) => {
-                                                module.llvm_builder_ref().build_store(
-                                                    module.llvm_context_ref().UInt16(i as u64),
-                                                    discriminator,
-                                                )
-                                            }
-                                            PrimitiveType::UInt(IntSize::Bits32) => {
-                                                module.llvm_builder_ref().build_store(
-                                                    module.llvm_context_ref().UInt32(i as u64),
-                                                    discriminator,
-                                                )
-                                            }
-                                            PrimitiveType::UInt(IntSize::Bits64) => {
-                                                module.llvm_builder_ref().build_store(
-                                                    module.llvm_context_ref().UInt64(i as u64),
-                                                    discriminator,
-                                                )
-                                            }
-                                            _ => unreachable!(),
-                                        };
+
+                                        module.llvm_builder_ref().build_store(
+                                            *const_atom(
+                                                module,
+                                                &AtomKind::Integer(
+                                                    i as u64,
+                                                    parent_ty.discriminant_type.clone(),
+                                                ),
+                                            )
+                                            .unwrap(),
+                                            discriminator,
+                                        );
                                         let variant = module.llvm_builder_ref().build_bitcast(
                                             parent,
                                             module.llvm_context_ref().PointerType(*ty),
@@ -312,7 +300,10 @@ impl AatbeModule {
                                                 );
                                             });
                                         }
-                                        Some((variant, PrimitiveType::Variant(name.clone())).into())
+                                        Some(
+                                            (variant, PrimitiveType::VariantType(name.clone()))
+                                                .into(),
+                                        )
                                     } else {
                                         None
                                     }
@@ -845,7 +836,7 @@ impl AatbeModule {
                 body: None,
                 attributes: vec![],
             };
-            let mangled = function.mangle();
+            let mangled = function.mangle(self);
 
             self.push_in_scope(
                 &mangled,

@@ -1,6 +1,6 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
-    ty::{Aggregate, TypeError, TypeResult},
+    ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
@@ -14,12 +14,19 @@ pub struct VariantType {
     pub ty: LLVMTypeRef,
 }
 
+impl LLVMTyInCtx for VariantType {
+    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+        self.ty
+    }
+}
+
 #[derive(Debug)]
 pub struct Variant {
     pub parent_name: String,
     pub name: String,
     pub types: Option<Vec<PrimitiveType>>,
     pub ty: LLVMTypeRef,
+    pub discriminant: u32,
 }
 
 impl VariantType {
@@ -68,7 +75,7 @@ impl fmt::Debug for VariantType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "VariantType {{ type_name: {}, variants: {}, ty: {:?} }}",
+            "VariantType {{ type_name: {:?}, variants: {}, ty: {:?} }}",
             self.type_name,
             format!(
                 "{{ {} }}",

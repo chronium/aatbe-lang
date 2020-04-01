@@ -159,7 +159,7 @@ mod lexer_tests {
     #[test]
     fn keyword_identifier() {
         let mut lexer = Lexer::new(
-            "fn extern var val if else use true false main record.test bool rec global ret while until type",
+            "fn extern var val if else use true false main record.test bool rec global ret while until type is",
         );
         lexer.lex();
         let mut tokens = lexer.into_iter();
@@ -205,6 +205,8 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Until));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Type));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Is));
     }
 
     #[test]
