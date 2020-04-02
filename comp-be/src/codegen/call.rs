@@ -36,6 +36,19 @@ impl AatbeModule {
                         _ => self
                             .codegen_expr(arg)
                             .map_or(None, |arg| match arg.prim().clone() {
+                                PrimitiveType::VariantType(name) => {
+                                    call_types.push(PrimitiveType::VariantType(name.clone()));
+                                    let ty = self.typectx_ref().get_parent_for_variant(&name)?;
+                                    Some(
+                                        self.llvm_builder_ref().build_load(
+                                            self.llvm_builder_ref().build_bitcast(
+                                                *arg,
+                                                self.llvm_context_ref()
+                                                    .PointerType(ty.llvm_ty_in_ctx(self)),
+                                            ),
+                                        ),
+                                    )
+                                }
                                 PrimitiveType::Array { ty: box ty, len } => {
                                     let arr = self.llvm_builder_ref().build_bitcast(
                                         *arg,
@@ -111,7 +124,7 @@ impl AatbeModule {
                         },
                         call_types
                             .iter()
-                            .map(|arg| arg.mangle())
+                            .map(|arg| arg.mangle(self))
                             .collect::<Vec<_>>()
                             .join(".")
                     )
@@ -165,6 +178,20 @@ impl AatbeModule {
                             PrimitiveType::Ref(pty) | PrimitiveType::Pointer(pty) => {
                                 if ty != pty {
                                     mismatch = true;
+                                }
+                            }
+                            _ => mismatch = true,
+                        },
+                        PrimitiveType::TypeRef(name) => match &call_types[i] {
+                            PrimitiveType::VariantType(var_name) => {
+                                if &self
+                                    .typectx_ref()
+                                    .get_parent_for_variant(var_name)
+                                    .expect("")
+                                    .type_name
+                                    != name
+                                {
+                                    mismatch = true
                                 }
                             }
                             _ => mismatch = true,

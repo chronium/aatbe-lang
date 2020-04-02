@@ -1,4 +1,4 @@
-// spector:name Declare and initialize generic type
+// spector:name Declare and call generic function
 
 fn generic[T] value: T = { }
 

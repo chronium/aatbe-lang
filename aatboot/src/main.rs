@@ -9,11 +9,13 @@ use std::{
     io,
     io::{Read, Write},
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use dotenv::dotenv;
 use glob::glob;
 use llvm_sys::support::LLVMLoadLibraryPermanently;
+use llvm_sys_wrapper::{CodegenLevel, CPU, LLVM};
 use log::{error, warn};
 use simplelog::*;
 
@@ -26,6 +28,7 @@ fn main() -> io::Result<()> {
     (@arg INPUT: +required "The file to compile")
     (@arg LLVM_OUT: --("emit-llvm") +takes_value "File to output LLVM IR")
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
+    (@arg OUT_FILE: -o +takes_value "File to output the compiled code")
     (@arg LLVM_JIT: --("jit") -j "JIT the code")
     (@arg BITCODE: -c --bitcode "Emit LLVM Bitcode")
     (@arg STDLIB: --("stdlib") +takes_value "Set the Aatbe stdlib path")
@@ -205,6 +208,28 @@ fn main() -> io::Result<()> {
                 let named_function = module.llvm_module_ref().named_function("main");
                 let mut params = [];
                 let _run_result = interpreter.run_function(named_function.as_ref(), &mut params);
+            }
+            if matches.is_present("OUT_FILE") {
+                let out_file = matches.value_of("OUT_FILE").unwrap();
+                let path = Path::new(out_file);
+
+                let mut tmp_out = env::temp_dir();
+                tmp_out.push(path.with_extension("o").file_name().expect(""));
+
+                LLVM::emit(
+                    module.llvm_module_ref(),
+                    CodegenLevel::O0,
+                    String::from(tmp_out.as_path().to_string_lossy()),
+                    CPU::X86_64,
+                )
+                .ok();
+
+                Command::new("clang")
+                    .arg(tmp_out.as_path())
+                    .arg("-o")
+                    .arg(path.with_extension("out"))
+                    .spawn()
+                    .expect("could not find clang");
             }
             Ok(())
         }

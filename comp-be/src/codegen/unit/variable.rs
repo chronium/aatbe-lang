@@ -77,7 +77,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 }
             };
 
-            if let PrimitiveType::Newtype(..) = ty {
+            if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
                 module.push_in_scope(
                     name,
                     CodegenUnit::Variable {
@@ -162,8 +162,8 @@ pub fn init_record(
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => Some(var.into()),
             },
-            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())),
-            LValue::Deref(_) => unimplemented!(),
+            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())?),
+            LValue::Deref(_) => unimplemented!("{:?}", lvalue),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE init_record index");
@@ -265,8 +265,8 @@ pub fn store_value(
                     Some(var.into())
                 }
             },
-            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())),
-            LValue::Deref(_) => unimplemented!(),
+            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())?),
+            LValue::Deref(_) => unimplemented!("{:?}", lvalue),
             LValue::Index(lval, index) => {
                 let val = get_lval(module, lval);
                 let index = module.codegen_expr(index).expect("ICE store_value index");

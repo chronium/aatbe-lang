@@ -112,6 +112,7 @@ pub enum Keyword {
     While,
     Until,
     Type,
+    Is,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -248,6 +249,7 @@ impl FromStr for Keyword {
             "while" => Ok(Self::While),
             "until" => Ok(Self::Until),
             "type" => Ok(Self::Type),
+            "is" => Ok(Self::Is),
             _ => Err(()),
         }
     }

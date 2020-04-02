@@ -20,7 +20,7 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
             body: _,
             type_names,
         } if type_names.len() == 0 => {
-            let name = function.mangle();
+            let name = function.mangle(module);
 
             let func = module
                 .llvm_module_ref()
@@ -28,7 +28,7 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
 
             module.push_in_scope(&name, CodegenUnit::Function(func, ty.clone()));
         }
-        _ => panic!("Unimplemented declare_function {:?}", function),
+        _ => unimplemented!("{:?}", function),
     }
 }
 
@@ -45,7 +45,7 @@ pub fn declare_and_compile_function(
             } => None,
             _ => {
                 let builder = Builder::new_in_context(module.llvm_context_ref().as_ref());
-                module.start_scope_with_function(&func.mangle(), builder);
+                module.start_scope_with_function(&func.mangle(module), builder);
                 codegen_function(module, func);
                 inject_function_in_scope(module, func);
                 let ret = module.codegen_expr(
@@ -86,7 +86,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
             body: _,
             type_names: _,
         } => {
-            let name = &function.mangle();
+            let name = &function.mangle(module);
             let func = module.get_func(name).unwrap();
 
             if !attributes.is_empty() {
@@ -117,7 +117,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
             body: _,
             type_names: _,
         } => {
-            let fun_name = function.mangle();
+            let fun_name = function.mangle(module);
             match ty {
                 PrimitiveType::Function {
                     ret_ty: _,
@@ -183,7 +183,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                 );
                             }
                             PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
-                            _ => panic!("ICE: Unimplemented func args for {:?}", ty),
+                            _ => unimplemented!("{:?}", ty),
                         }
                     }
                 }

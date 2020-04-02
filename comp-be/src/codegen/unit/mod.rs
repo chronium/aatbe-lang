@@ -11,7 +11,7 @@ pub use function::{
 pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Mutability {
     Immutable,
     Mutable,
@@ -29,7 +29,7 @@ impl From<&BindType> for Mutability {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CodegenUnit {
     Function(Function, PrimitiveType),
     FunctionArgument(LLVMValueRef, PrimitiveType),
@@ -66,7 +66,46 @@ impl Into<LLVMValueRef> for &CodegenUnit {
     }
 }
 
+impl Into<LLVMValueRef> for CodegenUnit {
+    fn into(self) -> LLVMValueRef {
+        match self {
+            CodegenUnit::Function(func, _) => func.as_ref(),
+            CodegenUnit::FunctionArgument(arg, _) => arg,
+            CodegenUnit::Variable { value, .. } => value,
+        }
+    }
+}
+
 impl CodegenUnit {
+    pub fn get_aggregate_name(&self) -> Option<String> {
+        match self {
+            CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::TypeRef(rec)
+                    | PrimitiveType::NamedType {
+                        name: _,
+                        ty: Some(box PrimitiveType::TypeRef(rec)),
+                    },
+                ..
+            } => Some(rec.clone()),
+            CodegenUnit::FunctionArgument(
+                _arg,
+                PrimitiveType::TypeRef(rec)
+                | PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
+            ) => Some(rec.clone()),
+            CodegenUnit::Variable {
+                ty:
+                    PrimitiveType::VariantType(name)
+                    | PrimitiveType::NamedType {
+                        name: _,
+                        ty: Some(box PrimitiveType::VariantType(name)),
+                    },
+                ..
+            } => Some(name.clone()),
+            _ => None,
+        }
+    }
+
     pub fn ret_ty(&self) -> PrimitiveType {
         match self {
             CodegenUnit::Function(

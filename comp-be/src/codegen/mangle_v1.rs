@@ -1,11 +1,13 @@
+use crate::codegen::AatbeModule;
+
 use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType};
 
 pub trait NameMangler {
-    fn mangle(&self) -> String;
+    fn mangle(&self, module: &AatbeModule) -> String;
 }
 
 impl NameMangler for Expression {
-    fn mangle(&self) -> String {
+    fn mangle(&self, module: &AatbeModule) -> String {
         match self {
             Expression::Function {
                 name,
@@ -28,7 +30,7 @@ impl NameMangler for Expression {
                             } else {
                                 String::default()
                             },
-                            ty.mangle(),
+                            ty.mangle(module),
                         )
                     } else {
                         name.clone()
@@ -47,23 +49,23 @@ impl NameMangler for Expression {
 }
 
 impl NameMangler for AtomKind {
-    fn mangle(&self) -> String {
+    fn mangle(&self, module: &AatbeModule) -> String {
         match self {
             AtomKind::StringLiteral(lit) => format!("{:?}", lit),
             AtomKind::Ident(id) => id.clone(),
             AtomKind::SymbolLiteral(sym) => format!(":{}", sym),
-            AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle()),
-            AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle()),
+            AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle(module)),
+            AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle(module)),
             AtomKind::Access(arr) => arr.join("."),
-            AtomKind::Parenthesized(val) => format!("{}", val.mangle()),
-            AtomKind::Ref(val) => format!("&{}", val.mangle()),
+            AtomKind::Parenthesized(val) => format!("{}", val.mangle(module)),
+            AtomKind::Ref(val) => format!("&{}", val.mangle(module)),
             _ => panic!("ICE mangle {:?}", self),
         }
     }
 }
 
 impl NameMangler for PrimitiveType {
-    fn mangle(&self) -> String {
+    fn mangle(&self, module: &AatbeModule) -> String {
         match self {
             PrimitiveType::TypeRef(ty) => ty.clone(),
             PrimitiveType::Function {
@@ -73,7 +75,7 @@ impl NameMangler for PrimitiveType {
             } => {
                 let params_mangled = params
                     .iter()
-                    .map(|p| p.mangle())
+                    .map(|p| p.mangle(module))
                     .filter(|m| !m.is_empty())
                     .collect::<Vec<_>>()
                     .join(".");
@@ -88,24 +90,33 @@ impl NameMangler for PrimitiveType {
             PrimitiveType::NamedType {
                 name: _,
                 ty: Some(ty),
-            } => ty.mangle(),
+            } => ty.mangle(module),
             PrimitiveType::Str => String::from("s"),
-            PrimitiveType::Int(size) => format!("i{}", size.mangle()),
-            PrimitiveType::UInt(size) => format!("u{}", size.mangle()),
-            PrimitiveType::Float(size) => format!("f{}", size.mangle()),
+            PrimitiveType::Int(size) => format!("i{}", size.mangle(module)),
+            PrimitiveType::UInt(size) => format!("u{}", size.mangle(module)),
+            PrimitiveType::Float(size) => format!("f{}", size.mangle(module)),
             PrimitiveType::Bool => String::from("b"),
             PrimitiveType::Char => String::from("c"),
-            PrimitiveType::Ref(r) => format!("R{}", r.mangle()),
-            PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle()),
-            PrimitiveType::Slice { ty } => format!("S{}", ty.mangle()),
+            PrimitiveType::Ref(r) => format!("R{}", r.mangle(module)),
+            PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle(module)),
+            PrimitiveType::Slice { ty } => format!("S{}", ty.mangle(module)),
             PrimitiveType::Symbol(name) => format!("N{}", name),
+            PrimitiveType::VariantType(name) => format!(
+                "{}",
+                module
+                    .typectx_ref()
+                    .get_variant(name)
+                    .expect(format!("Cannot find variant {}", name).as_str())
+                    .parent_name
+            ),
+            PrimitiveType::Variant { parent, .. } => parent.clone(),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }
 }
 
 impl NameMangler for IntSize {
-    fn mangle(&self) -> String {
+    fn mangle(&self, _module: &AatbeModule) -> String {
         match self {
             IntSize::Bits8 => String::from("8"),
             IntSize::Bits16 => String::from("16"),
@@ -116,7 +127,7 @@ impl NameMangler for IntSize {
 }
 
 impl NameMangler for FloatSize {
-    fn mangle(&self) -> String {
+    fn mangle(&self, _module: &AatbeModule) -> String {
         match self {
             FloatSize::Bits32 => String::from("32"),
             FloatSize::Bits64 => String::from("64"),

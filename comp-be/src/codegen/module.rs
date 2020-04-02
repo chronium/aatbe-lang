@@ -11,7 +11,7 @@ use std::{
 use crate::{
     codegen::{
         codegen_binary,
-        expr::const_expr::fold_constant,
+        expr::const_expr::{const_atom, fold_constant},
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
@@ -21,8 +21,10 @@ use crate::{
     },
     fmt::AatbeFmt,
     ty::{
-        record::{store_named_field, Record},
-        LLVMTyInCtx, TypeContext, TypeKind, TypedefKind,
+        record::store_named_field,
+        size::AatbeSizeOf,
+        variant::{Variant, VariantType},
+        LLVMTyInCtx, Record, TypeContext, TypeKind, TypedefKind,
     },
 };
 
@@ -175,6 +177,146 @@ impl AatbeModule {
         }
     }
 
+    pub fn gen_variants(&mut self, typedef: &AST) {
+        match typedef {
+            AST::Typedef {
+                name,
+                type_names: None,
+                variants: Some(variants),
+            } => {
+                let max_size = variants.iter().map(|vari| vari.size_of()).max().unwrap();
+                let smallest = variants.iter().map(|vari| vari.smallest()).min().unwrap();
+                let size = max_size / smallest;
+
+                let smallest_ty = PrimitiveType::UInt(smallest.into());
+
+                let td_struct = self.llvm_context_ref().StructTypeNamed(name.as_ref());
+                td_struct.set_body(
+                    &mut vec![
+                        smallest_ty.llvm_ty_in_ctx(self),
+                        self.llvm_context_ref()
+                            .ArrayType(smallest_ty.llvm_ty_in_ctx(self), size as u32),
+                    ],
+                    false,
+                );
+
+                let ty_variants = variants
+                    .iter()
+                    .enumerate()
+                    .map(|(i, variant)| match variant {
+                        ast::TypeKind::Variant(variant_name, types) => {
+                            let ty = self
+                                .llvm_context_ref()
+                                .StructTypeNamed(variant_name.as_ref());
+                            let mut tys = vec![smallest_ty.llvm_ty_in_ctx(self)];
+                            if let Some(types) = types {
+                                tys.extend(types.iter().map(|ty| ty.llvm_ty_in_ctx(self)));
+                            };
+                            ty.set_body(tys.as_mut(), true);
+                            (
+                                variant_name.clone(),
+                                Variant {
+                                    parent_name: name.clone(),
+                                    name: variant_name.clone(),
+                                    types: types.clone(),
+                                    ty: ty.as_ref(),
+                                    discriminant: i as u32,
+                                },
+                            )
+                        }
+                        _ => unimplemented!("{:?}", variant),
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                self.typectx.push_type(
+                    name,
+                    TypeKind::Typedef(TypedefKind::VariantType(VariantType {
+                        type_name: name.clone(),
+                        variants: ty_variants,
+                        discriminant_type: smallest_ty,
+                        ty: td_struct.as_ref(),
+                    })),
+                );
+
+                variants
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, variant)| match variant {
+                        ast::TypeKind::Variant(variant_name, _) => {
+                            self.internal_functions.insert(
+                                variant_name.clone(),
+                                Rc::new(move |module, values, name| {
+                                    let values = values
+                                        .iter()
+                                        .filter_map(|value| module.codegen_expr(&value))
+                                        .collect::<Vec<_>>();
+                                    if let Some(Variant {
+                                        name, types, ty, ..
+                                    }) = module.typectx_ref().get_variant(&name)
+                                    {
+                                        let parent_ty = module
+                                            .typectx_ref()
+                                            .get_parent_for_variant(&name)
+                                            .unwrap();
+                                        let parent = module
+                                            .llvm_builder_ref()
+                                            .build_alloca(parent_ty.llvm_ty_in_ctx(module));
+                                        let discriminator =
+                                            module.llvm_builder_ref().build_bitcast(
+                                                parent,
+                                                module.llvm_context_ref().PointerType(
+                                                    parent_ty
+                                                        .discriminant_type
+                                                        .llvm_ty_in_ctx(module),
+                                                ),
+                                            );
+
+                                        module.llvm_builder_ref().build_store(
+                                            *const_atom(
+                                                module,
+                                                &AtomKind::Integer(
+                                                    i as u64,
+                                                    parent_ty.discriminant_type.clone(),
+                                                ),
+                                            )
+                                            .unwrap(),
+                                            discriminator,
+                                        );
+                                        let variant = module.llvm_builder_ref().build_bitcast(
+                                            parent,
+                                            module.llvm_context_ref().PointerType(*ty),
+                                        );
+                                        if let Some(types) = types {
+                                            if types.len() != values.len() {
+                                                return None;
+                                            }
+
+                                            values.iter().enumerate().for_each(|(i, value)| {
+                                                module.llvm_builder_ref().build_store(
+                                                    **value,
+                                                    module
+                                                        .llvm_builder_ref()
+                                                        .build_struct_gep(variant, (i + 1) as u32),
+                                                );
+                                            });
+                                        }
+                                        Some(
+                                            (variant, PrimitiveType::VariantType(name.clone()))
+                                                .into(),
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                }),
+                            );
+                        }
+                        _ => unimplemented!(),
+                    });
+            }
+            _ => unreachable!(),
+        }
+    }
+
     pub fn gen_newtype_ctors(&mut self, typedef: &AST) {
         match typedef {
             AST::Typedef {
@@ -217,50 +359,31 @@ impl AatbeModule {
                                 )),
                             );
                         }
-                        td => panic!("ICE gen_newtype_ctors {:?}", td),
+                        ast::TypeKind::Variant(..) => self.gen_variants(typedef),
                     }
+                } else {
+                    self.gen_variants(typedef);
                 }
             }
             _ => unreachable!(),
         }
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> ValueTypePair {
-        if let ([rec_ref], tail) = parts.split_at(1) {
-            match self.get_var(&rec_ref) {
-                None => panic!("Could not find record {}", rec_ref),
-                Some(rec) => {
-                    let rec_type = match rec {
-                        CodegenUnit::Variable {
-                            ty: PrimitiveType::TypeRef(rec),
-                            ..
-                        } => rec.clone(),
-                        CodegenUnit::Variable {
-                            ty:
-                                PrimitiveType::NamedType {
-                                    name: _,
-                                    ty: Some(box PrimitiveType::TypeRef(rec)),
-                                },
-                            ..
-                        } => rec.clone(),
-                        CodegenUnit::FunctionArgument(_arg, PrimitiveType::TypeRef(rec)) => {
-                            rec.clone()
-                        }
-                        CodegenUnit::FunctionArgument(
-                            _arg,
-                            PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
-                        ) => rec.clone(),
-                        _ => panic!("ICE get_interior_pointer {:?}", rec),
-                    };
+    pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
+        match parts.as_slice() {
+            [field, access @ ..] => {
+                let agg_bind = self.get_var(&field)?;
+                let agg_ty = self
+                    .typectx_ref()
+                    .get_aggregate_from_prim(&agg_bind.var_ty())?;
 
+                Some(
                     self.typectx_ref()
-                        .get_record(&rec_type)
-                        .expect("ICE get_record variable without type")
-                        .read_field(self, rec.into(), rec_ref, tail.to_vec())
-                }
+                        .gep_fields(self, agg_ty, access.to_vec(), agg_bind.into())
+                        .expect(format!("ICE get_field_named {}", field).as_str()),
+                )
             }
-        } else {
-            unreachable!()
+            [] => unreachable!(),
         }
     }
 
@@ -511,7 +634,7 @@ impl AatbeModule {
 
     pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
         self.scope_stack
-            .first_mut()
+            .last_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
     }
@@ -713,7 +836,7 @@ impl AatbeModule {
                 body: None,
                 attributes: vec![],
             };
-            let mangled = function.mangle();
+            let mangled = function.mangle(self);
 
             self.push_in_scope(
                 &mangled,

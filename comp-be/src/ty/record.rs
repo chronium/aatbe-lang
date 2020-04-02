@@ -1,6 +1,6 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
-    ty::LLVMTyInCtx,
+    ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 use parser::ast::PrimitiveType;
 
@@ -12,7 +12,7 @@ pub struct Record {
     name: String,
     inner: Struct,
     body: HashMap<String, u32>,
-    types: HashMap<String, PrimitiveType>,
+    types: HashMap<u32, PrimitiveType>,
 }
 
 impl Record {
@@ -22,7 +22,7 @@ impl Record {
         types.iter().enumerate().for_each(|(index, ty)| match ty {
             PrimitiveType::NamedType { name, ty: Some(ty) } => {
                 body.insert(name.clone(), index as u32);
-                types_map.insert(name.clone(), *ty.clone());
+                types_map.insert(index as u32, *ty.clone());
             }
             _ => panic!("ICE rec new {:?}", ty),
         });
@@ -32,46 +32,6 @@ impl Record {
             inner: Struct::new_with_name(module.llvm_context_ref().as_ref(), name.as_ref()),
             body,
             types: types_map,
-        }
-    }
-
-    pub fn read_field(
-        &self,
-        module: &AatbeModule,
-        reference: LLVMValueRef,
-        record: &String,
-        fields: Vec<String>,
-    ) -> ValueTypePair {
-        if let ([member], rest) = fields.split_at(1) {
-            let ty = self
-                .types
-                .get(member)
-                .expect(
-                    format!(
-                        "ICE read_field found field externally but not internally {}.{:?}",
-                        self.name, fields
-                    )
-                    .as_str(),
-                )
-                .clone();
-
-            let gep = module.llvm_builder_ref().build_struct_gep_with_name(
-                reference,
-                self.get_field_index_ty(&member)
-                    .expect(format!("Cannot find field {}.{}", record, &member).as_str())
-                    .0,
-                format!("{}.{}\0", record, member).as_str(),
-            );
-            match ty {
-                PrimitiveType::TypeRef(typeref) if fields.len() > 1 => module
-                    .typectx_ref()
-                    .get_record(&typeref)
-                    .expect(format!("ICE no type associated with {}", typeref).as_str())
-                    .read_field(module, gep, &member, rest.to_vec()),
-                _ => (gep, ty.clone()).into(),
-            }
-        } else {
-            unreachable!()
         }
     }
 
@@ -85,15 +45,53 @@ impl Record {
     }
 
     pub fn get_field_index_ty(&self, name: &String) -> Option<(u32, PrimitiveType)> {
-        (
-            self.body.get(name).map(|i| *i),
-            self.types.get(name).map(|i| i.clone()),
-        )
-            .transpose()
+        let idx = self.body.get(name).map(|i| *i);
+        (idx, self.types.get(&idx?).map(|i| i.clone())).transpose()
     }
 
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+}
+
+impl Aggregate for Record {
+    fn gep_indexed_field(
+        &self,
+        module: &AatbeModule,
+        index: u32,
+        aggregate_ref: LLVMValueRef,
+    ) -> TypeResult<ValueTypePair> {
+        Ok((
+            module
+                .llvm_builder_ref()
+                .build_struct_gep(aggregate_ref, index),
+            self.types
+                .get(&index)
+                .ok_or(TypeError::RecordIndexOOB(self.name.clone(), index))?
+                .clone(),
+        )
+            .into())
+    }
+
+    fn gep_named_field(
+        &self,
+        module: &AatbeModule,
+        name: &String,
+        aggregate_ref: LLVMValueRef,
+    ) -> TypeResult<ValueTypePair> {
+        match self.body.get(name) {
+            None => Err(TypeError::RecordNameNotFound(
+                self.name.clone(),
+                name.clone(),
+            )),
+            Some(index) => {
+                let ty = self.types.get(index).cloned().unwrap();
+                let gep = module
+                    .llvm_builder_ref()
+                    .build_struct_gep(aggregate_ref, *index);
+                Ok((gep, ty).into())
+            }
+        }
     }
 }
 

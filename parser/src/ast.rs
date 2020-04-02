@@ -107,6 +107,11 @@ pub enum PrimitiveType {
     TypeRef(String),
     GenericTypeRef(String, Vec<PrimitiveType>),
     Newtype(String),
+    VariantType(String),
+    Variant {
+        parent: String,
+        variant: String,
+    },
     Function {
         ext: bool,
         ret_ty: Box<PrimitiveType>,
@@ -158,6 +163,7 @@ impl PrimitiveType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum AtomKind {
+    Unit,
     SymbolLiteral(String),
     Bool(Boolean),
     Integer(u64, PrimitiveType),
@@ -165,7 +171,6 @@ pub enum AtomKind {
     StringLiteral(String),
     CharLiteral(char),
     Expr(Box<Expression>),
-    Unit,
     Parenthesized(Box<Expression>),
     Unary(String, Box<AtomKind>),
     Ident(String),
@@ -175,6 +180,7 @@ pub enum AtomKind {
     Index(Box<AtomKind>, Box<Expression>),
     Cast(Box<AtomKind>, PrimitiveType),
     Array(Vec<Expression>),
+    Is(Box<AtomKind>, String),
     NamedValue { name: String, val: Box<Expression> },
 }
 
@@ -190,6 +196,18 @@ pub enum IntSize {
     Bits16,
     Bits32,
     Bits64,
+}
+
+impl From<usize> for IntSize {
+    fn from(size: usize) -> IntSize {
+        match size {
+            1 => IntSize::Bits8,
+            2 => IntSize::Bits16,
+            4 => IntSize::Bits32,
+            8 => IntSize::Bits64,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

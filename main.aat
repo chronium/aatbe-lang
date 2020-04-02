@@ -1,9 +1,21 @@
-type NewInt32 = i32
+use "prelude"
+
+type su8 = A u8 | B u16, str
+
+fn test thing: su8 = {
+    if thing is A {
+        println "We got A!"
+    } else if thing is B {
+        println "We got B!"
+        println thing.1
+    }
+}
 
 @entry
 fn main () = {
-    val a = NewInt32 7
-    val b = NewInt32 8
+    var a = A 32u8
+    var b = B 1024u16, "Hello"
 
-    *a + *b
+    test a
+    test b
 }
