@@ -94,21 +94,38 @@ impl<'c> Lexer<'c> {
     }
 
     pub fn escape_char(&mut self) -> char {
-        match self.chars.peek() {
-            Some('n') => {
+        match self.chars.clone().peek() {
+            Some('\\') => {
                 self.advance();
-                '\n'
+                match self.chars.clone().peek() {
+                    Some('n') => {
+                        self.advance();
+                        '\n'
+                    }
+                    Some('t') => {
+                        self.advance();
+                        '\t'
+                    }
+                    Some('"') => {
+                        self.advance();
+                        '"'
+                    }
+                    Some('0') => {
+                        self.advance();
+                        '0'
+                    }
+                    Some(c) => {
+                        self.advance();
+                        *c
+                    }
+                    None => '\\',
+                }
             }
-            Some('t') => {
+            Some(c) => {
                 self.advance();
-                '\t'
+                *c
             }
-            Some('"') => {
-                self.advance();
-                '"'
-            }
-            Some(c) => *c,
-            None => '\\',
+            None => panic!("Unexpected EOF"),
         }
     }
 
@@ -264,7 +281,6 @@ impl<'c> Lexer<'c> {
                 },
                 '\'' => {
                     let c = self.escape_char();
-                    self.advance();
                     match self.chars.peek() {
                         Some('\'') => {
                             self.advance();
@@ -281,16 +297,7 @@ impl<'c> Lexer<'c> {
                                 self.advance();
                                 break;
                             }
-                            Some(c) => match c {
-                                '\\' => {
-                                    self.advance();
-                                    buf.push(self.escape_char());
-                                }
-                                _ => {
-                                    buf.push(*c);
-                                    self.advance();
-                                }
-                            },
+                            Some(_) => buf.push(self.escape_char()),
                             None => panic!("Unexpected EOF at {:?}", pos),
                         }
                     }

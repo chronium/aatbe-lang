@@ -65,7 +65,7 @@ fn dispatch_unsigned(
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
-    int_size: IntSize,
+    int_size: PrimitiveType,
 ) -> Option<ValueTypePair> {
     match op.as_str() {
         "+" | "-" | "*" | "/" | "%" => Some(codegen_unsigned_ops(module, op, lhs, rhs, int_size)),
@@ -97,8 +97,18 @@ pub fn codegen_binary(
                 values: (lhs_expr.fmt(), rhs_expr.fmt()),
             }),
         },
+        (PrimitiveType::Char, PrimitiveType::Char) => {
+            match dispatch_unsigned(module, op, *lhs, *rhs, PrimitiveType::Char) {
+                Some(res) => Ok(res),
+                None => Err(CompileError::OpMismatch {
+                    op: op.clone(),
+                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
+                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
+                }),
+            }
+        }
         (PrimitiveType::UInt(lsz), PrimitiveType::UInt(rsz)) if lsz == rsz => {
-            match dispatch_unsigned(module, op, *lhs, *rhs, lsz.clone()) {
+            match dispatch_unsigned(module, op, *lhs, *rhs, PrimitiveType::UInt(lsz.clone())) {
                 Some(res) => Ok(res),
                 None => Err(CompileError::OpMismatch {
                     op: op.clone(),

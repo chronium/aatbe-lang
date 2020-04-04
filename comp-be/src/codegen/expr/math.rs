@@ -50,7 +50,7 @@ pub fn codegen_unsigned_ops(
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
-    int_size: IntSize,
+    int_size: PrimitiveType,
 ) -> ValueTypePair {
     (
         match op.as_str() {
@@ -61,7 +61,7 @@ pub fn codegen_unsigned_ops(
             "%" => module.llvm_builder_ref().build_urem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
-        PrimitiveType::UInt(int_size),
+        int_size,
     )
         .into()
 }

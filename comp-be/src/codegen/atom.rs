@@ -14,6 +14,17 @@ impl AatbeModule {
             AtomKind::Cast(box val, ty) => {
                 let (val, val_ty) = self.codegen_atom(val)?.into();
                 match (val_ty, ty) {
+                    (TypeKind::Primitive(PrimitiveType::Char), PrimitiveType::UInt(_))
+                    | (TypeKind::Primitive(PrimitiveType::Char), PrimitiveType::Int(_)) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref()
+                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
+                                ty.clone(),
+                            )
+                                .into(),
+                        )
+                    }
                     (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
                         if from < *to =>
                     {
