@@ -1,0 +1,26 @@
+fn is_digit c: char -> bool =
+    if ret c >= '0' && c <= '9'
+        true
+    else false
+
+fn is_alpha c: char -> bool =
+    if ret c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+        true
+    else false
+
+fn is_alnum c: char -> bool =
+    if ret (is_digit c) || (is_alpha c)
+        true
+    else false
+
+fn str_to_u64 s: str -> u64 = {
+    var res = 0u64
+
+    var i = 0
+    while i < (strlen s) {
+        res = res * 10u64 + (s[i] - '0') as u64
+        i = i + 1
+    }
+
+    res
+}

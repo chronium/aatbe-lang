@@ -13,3 +13,55 @@ fn cat a: str, b: str -> str = {
     buf[len - 1] = 0 as char
     buf
 }
+
+fn str_to_u32 s: str -> u32 = {
+    var res = 0u32
+
+    var i = 0
+    while i < (strlen s) {
+        res = res * 10u32 + (s[i] - '0') as u32
+        i = i + 1
+    }
+
+    res
+}
+
+fn str_to_i32 s: str -> i32 = {
+    var res = 0
+
+    var i = 0
+
+    val negative = if ret s[i] == '-' {
+        i = i + 1
+        true
+    } else false
+
+
+    while i < (strlen s) {
+        res = res * 10 + (s[i] - '0') as i32
+        i = i + 1
+    }
+
+    if ret negative then -res
+    else res
+}
+
+fn str_to_i64 s: str -> i64 = {
+    var res = 0i64
+
+    var i = 0
+
+    val negative = if ret s[i] == '-' {
+        i = i + 1
+        true
+    } else false
+
+
+    while i < (strlen s) {
+        res = res * 10i64 + (s[i] - '0') as i64
+        i = i + 1
+    }
+
+    if ret negative then -res
+    else res
+}
