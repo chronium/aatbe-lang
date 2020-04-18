@@ -14,6 +14,12 @@ pub struct VariantType {
     pub ty: LLVMTypeRef,
 }
 
+impl VariantType {
+    pub fn push_variant(&mut self, name: &String, variant: Variant) {
+        self.variants.insert(name.clone(), variant);
+    }
+}
+
 impl LLVMTyInCtx for VariantType {
     fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
         self.ty

@@ -17,6 +17,7 @@ impl AatbeSizeOf for PrimitiveType {
             PrimitiveType::Int(IntSize::Bits32) => 4,
             PrimitiveType::Int(IntSize::Bits64) => 8,
             PrimitiveType::Str => 8, // TODO: Platform specific pointer size
+            PrimitiveType::Pointer(_) => 8, // FIXME: Platform specific pointer size
             _ => unimplemented!("{:?}", self),
         }
     }

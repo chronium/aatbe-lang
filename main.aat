@@ -1,10 +1,10 @@
 use "prelude"
 use "str"
 
+type Rec = A Rec* | B u8
+
 @entry
 fn main () = {
-    println str_to_i32 "-128"
-    println str_to_i32 "127"
-    println str_to_i64 "-128"
-    println str_to_i64 "127"
+    var b = B 64u8
+    var a = A (&b as Rec*)
 }

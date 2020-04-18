@@ -200,10 +200,20 @@ impl AatbeModule {
                     false,
                 );
 
-                let ty_variants = variants
+                self.typectx.push_type(
+                    name,
+                    TypeKind::Typedef(TypedefKind::VariantType(VariantType {
+                        type_name: name.clone(),
+                        variants: HashMap::new(),
+                        discriminant_type: smallest_ty.clone(),
+                        ty: td_struct.as_ref(),
+                    })),
+                );
+
+                variants
                     .iter()
                     .enumerate()
-                    .map(|(i, variant)| match variant {
+                    .for_each(|(i, variant)| match variant {
                         ast::TypeKind::Variant(variant_name, types) => {
                             let ty = self
                                 .llvm_context_ref()
@@ -213,30 +223,23 @@ impl AatbeModule {
                                 tys.extend(types.iter().map(|ty| ty.llvm_ty_in_ctx(self)));
                             };
                             ty.set_body(tys.as_mut(), true);
-                            (
-                                variant_name.clone(),
-                                Variant {
-                                    parent_name: name.clone(),
-                                    name: variant_name.clone(),
-                                    types: types.clone(),
-                                    ty: ty.as_ref(),
-                                    discriminant: i as u32,
-                                },
-                            )
+
+                            self.typectx_ref_mut()
+                                .push_variant(
+                                    name,
+                                    variant_name,
+                                    Variant {
+                                        parent_name: name.clone(),
+                                        name: variant_name.clone(),
+                                        types: types.clone(),
+                                        ty: ty.as_ref(),
+                                        discriminant: i as u32,
+                                    },
+                                )
+                                .expect(format!("Cannot find variant {}", name.clone()).as_ref());
                         }
                         _ => unimplemented!("{:?}", variant),
-                    })
-                    .collect::<HashMap<_, _>>();
-
-                self.typectx.push_type(
-                    name,
-                    TypeKind::Typedef(TypedefKind::VariantType(VariantType {
-                        type_name: name.clone(),
-                        variants: ty_variants,
-                        discriminant_type: smallest_ty,
-                        ty: td_struct.as_ref(),
-                    })),
-                );
+                    });
 
                 variants
                     .iter()
@@ -926,6 +929,10 @@ impl AatbeModule {
 
     pub fn typectx_ref(&self) -> &TypeContext {
         &self.typectx
+    }
+
+    pub fn typectx_ref_mut(&mut self) -> &mut TypeContext {
+        &mut self.typectx
     }
 
     pub fn add_error(&mut self, error: CompileError) {

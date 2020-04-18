@@ -89,6 +89,13 @@ impl TypeKind {
             _ => None,
         }
     }
+
+    fn variant_mut(&mut self) -> Option<&mut VariantType> {
+        match self {
+            TypeKind::Typedef(TypedefKind::VariantType(ty)) => Some(ty),
+            _ => None,
+        }
+    }
 }
 
 pub struct TypeContext {
@@ -148,6 +155,19 @@ impl TypeContext {
                 _ => None,
             })
             .nth(0)
+    }
+
+    pub fn push_variant(
+        &mut self,
+        parent_name: &String,
+        variant_name: &String,
+        variant: Variant,
+    ) -> Result<(), TypeError> {
+        self.types
+            .get_mut(parent_name)
+            .and_then(|ty| ty.variant_mut())
+            .ok_or(TypeError::NotFound(parent_name.clone()))
+            .map(|var| var.push_variant(variant_name, variant))
     }
 
     pub fn get_parent_for_variant(&self, name: &String) -> Option<&VariantType> {
