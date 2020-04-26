@@ -120,10 +120,7 @@ impl Parser {
         if let Some(path) = self.peek_str() {
             self.next();
 
-            let pb = PathBuf::from(path); /*PathBuf::from(self.path.clone())
-                                          .parent()
-                                          .unwrap_or(&PathBuf::default())
-                                          .join(PathBuf::from(path));*/
+            let pb = PathBuf::from(path);
 
             Ok(AST::Import(
                 pb.to_str().expect("ICE parse_use pb.to_str").to_string(),
@@ -203,6 +200,7 @@ impl Parser {
     }
 
     fn parse_const_global(&mut self) -> ParseResult<AST> {
+        let export = kw!(bool Exp, self);
         let cons = kw!(bool Const, self);
         let glob = kw!(bool Global, self);
 
@@ -216,9 +214,9 @@ impl Parser {
         let value = box capture!(self, parse_expression).ok_or(ParseError::ExpectedExpression)?;
 
         Ok(if cons {
-            AST::Constant { ty, value }
+            AST::Constant { ty, value, export }
         } else {
-            AST::Global { ty, value }
+            AST::Global { ty, value, export }
         })
     }
 
@@ -290,6 +288,7 @@ impl Parser {
             }
         }
 
+        let export = kw!(bool Exp, self);
         let ext = kw!(bool Extern, self);
         kw!(Fn, self);
         let name = ident!(required self);
@@ -322,6 +321,7 @@ impl Parser {
             attributes,
             body,
             type_names,
+            export,
             ty: PrimitiveType::Function {
                 ext,
                 ret_ty,

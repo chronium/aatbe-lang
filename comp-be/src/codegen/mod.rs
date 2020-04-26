@@ -1,5 +1,7 @@
 pub mod atom;
+pub mod builder;
 pub mod call;
+pub mod comp_unit;
 pub mod conditional;
 pub mod expr;
 pub mod mangle_v1;
@@ -37,6 +39,11 @@ pub enum CompileError {
         function: String,
         expected_ty: String,
         found_ty: String,
+    },
+    FailedBinary {
+        op: String,
+        lhs: String,
+        rhs: String,
     },
     UnknownFunction {
         name: String,

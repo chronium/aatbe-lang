@@ -2,12 +2,23 @@ use std::{iter::Peekable, str::Chars, str::FromStr};
 
 pub mod token;
 
-use token::{Position, Symbol, Token, TokenKind};
+use token::{Symbol, Token, TokenKind};
 
 mod tests;
 
+macro_rules! token {
+    ($tokens:ident, $token:expr, $pos:expr) => {
+        $tokens.push(Token::new($token, $pos));
+    };
+}
+
+macro_rules! symbol {
+    ($tokens:ident, $sym:expr, $pos:expr) => {
+        $tokens.push(Token::new(TokenKind::Symbol($sym), $pos));
+    };
+}
+
 pub struct Lexer<'c> {
-    tokens: Vec<Token>,
     chars: Peekable<Chars<'c>>,
     col: usize,
     row: usize,
@@ -16,15 +27,10 @@ pub struct Lexer<'c> {
 impl<'c> Lexer<'c> {
     pub fn new(code: &'c str) -> Self {
         Self {
-            tokens: vec![],
             chars: code.chars().peekable(),
             col: 1,
             row: 1,
         }
-    }
-
-    pub fn tt(&self) -> Vec<Token> {
-        self.tokens.clone()
     }
 
     fn read(&mut self) -> Option<char> {
@@ -64,15 +70,7 @@ impl<'c> Lexer<'c> {
         buf
     }
 
-    fn push_token(&mut self, token: TokenKind, pos: Position) {
-        self.tokens.push(Token::new(token, pos));
-    }
-
-    fn push_symbol(&mut self, sym: Symbol, pos: Position) {
-        self.tokens.push(Token::new(TokenKind::Symbol(sym), pos));
-    }
-
-    fn eat_whitespace(&mut self) {
+    fn eat_whitespace(&mut self, tokens: &mut Vec<Token>) {
         let mut eaten = false;
         loop {
             if self
@@ -89,7 +87,7 @@ impl<'c> Lexer<'c> {
         }
 
         if eaten {
-            self.push_token(TokenKind::SEP, (self.col, self.row));
+            token!(tokens, TokenKind::SEP, (self.col, self.row));
         }
     }
 
@@ -129,7 +127,8 @@ impl<'c> Lexer<'c> {
         }
     }
 
-    pub fn lex(&mut self) {
+    pub fn lex(&mut self) -> Vec<Token> {
+        let mut tokens = vec![];
         loop {
             match self.chars.peek() {
                 Some('\n') => {
@@ -137,7 +136,7 @@ impl<'c> Lexer<'c> {
                     let pos = (self.col, self.row);
                     self.col = 1;
                     self.row += 1;
-                    self.push_token(TokenKind::EOL, pos);
+                    token!(tokens, TokenKind::EOL, pos);
                 }
                 Some('\r') => {
                     if let Some('\n') = self.chars.peek() {
@@ -145,7 +144,7 @@ impl<'c> Lexer<'c> {
                         let pos = (self.col, self.row);
                         self.col = 1;
                         self.row += 1;
-                        self.push_token(TokenKind::EOL, pos);
+                        token!(tokens, TokenKind::EOL, pos);
                     } else {
                         let pos = (self.col, self.row);
                         panic!("Expected \\n after \\r at {:?}", pos);
@@ -153,13 +152,13 @@ impl<'c> Lexer<'c> {
                 }
                 _ => {}
             }
-            self.eat_whitespace();
+            self.eat_whitespace(&mut tokens);
             let pos = (self.col, self.row);
 
             let c = match self.read() {
                 Some(c) => c,
                 None => {
-                    self.push_token(TokenKind::EOF, pos);
+                    token!(tokens, TokenKind::EOF, pos);
                     break;
                 }
             };
@@ -168,24 +167,24 @@ impl<'c> Lexer<'c> {
                 '(' => match self.chars.peek() {
                     Some(')') => {
                         self.advance();
-                        self.push_symbol(Symbol::Unit, pos)
+                        symbol!(tokens, Symbol::Unit, pos)
                     }
-                    _ => self.push_symbol(Symbol::LParen, pos),
+                    _ => symbol!(tokens, Symbol::LParen, pos),
                 },
                 ')' => {
-                    self.push_symbol(Symbol::RParen, pos);
+                    symbol!(tokens, Symbol::RParen, pos);
                 }
                 '{' => {
-                    self.push_symbol(Symbol::LCurly, pos);
+                    symbol!(tokens, Symbol::LCurly, pos);
                 }
                 '}' => {
-                    self.push_symbol(Symbol::RCurly, pos);
+                    symbol!(tokens, Symbol::RCurly, pos);
                 }
                 '[' => {
-                    self.push_symbol(Symbol::LBracket, pos);
+                    symbol!(tokens, Symbol::LBracket, pos);
                 }
                 ']' => {
-                    self.push_symbol(Symbol::RBracket, pos);
+                    symbol!(tokens, Symbol::RBracket, pos);
                 }
                 '.' => match self.chars.peek() {
                     Some('.') => {
@@ -193,98 +192,98 @@ impl<'c> Lexer<'c> {
                         match self.chars.peek() {
                             Some('.') => {
                                 self.advance();
-                                self.push_symbol(Symbol::GoDot, pos)
+                                symbol!(tokens, Symbol::GoDot, pos)
                             }
-                            _ => self.push_symbol(Symbol::DoDot, pos),
+                            _ => symbol!(tokens, Symbol::DoDot, pos),
                         }
                     }
-                    _ => self.push_symbol(Symbol::Dot, pos),
+                    _ => symbol!(tokens, Symbol::Dot, pos),
                 },
                 '=' => match self.chars.peek() {
                     Some('=') => {
                         self.advance();
-                        self.push_symbol(Symbol::Equal, pos)
+                        symbol!(tokens, Symbol::Equal, pos)
                     }
-                    _ => self.push_symbol(Symbol::Assign, pos),
+                    _ => symbol!(tokens, Symbol::Assign, pos),
                 },
                 '!' => match self.chars.peek() {
                     Some('=') => {
                         self.advance();
-                        self.push_symbol(Symbol::NotEqual, pos)
+                        symbol!(tokens, Symbol::NotEqual, pos)
                     }
-                    _ => self.push_symbol(Symbol::Not, pos),
+                    _ => symbol!(tokens, Symbol::Not, pos),
                 },
                 '>' => match self.chars.peek() {
                     Some('=') => {
                         self.advance();
-                        self.push_symbol(Symbol::GreaterEqual, pos)
+                        symbol!(tokens, Symbol::GreaterEqual, pos)
                     }
-                    _ => self.push_symbol(Symbol::Greater, pos),
+                    _ => symbol!(tokens, Symbol::Greater, pos),
                 },
                 '<' => match self.chars.peek() {
                     Some('=') => {
                         self.advance();
-                        self.push_symbol(Symbol::LowerEqual, pos)
+                        symbol!(tokens, Symbol::LowerEqual, pos)
                     }
-                    _ => self.push_symbol(Symbol::Lower, pos),
+                    _ => symbol!(tokens, Symbol::Lower, pos),
                 },
                 '+' => {
-                    self.push_symbol(Symbol::Plus, pos);
+                    symbol!(tokens, Symbol::Plus, pos);
                 }
                 '*' => {
-                    self.push_symbol(Symbol::Star, pos);
+                    symbol!(tokens, Symbol::Star, pos);
                 }
                 '$' => {
-                    self.push_symbol(Symbol::Dollar, pos);
+                    symbol!(tokens, Symbol::Dollar, pos);
                 }
                 ',' => {
-                    self.push_symbol(Symbol::Comma, pos);
+                    symbol!(tokens, Symbol::Comma, pos);
                 }
                 ':' => {
-                    self.push_symbol(Symbol::Colon, pos);
+                    symbol!(tokens, Symbol::Colon, pos);
                 }
                 '%' => {
-                    self.push_symbol(Symbol::Modulo, pos);
+                    symbol!(tokens, Symbol::Modulo, pos);
                 }
                 '-' => match self.chars.peek() {
                     Some('>') => {
                         self.advance();
-                        self.push_symbol(Symbol::Arrow, pos);
+                        symbol!(tokens, Symbol::Arrow, pos);
                     }
-                    _ => self.push_symbol(Symbol::Minus, pos),
+                    _ => symbol!(tokens, Symbol::Minus, pos),
                 },
                 '@' => {
-                    self.push_symbol(Symbol::At, pos);
+                    symbol!(tokens, Symbol::At, pos);
                 }
                 '|' => match self.chars.peek() {
                     Some('|') => {
                         self.advance();
-                        self.push_symbol(Symbol::Or, pos)
+                        symbol!(tokens, Symbol::Or, pos)
                     }
-                    _ => self.push_symbol(Symbol::Pipe, pos),
+                    _ => symbol!(tokens, Symbol::Pipe, pos),
                 },
                 '&' => match self.chars.peek() {
                     Some('&') => {
                         self.advance();
-                        self.push_symbol(Symbol::And, pos)
+                        symbol!(tokens, Symbol::And, pos)
                     }
-                    _ => self.push_symbol(Symbol::Ampersand, pos),
+                    _ => symbol!(tokens, Symbol::Ampersand, pos),
                 },
-                '^' => self.push_symbol(Symbol::Xor, pos),
+                '^' => symbol!(tokens, Symbol::Xor, pos),
                 '/' => match self.chars.peek() {
                     Some('/') => {
                         self.advance();
                         let comm = self.read_eol();
-                        self.push_token(TokenKind::Comment(comm), pos);
+                        token!(tokens, TokenKind::Comment(comm), pos);
                     }
-                    _ => self.push_symbol(Symbol::Slash, pos),
+                    _ => symbol!(tokens, Symbol::Slash, pos),
                 },
                 '\'' => {
                     let c = self.escape_char();
                     match self.chars.peek() {
                         Some('\'') => {
                             self.advance();
-                            self.push_token(TokenKind::CharLiteral(c), pos);
+                            token!(tokens, TokenKind::CharLiteral(c), pos);
                         }
                         _ => panic!("Expected ' at {:?}", pos),
                     }
@@ -301,7 +300,7 @@ impl<'c> Lexer<'c> {
                             None => panic!("Unexpected EOF at {:?}", pos),
                         }
                     }
-                    self.push_token(TokenKind::StringLiteral(buf), pos);
+                    token!(tokens, TokenKind::StringLiteral(buf), pos);
                 }
                 'a'..='z' | 'A'..='Z' | '_' => {
                     let mut buf = c.to_string();
@@ -315,13 +314,14 @@ impl<'c> Lexer<'c> {
                         }
                     }
 
-                    self.push_token(
+                    token!(
+                        tokens,
                         Token::keyword(buf.as_ref()).unwrap_or(
                             Token::boolean(buf.as_ref()).unwrap_or(
                                 Token::r#type(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
                             ),
                         ),
-                        pos,
+                        pos
                     );
                 }
                 '0' => {
@@ -360,7 +360,7 @@ impl<'c> Lexer<'c> {
                             )
                         }
                     };
-                    self.push_token(num, pos);
+                    token!(tokens, num, pos);
                 }
                 c if c.is_digit(10) => {
                     let mut buf = c.to_string();
@@ -374,7 +374,8 @@ impl<'c> Lexer<'c> {
                         };
                     }
 
-                    self.push_token(
+                    token!(
+                        tokens,
                         if buf.contains(".") {
                             TokenKind::FloatLiteral(f64::from_str(&buf).expect(
                                 format!("{} is not a floating point literal", buf).as_ref(),
@@ -384,20 +385,13 @@ impl<'c> Lexer<'c> {
                                 u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
                             )
                         },
-                        pos,
+                        pos
                     );
                 }
                 t => panic!("Unhandled token {} pos {:?}", t, pos),
             };
         }
-    }
-}
 
-impl IntoIterator for Lexer<'_> {
-    type Item = Token;
-    type IntoIter = ::std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.tokens.into_iter()
+        tokens
     }
 }

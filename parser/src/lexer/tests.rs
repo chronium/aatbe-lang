@@ -7,8 +7,7 @@ mod lexer_tests {
     #[test]
     fn end_of_file() {
         let mut lexer = Lexer::new("");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(tokens.next().unwrap().kind, TokenKind::EOF);
     }
@@ -24,8 +23,7 @@ mod lexer_tests {
         let mut lexer = Lexer::new(
             " @ ( ) -> { } () = + - * / & $ , : ! == != > >= < <= | || && ^ % . .. ... [ ]",
         );
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         let expected = vec![
             Symbol::At,
@@ -74,8 +72,7 @@ mod lexer_tests {
     #[test]
     fn single_line_comment() {
         let mut lexer = Lexer::new("//Test");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -86,8 +83,7 @@ mod lexer_tests {
     #[test]
     fn single_line_comment_with_whitespace() {
         let mut lexer = Lexer::new("                 //Test");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         sep!(tokens);
         assert_eq!(
@@ -99,8 +95,7 @@ mod lexer_tests {
     #[test]
     fn single_number_literal() {
         let mut lexer = Lexer::new("18_446_744_073_709_551_614");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -111,8 +106,7 @@ mod lexer_tests {
     #[test]
     fn single_number_literal_zero() {
         let mut lexer = Lexer::new("0123456789");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -123,8 +117,7 @@ mod lexer_tests {
     #[test]
     fn single_number_literal_hex() {
         let mut lexer = Lexer::new("0xdeadbeef");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -135,8 +128,7 @@ mod lexer_tests {
     #[test]
     fn single_number_literal_hex_separator() {
         let mut lexer = Lexer::new("0xdead_beef");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -147,8 +139,7 @@ mod lexer_tests {
     #[test]
     fn string_literal_no_escape() {
         let mut lexer = Lexer::new("\"Hello World\n\"");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(
             tokens.next().unwrap().kind,
@@ -159,10 +150,9 @@ mod lexer_tests {
     #[test]
     fn keyword_identifier() {
         let mut lexer = Lexer::new(
-            "fn extern var val if else use true false main record.test bool rec global ret while until type is",
+            "fn extern var val if else use true false main record.test bool rec global ret while until type is exp",
         );
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Fn));
         sep!(tokens);
@@ -207,13 +197,14 @@ mod lexer_tests {
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Type));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Is));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Exp));
     }
 
     #[test]
     fn type_tests() {
         let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64 f32 f64");
-        lexer.lex();
-        let mut tokens = lexer.into_iter();
+        let mut tokens = lexer.lex().into_iter();
 
         assert_eq!(tokens.next().unwrap().ty(), Some(Type::Str));
         sep!(tokens);

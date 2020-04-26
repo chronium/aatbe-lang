@@ -9,6 +9,7 @@ pub use function::{
 };
 
 pub mod variable;
+use std::fmt;
 pub use variable::{alloc_variable, init_record, store_value};
 
 #[derive(Debug, Clone)]
@@ -29,7 +30,7 @@ impl From<&BindType> for Mutability {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum CodegenUnit {
     Function(Function, PrimitiveType),
     FunctionArgument(LLVMValueRef, PrimitiveType),
@@ -39,6 +40,25 @@ pub enum CodegenUnit {
         ty: PrimitiveType,
         value: LLVMValueRef,
     },
+}
+
+impl fmt::Debug for CodegenUnit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CodegenUnit::Function(_, prim) => write!(f, "Function({:?})", prim),
+            CodegenUnit::FunctionArgument(_, prim) => write!(f, "FunctionArgument({:?})", prim),
+            CodegenUnit::Variable {
+                mutable,
+                name,
+                ty,
+                value,
+            } => write!(
+                f,
+                "FunctionArgument {{ mutable: {:?}, name: {:?}, ty: {:?}, value: {:?} }}",
+                mutable, name, ty, value
+            ),
+        }
+    }
 }
 
 impl Into<ValueTypePair> for &CodegenUnit {
@@ -156,7 +176,7 @@ impl CodegenUnit {
         }
     }
 
-    pub fn append_basic_block(&self, name: String) -> LLVMBasicBlockRef {
+    pub fn bb(&self, name: String) -> LLVMBasicBlockRef {
         match self {
             CodegenUnit::Function(func, _) => func.append_basic_block(name.as_ref()),
             _ => panic!("Cannot append basic block on {:?}", self),

@@ -1,236 +1,85 @@
 use crate::{
     codegen::{
-        expr::const_expr::const_atom, AatbeModule, CodegenUnit, CompileError, ValueTypePair,
+        builder::{cast, core, op, ty},
+        expr::const_expr::const_atom,
+        AatbeModule, CodegenUnit, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind, TypedefKind},
 };
 
+use super::builder::value;
 use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
 
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
         match atom {
             AtomKind::Cast(box val, ty) => {
-                let (val, val_ty) = self.codegen_atom(val)?.into();
-                match (val_ty, ty) {
-                    (TypeKind::Primitive(PrimitiveType::Char), PrimitiveType::UInt(_))
-                    | (TypeKind::Primitive(PrimitiveType::Char), PrimitiveType::Int(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                let val = self.codegen_atom(val)?;
+                match (val.prim(), ty) {
+                    (PrimitiveType::Char, PrimitiveType::UInt(_))
+                    | (PrimitiveType::Char, PrimitiveType::Int(_)) => {
+                        return Some(cast::zext(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
-                        if from < *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(from), PrimitiveType::Int(to)) if from < to => {
+                        return Some(cast::zext(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::Int(to))
-                        if from > *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(from), PrimitiveType::Int(to)) if from > to => {
+                        return Some(cast::trunc(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::UInt(to))
-                        if from < *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(from), PrimitiveType::UInt(to)) if from < to => {
+                        return Some(cast::zext(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(from)), PrimitiveType::UInt(to))
-                        if from > *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(from), PrimitiveType::UInt(to)) if from > to => {
+                        return Some(cast::trunc(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::UInt(from)), PrimitiveType::Int(to))
-                        if from < *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_zext(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::UInt(from), PrimitiveType::Int(to)) if from < to => {
+                        return Some(cast::zext(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::UInt(from)), PrimitiveType::Int(to))
-                        if from > *to =>
-                    {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_trunc(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::UInt(from), PrimitiveType::Int(to)) if from > to => {
+                        return Some(cast::trunc(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Pointer(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(_), PrimitiveType::Pointer(_)) => {
+                        return Some(cast::itop(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Pointer(_)), PrimitiveType::Int(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Pointer(_), PrimitiveType::Int(_)) => {
+                        return Some(cast::ptoi(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Str), PrimitiveType::Int(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Str, PrimitiveType::Int(_)) => {
+                        return Some(cast::ptoi(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Str), PrimitiveType::UInt(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Str, PrimitiveType::UInt(_)) => {
+                        return Some(cast::ptoi(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::UInt(_)), PrimitiveType::Pointer(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::UInt(_), PrimitiveType::Pointer(_)) => {
+                        return Some(cast::itop(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Pointer(_)), PrimitiveType::UInt(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_ptr_to_int(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Pointer(_), PrimitiveType::UInt(_)) => {
+                        return Some(cast::ptoi(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Str) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_int_to_ptr(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(_), PrimitiveType::Str) => {
+                        return Some(cast::itop(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Int(_)), PrimitiveType::Float(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_si_to_fp(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Int(_), PrimitiveType::Float(_)) => {
+                        return Some(cast::stof(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::UInt(_)), PrimitiveType::Float(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_ui_to_fp(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::UInt(_), PrimitiveType::Float(_)) => {
+                        return Some(cast::utof(self, val, ty))
                     }
                     (
-                        TypeKind::Primitive(PrimitiveType::Float(FloatSize::Bits64)),
+                        PrimitiveType::Float(FloatSize::Bits64),
                         PrimitiveType::Float(FloatSize::Bits32),
-                    ) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_fp_trunc(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    ) => return Some(cast::ftrunc(self, val, ty)),
+                    (PrimitiveType::Float(_), PrimitiveType::Int(_)) => {
+                        return Some(cast::ftos(self, val, ty))
                     }
-                    (TypeKind::Primitive(PrimitiveType::Float(_)), PrimitiveType::Int(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_fp_to_si(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
-                    }
-                    (TypeKind::Primitive(PrimitiveType::Float(_)), PrimitiveType::UInt(_)) => {
-                        return Some(
-                            (
-                                self.llvm_builder_ref()
-                                    .build_fp_to_ui(val, ty.llvm_ty_in_ctx(self)),
-                                ty.clone(),
-                            )
-                                .into(),
-                        )
+                    (PrimitiveType::Float(_), PrimitiveType::UInt(_)) => {
+                        return Some(cast::ftou(self, val, ty))
                     }
                     _ => {}
                 };
 
-                Some(
-                    (
-                        self.llvm_builder_ref()
-                            .build_bitcast(val, ty.llvm_ty_in_ctx(self)),
-                        ty.clone(),
-                    )
-                        .into(),
-                )
+                Some(cast::bitcast_ty(self, val, ty))
             }
             AtomKind::Index(box val, box index) => {
                 let index = self.codegen_expr(index).expect("ICE codegen_atom index");
@@ -261,28 +110,26 @@ impl AatbeModule {
 
                 let mut ind = vec![];
                 if arr {
-                    ind.push(self.llvm_context_ref().UInt32(0));
+                    ind.push(*value::u32(self, 0));
                 }
                 ind.push(*index);
 
-                let gep = self.llvm_builder_ref().build_inbounds_gep(val, &mut ind);
-
-                Some((self.llvm_builder_ref().build_load(gep), ty).into())
+                Some(core::load_ty(
+                    self,
+                    core::inbounds_gep(self, val, &mut ind),
+                    ty,
+                ))
             }
             AtomKind::NamedValue { name: _, val } => self.codegen_expr(&*val),
             AtomKind::Deref(path) => {
                 let acc = self.codegen_atom(path)?;
                 match acc.prim() {
                     PrimitiveType::Newtype(name) => {
-                        let val = self.llvm_builder_ref().build_struct_gep(*acc, 0);
+                        let val = core::struct_gep(self, *acc, 0);
                         match self.typectx_ref().get_type(name) {
-                            Some(TypeKind::Typedef(TypedefKind::Newtype(_, ty))) => Some(
-                                (
-                                    self.llvm_builder_ref().build_load(val),
-                                    TypeKind::Primitive(ty.clone()),
-                                )
-                                    .into(),
-                            ),
+                            Some(TypeKind::Typedef(TypedefKind::Newtype(_, ty))) => {
+                                Some(core::load_prim(self, val, ty.clone()))
+                            }
                             _ => unimplemented!(),
                         }
                     }
@@ -323,12 +170,8 @@ impl AatbeModule {
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
             atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
-            AtomKind::Bool(Boolean::True) => {
-                Some((self.llvm_context_ref().SInt1(1), PrimitiveType::Bool).into())
-            }
-            AtomKind::Bool(Boolean::False) => {
-                Some((self.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into())
-            }
+            AtomKind::Bool(Boolean::True) => Some(value::t(self)),
+            AtomKind::Bool(Boolean::False) => Some(value::f(self)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
             AtomKind::Unary(op, val) if op == &String::from("-") => {
@@ -337,12 +180,8 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
 
                 match value.prim() {
-                    prim @ (PrimitiveType::Int(_) | PrimitiveType::UInt(_)) => {
-                        Some((self.llvm_builder_ref().build_neg(*value), prim.clone()).into())
-                    }
-                    prim @ PrimitiveType::Float(_) => {
-                        Some((self.llvm_builder_ref().build_fneg(*value), prim.clone()).into())
-                    }
+                    PrimitiveType::Int(_) | PrimitiveType::UInt(_) => Some(op::neg(self, value)),
+                    PrimitiveType::Float(_) => Some(op::fneg(self, value)),
                     _ => {
                         self.add_error(CompileError::UnaryMismatch {
                             op: op.clone(),
@@ -368,13 +207,7 @@ impl AatbeModule {
                     })
                 }
 
-                Some(
-                    (
-                        self.llvm_builder_ref().build_not(*value),
-                        PrimitiveType::Bool,
-                    )
-                        .into(),
-                )
+                Some(op::not(self, value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
             AtomKind::Array(exprs) => {
@@ -430,9 +263,8 @@ impl AatbeModule {
                         let variant_ty = self.typectx_ref().get_typedef(&var);
                         match variant_ty {
                             Ok(TypedefKind::VariantType(variant)) if variant.has_variant(ty) => {
-                                let discriminant = self
-                                    .llvm_builder_ref()
-                                    .build_struct_gep(var_ref.clone().into(), 0);
+                                let discriminant =
+                                    core::struct_gep(self, var_ref.clone().into(), 0);
 
                                 let disc = self.typectx_ref().get_variant(ty).unwrap();
                                 let var_disc = *const_atom(
@@ -444,9 +276,10 @@ impl AatbeModule {
                                 )
                                 .unwrap();
 
-                                let variant_cast = self.llvm_builder_ref().build_bitcast(
+                                let variant_cast = cast::bitcast_to(
+                                    self,
                                     var_ref.clone().into(),
-                                    self.llvm_context_ref().PointerType(disc.ty),
+                                    ty::pointer_to(self, disc.ty),
                                 );
 
                                 self.push_in_scope(
@@ -462,20 +295,9 @@ impl AatbeModule {
                                     },
                                 );
 
-                                Some(
-                                    (
-                                        self.llvm_builder_ref().build_icmp_eq(
-                                            self.llvm_builder_ref().build_load(discriminant),
-                                            var_disc,
-                                        ),
-                                        PrimitiveType::Bool,
-                                    )
-                                        .into(),
-                                )
+                                Some(op::ieq(self, core::load(self, discriminant), var_disc))
                             }
-                            _ => {
-                                Some((self.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into())
-                            }
+                            _ => Some(value::f(self)),
                         }
                     } else {
                         panic!("{} must be a variant", val);

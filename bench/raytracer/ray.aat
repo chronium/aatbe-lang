@@ -1,10 +1,10 @@
-use "../../aatlib/math/point"
-use "../../aatlib/math/vec3"
-use "../../aatlib/math/funcs"
+use "math/point"
+use "math/vec3"
+use "math/funcs"
 
 rec Ray(origin: Point, direction: Vec3)
 
-fn create_prime ray: &Ray, x: i32, y: i32, scene: Scene = {
+exp fn create_prime ray: &Ray, x: i32, y: i32, scene: Scene = {
     val fov_adj = tan (deg2rad scene.fov) / 2f64
     val aspect_ratio = scene.width as f64 / scene.height as f64
     val screen_x = ((((x as f64 + 0.5f64) / scene.width as f64) * 2f64 - 1f64) * aspect_ratio) * fov_adj
@@ -18,7 +18,7 @@ fn create_prime ray: &Ray, x: i32, y: i32, scene: Scene = {
         }
 }
 
-fn intersect self: Sphere, ray: Ray -> f64 = {
+exp fn intersect self: Sphere, ray: Ray -> f64 = {
     val l = to_vec3 sub self.center, ray.origin
     val adj = dot l, ray.direction
     val d2 = (dot l, l) - (adj * adj)
@@ -37,7 +37,7 @@ fn intersect self: Sphere, ray: Ray -> f64 = {
     else t1
 }
 
-fn intersect self: Plane, ray: Ray -> f64 = {
+exp fn intersect self: Plane, ray: Ray -> f64 = {
     val denom = dot self.normal, ray.direction
 
     if denom < 0.000001f64 {
@@ -51,8 +51,8 @@ fn intersect self: Plane, ray: Ray -> f64 = {
     else -1f64
 }
 
-fn normal self: Sphere, hit: Vec3 -> Vec3 =
+exp fn normal self: Sphere, hit: Vec3 -> Vec3 =
     normalized sub hit, to_vec3 self.center
 
-fn normal self: Plane, hit: Vec3 -> Vec3 =
+exp fn normal self: Plane, hit: Vec3 -> Vec3 =
     mul self.normal, -1f64

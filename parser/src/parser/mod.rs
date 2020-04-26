@@ -32,23 +32,12 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser {
     pub tt: Vec<Token>,
-    pub path: String,
-    pub pt: Option<AST>,
     pub index: usize,
 }
 
 impl Parser {
-    pub fn new(tt: Vec<Token>, path: String) -> Self {
-        Self {
-            tt,
-            path,
-            pt: None,
-            index: 0usize,
-        }
-    }
-
-    pub fn pt(&self) -> &Option<AST> {
-        &self.pt
+    pub fn new(tt: Vec<Token>) -> Self {
+        Self { tt, index: 0usize }
     }
 
     pub fn next(&mut self) -> Option<Token> {
@@ -129,9 +118,9 @@ impl Parser {
             .map_or(Some(false), |t| Some(t == symbol))
     }
 
-    pub fn parse(&mut self) -> ParseResult<()> {
+    pub fn parse(&mut self) -> ParseResult<AST> {
         let mut res = vec![];
-        let err = loop {
+        loop {
             match self.peek() {
                 Some(tok) if tok.kind == TokenKind::EOF => break Ok(()),
                 Some(tok) => tok,
@@ -146,10 +135,8 @@ impl Parser {
                     .or_else(|_| capture!(res parse_typedef, self))
                     .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
             );
-        };
+        }?;
 
-        self.pt = Some(AST::File(res));
-
-        err
+        Ok(AST::File(res))
     }
 }

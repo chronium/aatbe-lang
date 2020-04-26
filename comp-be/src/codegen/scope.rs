@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::codegen::CodegenUnit;
 
@@ -10,6 +10,7 @@ pub struct Scope {
     name: String,
     function: Option<String>,
     builder: Option<Builder>,
+    fdir: Option<PathBuf>,
 }
 
 impl Scope {
@@ -19,6 +20,7 @@ impl Scope {
             name: String::default(),
             function: None,
             builder: None,
+            fdir: None,
         }
     }
     pub fn with_name(name: &String) -> Self {
@@ -27,6 +29,7 @@ impl Scope {
             name: name.clone(),
             function: None,
             builder: None,
+            fdir: None,
         }
     }
     pub fn with_builder(builder: Builder) -> Self {
@@ -35,6 +38,16 @@ impl Scope {
             name: String::default(),
             function: None,
             builder: Some(builder),
+            fdir: None,
+        }
+    }
+    pub fn with_builder_and_fdir(builder: Builder, fdir: PathBuf) -> Self {
+        Self {
+            refs: HashMap::new(),
+            name: String::default(),
+            function: None,
+            builder: Some(builder),
+            fdir: Some(fdir),
         }
     }
     pub fn with_function(name: &String, builder: Builder) -> Self {
@@ -43,6 +56,7 @@ impl Scope {
             name: name.clone(),
             function: Some(name.clone()),
             builder: Some(builder),
+            fdir: None,
         }
     }
 
@@ -57,6 +71,9 @@ impl Scope {
     }
     pub fn builder(&self) -> Option<&Builder> {
         self.builder.as_ref()
+    }
+    pub fn fdir(&self) -> Option<PathBuf> {
+        self.fdir.clone()
     }
 }
 

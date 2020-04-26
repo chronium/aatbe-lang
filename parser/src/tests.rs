@@ -8,9 +8,7 @@ mod parser_tests {
 
     fn tt(code: &'static str) -> Vec<Token> {
         let mut lexer = Lexer::new(code);
-        lexer.lex();
-
-        lexer.tt()
+        lexer.lex()
     }
 
     fn attr(attribs: Vec<&'static str>) -> Vec<String> {
@@ -19,19 +17,18 @@ mod parser_tests {
 
     macro_rules! parse_test {
         ($tt:expr, $name:expr) => {{
-            let mut parser = Parser::new(tt($tt), String::new());
+            let mut parser = Parser::new(tt($tt));
             let res = parser.parse();
-            let pt = parser.pt().as_ref().expect($name);
 
-            assert_eq!(res, Ok(()));
+            assert!(res.is_ok());
 
-            pt.clone()
+            res.expect("")
         }};
     }
 
     #[test]
     fn invalid_eof() {
-        let mut parser = Parser::new(vec![], String::new());
+        let mut parser = Parser::new(vec![]);
         let res = parser.parse();
         assert_eq!(
             res.expect_err("Expected InvalidEOF"),
@@ -41,15 +38,15 @@ mod parser_tests {
 
     #[test]
     fn eof() {
-        let mut parser = Parser::new(tt(""), String::new());
+        let mut parser = Parser::new(tt(""));
         let res = parser.parse();
 
-        assert_eq!(res, Ok(()))
+        assert!(res.is_ok());
     }
 
     #[test]
     fn unit_function() {
-        let pt = parse_test!("fn test () -> ()", "Unit Function");
+        let pt = parse_test!("exp fn test () -> ()", "Unit Function");
 
         assert_eq!(
             pt,
@@ -58,6 +55,7 @@ mod parser_tests {
                 attributes: vec![],
                 body: None,
                 type_names: vec![],
+                export: true,
                 ty: PrimitiveType::Function {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
@@ -78,6 +76,7 @@ mod parser_tests {
                 attributes: vec![],
                 body: None,
                 type_names: vec![],
+                export: false,
                 ty: PrimitiveType::Function {
                     ext: true,
                     ret_ty: box PrimitiveType::Unit,
@@ -103,6 +102,7 @@ fn main () -> ()
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 body: None,
+                export: false,
                 type_names: vec![],
                 ty: PrimitiveType::Function {
                     ext: false,
@@ -129,6 +129,7 @@ fn main () -> () = ()
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
+                export: false,
                 body: Some(box Expression::Atom(AtomKind::Unit)),
                 ty: PrimitiveType::Function {
                     ext: false,
@@ -155,6 +156,7 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
+                export: false,
                 body: Some(box Expression::Binary(
                     box Expression::Binary(
                         box Expression::Binary(
@@ -227,6 +229,7 @@ fn main () -> () = {}
                 attributes: attr(vec!["entry"]),
                 body: Some(box Expression::Block(vec![])),
                 type_names: vec![],
+                export: false,
                 ty: PrimitiveType::Function {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
@@ -252,6 +255,7 @@ fn main () -> () = { () }
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
+                export: false,
                 body: Some(box Expression::Block(vec![Expression::Atom(
                     AtomKind::Unit
                 )])),
@@ -290,6 +294,7 @@ fn main () -> () = {
                     attributes: vec![],
                     body: None,
                     type_names: vec![],
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: true,
                         ret_ty: box PrimitiveType::Int(IntSize::Bits32),
@@ -301,6 +306,7 @@ fn main () -> () = {
                     attributes: vec![],
                     body: None,
                     type_names: vec![],
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
@@ -318,6 +324,7 @@ fn main () -> () = {
                     name: "main".to_string(),
                     attributes: attr(vec!["entry"]),
                     type_names: vec![],
+                    export: false,
                     body: Some(box Expression::Block(vec![
                         Expression::Call {
                             name: "puts".to_string(),
@@ -383,6 +390,7 @@ fn main () -> () = {
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
+                export: false,
                 body: Some(box Expression::Block(vec![
                     Expression::Decl {
                         ty: PrimitiveType::NamedType {
@@ -451,6 +459,7 @@ fn main () -> () = {
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
+                export: false,
                 body: Some(box Expression::Block(vec![
                     Expression::If {
                         cond_expr: box Expression::Binary(
@@ -538,6 +547,7 @@ fn main () -> ()
                     attributes: attr(vec!["entry"]),
                     body: None,
                     type_names: vec![],
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
@@ -631,6 +641,7 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                     name: "rec_test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
+                    export: false,
                     body: Some(box Expression::RecordInit {
                         record: "Record".to_string(),
                         types: vec![],
@@ -667,6 +678,7 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                     name: "generic_test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
+                    export: false,
                     body: Some(box Expression::RecordInit {
                         record: "Generic".to_string(),
                         types: vec![PrimitiveType::Str],
@@ -713,6 +725,7 @@ fn generic_test[T] value: T
                     attributes: vec![],
                     type_names: vec![String::from("T")],
                     body: None,
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
@@ -727,6 +740,7 @@ fn generic_test[T] value: T
                     attributes: vec![],
                     type_names: vec![String::from("T")],
                     body: None,
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
@@ -758,6 +772,7 @@ fn test () = generic_test[i32] 64
                     attributes: vec![],
                     type_names: vec![String::from("T")],
                     body: None,
+                    export: false,
                     ty: PrimitiveType::Function {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
@@ -771,6 +786,7 @@ fn test () = generic_test[i32] 64
                     name: "test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
+                    export: false,
                     body: Some(box Expression::Call {
                         name: String::from("generic_test"),
                         types: vec![PrimitiveType::Int(IntSize::Bits32)],

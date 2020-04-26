@@ -14,10 +14,12 @@ pub enum AST {
     },
     Constant {
         ty: PrimitiveType,
+        export: bool,
         value: Box<Expression>,
     },
     Global {
         ty: PrimitiveType,
+        export: bool,
         value: Box<Expression>,
     },
 }
@@ -54,6 +56,7 @@ pub enum Expression {
         body: Option<Box<Expression>>,
         attributes: Vec<String>,
         type_names: Vec<String>,
+        export: bool,
     },
     If {
         cond_expr: Box<Expression>,

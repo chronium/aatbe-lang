@@ -1,8 +1,15 @@
 use "raytracer/scene"
 use "raytracer/ray"
 
-use "../aatlib/libc"
-use "../aatlib/math/funcs"
+use "libc"
+use "math/funcs"
+
+exp fn clamp self: Color -> Color =
+    Color {
+        red: (max (min self.red, 1.0), 0.0),
+        green: (max (min self.green, 1.0), 0.0),
+        blue: (max (min self.blue, 1.0), 0.0)
+    }
 
 fn print color: Color = printf "%d %d %d\n", (color.red * 255.0) as u8, (color.green * 255.0) as u8, (color.blue * 255.0) as u8
 
@@ -108,8 +115,6 @@ fn main () = {
 
             if sphere_dist != -1f64 {
                 print get_color scene.sphere, scene.light, ray, sphere_dist
-            } else if plane_dist != -1f64 {
-                print get_color scene.plane, scene.light, ray, plane_dist
             } else {
                 print black
             }

@@ -113,6 +113,7 @@ pub enum Keyword {
     Until,
     Type,
     Is,
+    Exp,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -250,6 +251,7 @@ impl FromStr for Keyword {
             "until" => Ok(Self::Until),
             "type" => Ok(Self::Type),
             "is" => Ok(Self::Is),
+            "exp" => Ok(Self::Exp),
             _ => Err(()),
         }
     }

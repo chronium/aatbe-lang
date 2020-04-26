@@ -1,9 +1,7 @@
 use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, LLVM};
 use std::{
     collections::HashMap,
-    fs::File,
     io,
-    io::prelude::Read,
     path::{Path, PathBuf},
     rc::{Rc, Weak},
 };
@@ -11,6 +9,7 @@ use std::{
 use crate::{
     codegen::{
         codegen_binary,
+        comp_unit::CompilationUnit,
         expr::const_expr::{const_atom, fold_constant},
         mangle_v1::NameMangler,
         unit::{
@@ -31,8 +30,6 @@ use crate::{
 use parser::{
     ast,
     ast::{AtomKind, Expression, PrimitiveType, AST},
-    lexer::Lexer,
-    parser::Parser,
 };
 
 pub type InternalFunc = dyn Fn(&mut AatbeModule, &Vec<Expression>, String) -> Option<ValueTypePair>;
@@ -43,18 +40,17 @@ pub struct AatbeModule {
     llvm_module: Module,
     name: String,
     scope_stack: Vec<Scope>,
-    imported: HashMap<String, AST>,
-    imported_cg: Vec<String>,
     typectx: TypeContext,
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
     stdlib_path: Option<PathBuf>,
     internal_functions: HashMap<String, Rc<InternalFunc>>,
+    compilation_units: HashMap<String, CompilationUnit>,
 }
 
 impl AatbeModule {
-    pub fn new(name: String, stdlib_path: Option<PathBuf>) -> Self {
+    pub fn new(name: String, base_cu: CompilationUnit, stdlib_path: Option<PathBuf>) -> Self {
         LLVM::initialize();
 
         let llvm_context = Context::new();
@@ -63,12 +59,13 @@ impl AatbeModule {
         let mut internal_functions: HashMap<String, Rc<InternalFunc>> = HashMap::new();
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
 
+        let mut compilation_units = HashMap::new();
+        compilation_units.insert(name.clone(), base_cu);
+
         Self {
             llvm_context,
             llvm_module,
             name,
-            imported: HashMap::new(),
-            imported_cg: vec![],
             scope_stack: vec![],
             typectx: TypeContext::new(),
             compile_errors: vec![],
@@ -76,36 +73,42 @@ impl AatbeModule {
             function_templates: HashMap::new(),
             stdlib_path,
             internal_functions,
+            compilation_units,
         }
     }
 
-    pub fn parse_import(&mut self, module: &String) -> io::Result<AST> {
-        let mut f = File::open(format!("{}.aat", module)).or_else(|err| {
-            if let Some(stdlib) = &self.stdlib_path {
-                File::open(stdlib.join(&Path::new(format!("{}.aat", module).as_str())))
-            } else {
-                Err(err)
-            }
-        })?;
-        let mut code = String::new();
+    pub fn compile(&mut self) {
+        let base_cu = self.compilation_units.get(&self.name).unwrap();
+        self.scope_stack.push(Scope::with_builder_and_fdir(
+            Builder::new_in_context(self.llvm_context.as_ref()),
+            base_cu.path().clone(),
+        ));
+        let main_ast = self
+            .compilation_units
+            .get(&self.name.clone())
+            .unwrap()
+            .ast()
+            .clone();
 
-        f.read_to_string(&mut code)?;
+        self.decl_pass(&main_ast);
+        self.codegen_pass(&main_ast);
 
-        let mut lexer = Lexer::new(code.as_str());
-        lexer.lex();
+        self.exit_scope();
+    }
 
-        let mut parser = Parser::new(lexer.tt(), format!("{}.aat", module));
-        match parser.parse() {
-            Ok(_) => {}
-            Err(err) => panic!(format!("{:#?}", err)),
-        };
+    pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
+        let mut path = self.fdir().with_file_name(module);
+        path.set_extension("aat");
+        if !path.exists() {
+            path = PathBuf::from(
+                self.stdlib_path
+                    .as_ref()
+                    .unwrap()
+                    .join(&Path::new(format!("{}.aat", module).as_str())),
+            );
+        }
 
-        let pt = parser
-            .pt()
-            .as_ref()
-            .expect(format!("Empty parse tree in {}", module).as_str());
-
-        Ok(pt.clone())
+        CompilationUnit::new(path)
     }
 
     pub fn decl_expr(&mut self, expr: &Expression) {
@@ -123,10 +126,6 @@ impl AatbeModule {
     }
 
     pub fn decl_pass(&mut self, ast: &AST) {
-        self.scope_stack
-            .push(Scope::with_builder(Builder::new_in_context(
-                self.llvm_context.as_ref(),
-            )));
         match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, None, types) => {
@@ -146,14 +145,21 @@ impl AatbeModule {
                 .unwrap(),
             AST::Expr(expr) => self.decl_expr(expr),
             AST::Import(module) => {
-                if !self.imported.contains_key(module) {
-                    let ast = self
-                        .parse_import(module)
-                        .expect("Something is completely broken");
-                    self.decl_pass(&ast);
-                    self.imported
-                        .insert(module.clone(), ast)
-                        .expect_none(format!("Module {} already imported", module).as_ref());
+                let cu = self
+                    .parse_import(module)
+                    .expect("Something is completely broken");
+                if !self.compilation_units.contains_key(cu.name()) {
+                    self.scope_stack.push(Scope::with_builder_and_fdir(
+                        Builder::new_in_context(self.llvm_context.as_ref()),
+                        cu.path().clone(),
+                    ));
+
+                    self.decl_pass(&cu.ast());
+                    self.codegen_pass(&cu.ast());
+                    self.compilation_units.insert(cu.name().clone(), cu);
+
+                    self.exit_scope();
+                    //println!("{:?}", self.scope_stack);
                 }
             }
             AST::Typedef {
@@ -525,8 +531,12 @@ impl AatbeModule {
             Expression::Call { .. } => self.codegen_call(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
-                Err(err) => {
-                    self.add_error(err);
+                Err(_) => {
+                    self.add_error(CompileError::FailedBinary {
+                        op: op.clone(),
+                        lhs: lhs.fmt(),
+                        rhs: rhs.fmt(),
+                    });
                     None
                 }
             },
@@ -561,13 +571,21 @@ impl AatbeModule {
         match ast {
             AST::Constant {
                 ty: PrimitiveType::NamedType { name, ty: _ },
+                export,
                 value: _,
             }
             | AST::Global {
                 ty: PrimitiveType::NamedType { name, ty: _ },
+                export,
                 value: _,
             } => {
-                fold_constant(self, ast).map(|constant| self.push_in_scope(name, constant));
+                fold_constant(self, ast).map(|constant| {
+                    if !export {
+                        self.push_in_scope(name, constant)
+                    } else {
+                        self.export_global(name, constant)
+                    }
+                });
                 None
             }
             AST::File(nodes) => nodes
@@ -575,17 +593,7 @@ impl AatbeModule {
                 .fold(None, |_, n| Some(self.codegen_pass(n)))
                 .unwrap(),
             AST::Expr(expr) => self.codegen_expr(expr).map(|e| *e),
-            AST::Import(module) => {
-                if !self.imported_cg.contains(module) {
-                    let ast = self
-                        .get_imported_ast(module)
-                        .expect("Cannot find already declared imported module? wat")
-                        .clone();
-                    self.codegen_pass(&ast);
-                    self.imported_cg.push(module.clone());
-                }
-                None
-            }
+            AST::Import(..) => None,
             AST::Record(..) => None,
             AST::Typedef { .. } => None,
             _ => panic!("cannot codegen {:?}", ast),
@@ -632,12 +640,19 @@ impl AatbeModule {
             .get_func(self.get_function().as_ref().expect("Compiler borked ifs"))
             .expect("Must be in a function for if statement");
 
-        func.append_basic_block(name)
+        func.bb(name)
     }
 
     pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
         self.scope_stack
             .last_mut()
+            .expect("Compiler broke. Scope stack is corrupted.")
+            .add_symbol(name, unit);
+    }
+
+    pub fn export_global(&mut self, name: &String, unit: CodegenUnit) {
+        self.scope_stack
+            .first_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
     }
@@ -701,6 +716,7 @@ impl AatbeModule {
                             }),
                             attributes: attributes.clone(),
                             type_names: type_names.clone(),
+                            export: true,
                         };
                         declare_and_compile_function(self, &function);
                         if let PrimitiveType::Function { params, .. } = ty {
@@ -838,6 +854,7 @@ impl AatbeModule {
                 ty: ty.clone(),
                 body: None,
                 attributes: vec![],
+                export: false,
             };
             let mangled = function.mangle(self);
 
@@ -906,8 +923,13 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_imported_ast(&self, name: &String) -> Option<&AST> {
-        self.imported.get(name)
+    pub fn fdir(&self) -> PathBuf {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(fdir) = scope.fdir() {
+                return fdir.clone();
+            }
+        }
+        unreachable!();
     }
 
     pub fn llvm_builder_ref(&self) -> &Builder {

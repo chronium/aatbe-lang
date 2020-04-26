@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
-        mangle_v1::NameMangler, unit::Mutability, AatbeModule, CodegenUnit, CompileError,
-        ValueTypePair,
+        builder::core, mangle_v1::NameMangler, unit::Mutability, AatbeModule, CodegenUnit,
+        CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
@@ -14,11 +14,10 @@ use llvm_sys_wrapper::Builder;
 pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
     match function {
         Expression::Function {
-            name: _,
             ty,
-            attributes: _,
-            body: _,
+            export,
             type_names,
+            ..
         } if type_names.len() == 0 => {
             let name = function.mangle(module);
 
@@ -26,7 +25,11 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
                 .llvm_module_ref()
                 .get_or_add_function(&name, ty.llvm_ty_in_ctx(module));
 
-            module.push_in_scope(&name, CodegenUnit::Function(func, ty.clone()));
+            if !export {
+                module.push_in_scope(&name, CodegenUnit::Function(func, ty.clone()));
+            } else {
+                module.export_global(&name, CodegenUnit::Function(func, ty.clone()));
+            }
         }
         _ => unimplemented!("{:?}", function),
     }
@@ -48,7 +51,7 @@ pub fn declare_and_compile_function(
                 module.start_scope_with_function(&func.mangle(module), builder);
                 codegen_function(module, func);
                 inject_function_in_scope(module, func);
-                let ret = module.codegen_expr(
+                let ret_val = module.codegen_expr(
                     &body
                         .as_ref()
                         .expect("ICE Function with no body but not external"),
@@ -56,8 +59,8 @@ pub fn declare_and_compile_function(
 
                 // TODO: Typechecks
                 if has_return_type(ty) {
-                    if let Some(ret) = ret {
-                        module.llvm_builder_ref().build_ret(ret.0);
+                    if let Some(val) = ret_val {
+                        core::ret(module, val);
                     } else {
                         module.add_error(CompileError::ExpectedReturn {
                             function: func.clone().fmt(),
@@ -65,7 +68,7 @@ pub fn declare_and_compile_function(
                         })
                     }
                 } else {
-                    module.llvm_builder_ref().build_ret_void();
+                    core::ret_void(module);
                 }
 
                 module.exit_scope();
@@ -79,29 +82,19 @@ pub fn declare_and_compile_function(
 
 pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
     match function {
-        Expression::Function {
-            name: _,
-            ty: _,
-            attributes,
-            body: _,
-            type_names: _,
-        } => {
+        Expression::Function { attributes, .. } => {
             let name = &function.mangle(module);
             let func = module.get_func(name).unwrap();
 
             if !attributes.is_empty() {
                 for attr in attributes {
                     match attr.to_lowercase().as_ref() {
-                        "entry" => module
-                            .llvm_builder_ref()
-                            .position_at_end(func.append_basic_block("entry".to_string())),
+                        "entry" => core::pos_at_end(module, func.bb("entry".to_string())),
                         _ => panic!("Cannot decorate function with {}", name),
                     };
                 }
             } else {
-                module
-                    .llvm_builder_ref()
-                    .position_at_end(func.append_basic_block(String::default()));
+                core::pos_at_end(module, func.bb(String::default()));
             }
         }
         _ => unreachable!(),
@@ -110,13 +103,7 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
 
 pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
     match function {
-        Expression::Function {
-            name: _,
-            ty,
-            attributes: _,
-            body: _,
-            type_names: _,
-        } => {
+        Expression::Function { ty, .. } => {
             let fun_name = function.mangle(module);
             match ty {
                 PrimitiveType::Function {
@@ -145,11 +132,8 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     .get_func(&fun_name)
                                     .expect("Compiler borked. Functions borked")
                                     .get_param(pos as u32);
-                                let llty = ty.llvm_ty_in_ctx(module);
-                                let ptr = module
-                                    .llvm_builder_ref()
-                                    .build_alloca_with_name(llty, name.as_ref());
-                                module.llvm_builder_ref().build_store(arg, ptr);
+                                let ptr = core::alloca_with_name_ty(module, ty, name.as_ref());
+                                core::store(module, arg, ptr);
                                 module.push_in_scope(
                                     name,
                                     CodegenUnit::Variable {

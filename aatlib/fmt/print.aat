@@ -1,37 +1,37 @@
 use "libc"
 
-fn println s: str -> () = printf "%s\n", s
-fn println c: char -> () = printf "%c\n", c
-fn println b: bool -> () = {
+exp fn println s: str -> () = printf "%s\n", s
+exp fn println c: char -> () = printf "%c\n", c
+exp fn println b: bool -> () = {
     if ret b then printf "%s\n", "true"
     else printf "%s\n", "false"
 }
 
-fn println i: i8 -> () = printf "%hhi\n", i
-fn println i: i16 -> () = printf "%hi\n", i
-fn println i: i32 -> () = printf "%i\n", i
-fn println i: i64 -> () = printf "%li\n", i
-fn println u: u8 -> () = printf "%hhu\n", u
-fn println u: u16 -> () = printf "%hu\n", u
-fn println u: u32 -> () = printf "%u\n", u
-fn println u: u64 -> () = printf "%lu\n", u
-fn println f: f64 -> () = printf "%f\n", f
-fn println f: f64 -> () = printf "%f\n", f
+exp fn println i: i8 -> () = printf "%hhi\n", i
+exp fn println i: i16 -> () = printf "%hi\n", i
+exp fn println i: i32 -> () = printf "%i\n", i
+exp fn println i: i64 -> () = printf "%li\n", i
+exp fn println u: u8 -> () = printf "%hhu\n", u
+exp fn println u: u16 -> () = printf "%hu\n", u
+exp fn println u: u32 -> () = printf "%u\n", u
+exp fn println u: u64 -> () = printf "%lu\n", u
+exp fn println f: f64 -> () = printf "%f\n", f
+exp fn println f: f64 -> () = printf "%f\n", f
 
-fn print s: str -> () = printf "%s", s
-fn print c: char -> () = printf "%c", c
-fn print b: bool -> () = {
+exp fn print s: str -> () = printf "%s", s
+exp fn print c: char -> () = printf "%c", c
+exp fn print b: bool -> () = {
     if ret b then printf "%s", "true"
     else printf "%s", "false"
 }
 
-fn print i: i8 -> () = printf "%hhi", i
-fn print i: i16 -> () = printf "%hi", i
-fn print i: i32 -> () = printf "%i", i
-fn print i: i64 -> () = printf "%li", i
-fn print u: u8 -> () = printf "%hhu", u
-fn print u: u16 -> () = printf "%hu", u
-fn print u: u32 -> () = printf "%u", u
-fn print u: u64 -> () = printf "%lu", u
-fn print f: f64 -> () = printf "%f", f
-fn print f: f64 -> () = printf "%f", f
+exp fn print i: i8 -> () = printf "%hhi", i
+exp fn print i: i16 -> () = printf "%hi", i
+exp fn print i: i32 -> () = printf "%i", i
+exp fn print i: i64 -> () = printf "%li", i
+exp fn print u: u8 -> () = printf "%hhu", u
+exp fn print u: u16 -> () = printf "%hu", u
+exp fn print u: u32 -> () = printf "%u", u
+exp fn print u: u64 -> () = printf "%lu", u
+exp fn print f: f64 -> () = printf "%f", f
+exp fn print f: f64 -> () = printf "%f", f

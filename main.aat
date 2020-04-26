@@ -1,10 +1,6 @@
-use "prelude"
-use "str"
-
-type Rec = A Rec* | B u8
+use "math/vec3"
 
 @entry
 fn main () = {
-    var b = B 64u8
-    var a = A (&b as Rec*)
+    val vec = zero :Vec3
 }

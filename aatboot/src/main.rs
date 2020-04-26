@@ -1,13 +1,12 @@
-use comp_be::codegen::{AatbeModule, CompileError};
-use parser::{lexer::Lexer, parser::Parser};
+use comp_be::codegen::{comp_unit::CompilationUnit, AatbeModule, CompileError};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
     env,
     ffi::CString,
-    fs::{File, OpenOptions},
+    fs::OpenOptions,
     io,
-    io::{Read, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -44,21 +43,8 @@ fn main() -> io::Result<()> {
         warn!("LLVM Bitcode output not yet implemented")
     }
 
-    let input_path = Path::new(matches.value_of_os("INPUT").unwrap());
-
-    let mut f = File::open(input_path.clone())?;
-    let mut code = String::new();
-
-    f.read_to_string(&mut code)?;
-
-    let mut lexer = Lexer::new(code.as_str());
-    lexer.lex();
-
-    let mut parser = Parser::new(lexer.tt(), input_path.to_str().unwrap().to_string());
-    match parser.parse() {
-        Ok(_) => {}
-        Err(err) => panic!(format!("{:#?}", err)),
-    };
+    let input_path = Path::new(matches.value_of_os("INPUT").unwrap()).to_path_buf();
+    let main_cu = CompilationUnit::new(input_path.clone())?;
 
     if let Some(parse_out) = matches.value_of("PARSE_OUT") {
         let mut file = OpenOptions::new()
@@ -67,12 +53,10 @@ fn main() -> io::Result<()> {
             .create(true)
             .open(Path::new(parse_out).with_extension("txt"))?;
 
-        if let Err(e) = writeln!(file, "{:#?}", parser.pt()) {
+        if let Err(e) = writeln!(file, "{:#?}", main_cu.ast()) {
             error!("Could not write to file: {}", e);
         }
     }
-
-    let pt = parser.pt().as_ref().expect("Empty parse tree");
 
     let stdlib: Option<PathBuf> = matches
         .value_of("STDLIB")
@@ -80,16 +64,13 @@ fn main() -> io::Result<()> {
         .or_else(|| env::var("AATBE_STDLIB").ok())
         .map(|stdlib| Path::new(&stdlib).to_path_buf());
 
-    let mut module = AatbeModule::new(
-        input_path
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .map(|stem_str| stem_str.to_string())
-            .expect("Could not get spice name from path"),
-        stdlib,
-    );
-    module.decl_pass(&pt);
-    module.codegen_pass(&pt);
+    let name = input_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(|stem_str| stem_str.to_string())
+        .expect("Could not get spice name from path");
+    let mut module = AatbeModule::new(name, main_cu, stdlib);
+    module.compile();
 
     if let Some(libs) = matches.values_of("LIB") {
         for lib in libs {
@@ -116,6 +97,9 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::FailedBinary { op, lhs, rhs } => {
+                error!("Could not compile `{} {} {}`", lhs, op, rhs)
+            }
             CompileError::NoGenericFunction { function } => {
                 error!("No template found for {}", function)
             }

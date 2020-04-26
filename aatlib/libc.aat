@@ -1,11 +1,11 @@
-extern fn puts str -> i32
-extern fn printf str, ... -> i32
-extern fn putchar char -> i32
-extern fn malloc i32 -> char*
-extern fn calloc i32, i32 -> char*
-extern fn strlen str -> i32
-extern fn strncpy char*, char*, i32 -> char*
-extern fn free char* -> ()
+exp extern fn puts str -> i32
+exp extern fn printf str, ... -> i32
+exp extern fn putchar char -> i32
+exp extern fn malloc i32 -> char*
+exp extern fn calloc i32, i32 -> char*
+exp extern fn strlen str -> i32
+exp extern fn strncpy char*, char*, i32 -> char*
+exp extern fn free char* -> ()
 
-fn malloc[T] size: i32 -> T = (malloc size) as T
-fn calloc[T] num: i32, size: i32 -> T = (calloc num, size) as T
+exp fn malloc[T] size: i32 -> T = (malloc size) as T
+exp fn calloc[T] num: i32, size: i32 -> T = (calloc num, size) as T

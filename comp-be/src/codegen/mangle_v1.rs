@@ -15,6 +15,7 @@ impl NameMangler for Expression {
                 body: _,
                 attributes,
                 type_names,
+                export: _,
             } => match ty {
                 PrimitiveType::Function {
                     ext: false,

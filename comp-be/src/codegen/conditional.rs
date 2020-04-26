@@ -1,5 +1,8 @@
 use crate::{
-    codegen::{AatbeModule, CompileError, ValueTypePair},
+    codegen::{
+        builder::{branch, core},
+        AatbeModule, CompileError, ValueTypePair,
+    },
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
@@ -36,16 +39,15 @@ impl AatbeModule {
                     });
                 }
 
-                self.llvm_builder_ref()
-                    .build_cond_br(*cond, then_bb, else_bb.unwrap_or(end_bb));
+                branch::cond_branch(self, *cond, then_bb, else_bb.unwrap_or(end_bb));
 
-                self.llvm_builder_ref().position_at_end(then_bb);
+                core::pos_at_end(self, then_bb);
 
                 let then_val = self.codegen_expr(then_expr);
                 self.exit_scope();
                 let else_val = if let Some(bb) = else_bb {
-                    self.llvm_builder_ref().build_br(end_bb);
-                    self.llvm_builder_ref().position_at_end(bb);
+                    branch::branch(self, end_bb);
+                    core::pos_at_end(self, bb);
 
                     if let Some(else_expr) = else_expr {
                         self.codegen_expr(&*else_expr)
@@ -56,9 +58,9 @@ impl AatbeModule {
                     None
                 };
                 if !self.has_ret(then_expr) {
-                    self.llvm_builder_ref().build_br(end_bb);
+                    branch::branch(self, end_bb);
                 }
-                self.llvm_builder_ref().position_at_end(end_bb);
+                core::pos_at_end(self, end_bb);
 
                 if !is_expr {
                     return None;
@@ -113,8 +115,8 @@ impl AatbeModule {
                 let body_bb = self.basic_block(String::default());
                 let end_bb = self.basic_block(String::default());
 
-                self.llvm_builder_ref().build_br(cond_bb);
-                self.llvm_builder_ref().position_at_end(cond_bb);
+                branch::branch(self, cond_bb);
+                core::pos_at_end(self, cond_bb);
                 let cond = self.codegen_expr(cond_expr)?;
 
                 if *cond.prim().inner() != PrimitiveType::Bool {
@@ -126,19 +128,15 @@ impl AatbeModule {
                 };
 
                 match loop_type {
-                    LoopType::While => self
-                        .llvm_builder_ref()
-                        .build_cond_br(*cond, body_bb, end_bb),
-                    LoopType::Until => self
-                        .llvm_builder_ref()
-                        .build_cond_br(*cond, end_bb, body_bb),
+                    LoopType::While => branch::cond_branch(self, *cond, body_bb, end_bb),
+                    LoopType::Until => branch::cond_branch(self, *cond, end_bb, body_bb),
                 };
 
-                self.llvm_builder_ref().position_at_end(body_bb);
+                core::pos_at_end(self, body_bb);
                 self.codegen_expr(body);
 
-                self.llvm_builder_ref().build_br(cond_bb);
-                self.llvm_builder_ref().position_at_end(end_bb);
+                branch::branch(self, cond_bb);
+                core::pos_at_end(self, end_bb);
 
                 None
             }

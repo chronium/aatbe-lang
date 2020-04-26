@@ -1,46 +1,46 @@
 use "../aatlib/prelude"
 
 fn bubble_sort arr: &[i32] = {
-    var i = 0
-    var j = 0
+    var i = 0u32
+    var j = 0u32
     var swapped: bool
 
     while i < (len arr) {
         swapped = false
 
-        j = 0
+        j = 0u32
         while j < (len arr) {
-            if arr[j] > arr[j + 1] {
+            if arr[j] > arr[j + 1u32] {
                 val tmp = arr[j]
-                arr[j] = arr[j + 1]
-                arr[j + 1] = tmp
+                arr[j] = arr[j + 1u32]
+                arr[j + 1u32] = tmp
                 swapped = true
             }
-            j = j + 1
+            j = j + 1u32
         }
 
         if !swapped then i = (len arr)
 
-        i = i + 1
+        i = i + 1u32
     }
 }
 
 @entry
 fn main () = {
     var arr = [5, 8, 13, 2, 1, 22, 9]
-    var i = 0
+    var i = 0u32
 
     while i < (len arr) {
         printf "%d ", arr[i]
-        i = i + 1
+        i = i + 1u32
     }
     println ""
     bubble_sort &arr
 
-    i = 0
+    i = 0u32
     while i < (len arr) {
         printf "%d ", arr[i]
-        i = i + 1
+        i = i + 1u32
     }
     println ""
 }

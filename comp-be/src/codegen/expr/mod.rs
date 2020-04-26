@@ -81,12 +81,8 @@ pub fn codegen_binary(
     lhs_expr: &Expression,
     rhs_expr: &Expression,
 ) -> GenRes {
-    let lhs = module
-        .codegen_expr(lhs_expr)
-        .expect(format!("ICE dispatch_binary codegen_expr lhs {:?}", lhs_expr).as_ref());
-    let rhs = module
-        .codegen_expr(rhs_expr)
-        .expect(format!("ICE dispatch_binary codegen_expr rhs {:?}", rhs_expr).as_ref());
+    let lhs = module.codegen_expr(lhs_expr).ok_or(CompileError::Handled)?;
+    let rhs = module.codegen_expr(rhs_expr).ok_or(CompileError::Handled)?;
 
     match (lhs.prim(), rhs.prim()) {
         (PrimitiveType::Bool, PrimitiveType::Bool) => match dispatch_bool(module, op, *lhs, *rhs) {
