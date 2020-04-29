@@ -5,9 +5,14 @@
 
 Anything's A Tuple if you're Brave Enough.
 
+Goals:
+* Fullty featured standard library, similar to how Rust's stdlib is.
+* Clean and easy syntax, similar to Scala and Ruby
+* Easy to pick up, even for a person who has no experience with programming.
+
 # Requirements
 You need the latest Rust Nightly.
-The following are the required ubuntu packages: `llvm-6.0-dev`, some form of build essentials.
+The following are the required ubuntu packages: `llvm-6.0-dev`, `clang`, some form of build essentials.
 
 After installing `llvm`, you need to run the following command:
 ```
@@ -20,15 +25,17 @@ USAGE:
     aatboot [FLAGS] [OPTIONS] <INPUT>
 
 FLAGS:
-    -j, --jit        JIT the code
     -c, --bitcode    Emit LLVM Bitcode
+    -j, --jit        JIT the code
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
+    -l <LIB>...                         Link with library without prefix or extension
         --emit-llvm <LLVM_OUT>          File to output LLVM IR
+    -o <OUT_FILE>                       File to output the compiled code
         --emit-parsetree <PARSE_OUT>    File to output Parse Tree
-    -l <lib>...                         Link with library without prefix or extension
+        --stdlib <STDLIB>               Set the Aatbe stdlib path
 
 ARGS:
     <INPUT>    The file to compile
@@ -58,19 +65,13 @@ To run the raytracer bench, you just need to pipe the output to a `.ppm` file.
 
 # Compiling to an executable
 
-To compile to an executable, you need to use the `--emit-llvm <filename>.ll` flag, after which, you use clang to compile it.
-
-## Example usage:
 ```sh
-> cargo run -- main.aat --emit-llvm main.ll
-# Compilation successful
-> clang-6.0 main.ll -o main.out
-# main.out is the linked executable
+> aatbot main.aat -o main
+or
+> cargo run -- main.aat -o main
 ```
 
-#### WARN: Do not use the `-c/--bitcode` flags as they are yet to be implemented.
-
-Related to this, the `kern` branch has a `Makefile` that shows how to automate this task. It's really easy to do.
+The shown command will compile `main.aat` and link it using `clang` into a working executable.
 
 # Disclaimer
 Under no circumstances do I advise anyone to use this in a production environment, or anywhere near any project that has any significant value. It will not catch your computer on fire, but, it might catch your heart on fire <3

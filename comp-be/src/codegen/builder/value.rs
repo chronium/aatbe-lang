@@ -7,7 +7,7 @@ pub fn t(module: &AatbeModule) -> ValueTypePair {
 }
 
 pub fn f(module: &AatbeModule) -> ValueTypePair {
-    (module.llvm_context_ref().SInt1(1), PrimitiveType::Bool).into()
+    (module.llvm_context_ref().SInt1(0), PrimitiveType::Bool).into()
 }
 
 pub fn char(module: &AatbeModule, c: char) -> ValueTypePair {

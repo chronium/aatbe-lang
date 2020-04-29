@@ -29,7 +29,6 @@ fn main() -> io::Result<()> {
     (@arg PARSE_OUT: --("emit-parsetree") +takes_value "File to output Parse Tree")
     (@arg OUT_FILE: -o +takes_value "File to output the compiled code")
     (@arg LLVM_JIT: --("jit") -j "JIT the code")
-    (@arg BITCODE: -c --bitcode "Emit LLVM Bitcode")
     (@arg STDLIB: --("stdlib") +takes_value "Set the Aatbe stdlib path")
     (@arg LIB: -l ... +takes_value "Link with library without prefix or extension"))
     .get_matches();
@@ -37,10 +36,6 @@ fn main() -> io::Result<()> {
     if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
         SimpleLogger::init(LevelFilter::Warn, Config::default())
             .expect("No logger should be already set")
-    }
-
-    if matches.is_present("BITCODE") {
-        warn!("LLVM Bitcode output not yet implemented")
     }
 
     let input_path = Path::new(matches.value_of_os("INPUT").unwrap()).to_path_buf();

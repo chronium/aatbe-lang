@@ -289,6 +289,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 tr @ box PrimitiveType::TypeRef(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
                 tr @ box PrimitiveType::UInt(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
                 tr @ box PrimitiveType::Int(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
+                box PrimitiveType::Str => ctx.PointerType(ctx.Int8PointerType()),
                 _ => panic!("llvm_ty_in_ctx {:?}", ty),
             },
             PrimitiveType::Function {

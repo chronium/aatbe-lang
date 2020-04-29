@@ -22,6 +22,20 @@ pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair
         AtomKind::Floating(val, PrimitiveType::Float(size)) => {
             Some(value::floating(module, size.clone(), *val))
         }
+        AtomKind::Cast(box AtomKind::Integer(val, _), PrimitiveType::Char) => {
+            Some(value::char(module, *val as u8 as char))
+        }
+        AtomKind::Unary(op, box AtomKind::Integer(val, PrimitiveType::Int(size)))
+            if op == &String::from("-") =>
+        {
+            Some(value::sint(module, size.clone(), (-(*val as i64)) as u64))
+        }
+        AtomKind::Unary(op, box AtomKind::Integer(val, PrimitiveType::UInt(size)))
+            if op == &String::from("-") =>
+        {
+            Some(value::uint(module, size.clone(), (-(*val as i64)) as u64))
+        }
+        AtomKind::Parenthesized(box atom) => fold_expression(module, atom),
         _ => panic!("ICE fold_atom {:?}", atom),
     }
 }

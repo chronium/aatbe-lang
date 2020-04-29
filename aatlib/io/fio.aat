@@ -1,0 +1,15 @@
+type FILE
+
+exp const SEEK_SET: i32 = 0
+exp const SEEK_CUR: i32 = 1
+exp const SEEK_END: i32 = 2
+
+exp const EOF: char = 0xffu8 as char
+
+exp extern fn fopen path: str, mode: str -> FILE*
+exp extern fn fclose fd: FILE* -> i32
+exp extern fn ftell fd: FILE* -> u64
+exp extern fn fseek fd: FILE*, offs: u64, i32 -> i32
+exp extern fn fgetc fd: FILE* -> char
+
+

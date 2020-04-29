@@ -21,7 +21,7 @@ exp fn println f: f64 -> () = printf "%f\n", f
 exp fn print s: str -> () = printf "%s", s
 exp fn print c: char -> () = printf "%c", c
 exp fn print b: bool -> () = {
-    if ret b then printf "%s", "true"
+    if b then printf "%s", "true"
     else printf "%s", "false"
 }
 
