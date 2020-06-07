@@ -1,4 +1,4 @@
-use llvm_sys_wrapper::{Builder, Function, LLVMBasicBlockRef, LLVMValueRef};
+use llvm_sys_wrapper::{Builder, LLVMValueRef};
 
 use crate::codegen::{AatbeModule, ValueTypePair};
 use parser::ast::{BindType, PrimitiveType};
@@ -9,7 +9,6 @@ pub use function::{
 };
 
 pub mod variable;
-use std::fmt;
 pub use variable::{alloc_variable, init_record, store_value};
 
 #[derive(Debug, Clone)]
@@ -30,9 +29,8 @@ impl From<&BindType> for Mutability {
     }
 }
 
-#[derive(Clone)]
-pub enum CodegenUnit {
-    Function(Function, PrimitiveType),
+#[derive(Debug, Clone)]
+pub enum Slot {
     FunctionArgument(LLVMValueRef, PrimitiveType),
     Variable {
         mutable: Mutability,
@@ -42,64 +40,42 @@ pub enum CodegenUnit {
     },
 }
 
-impl fmt::Debug for CodegenUnit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CodegenUnit::Function(_, prim) => write!(f, "Function({:?})", prim),
-            CodegenUnit::FunctionArgument(_, prim) => write!(f, "FunctionArgument({:?})", prim),
-            CodegenUnit::Variable {
-                mutable,
-                name,
-                ty,
-                value,
-            } => write!(
-                f,
-                "FunctionArgument {{ mutable: {:?}, name: {:?}, ty: {:?}, value: {:?} }}",
-                mutable, name, ty, value
-            ),
-        }
-    }
-}
-
-impl Into<ValueTypePair> for &CodegenUnit {
+impl Into<ValueTypePair> for &Slot {
     fn into(self) -> ValueTypePair {
         match self {
-            CodegenUnit::Function(func, ty) => (func.as_ref(), ty.clone()).into(),
-            CodegenUnit::FunctionArgument(arg, ty) => (*arg, ty.clone()).into(),
-            CodegenUnit::Variable {
+            Slot::FunctionArgument(arg, ty) => (*arg, ty).into(),
+            Slot::Variable {
                 mutable: _,
                 name: _,
                 ty,
                 value,
-            } => (*value, ty.clone()).into(),
+            } => (*value, ty).into(),
         }
     }
 }
 
-impl Into<LLVMValueRef> for &CodegenUnit {
+impl Into<LLVMValueRef> for &Slot {
     fn into(self) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func, _) => func.as_ref(),
-            CodegenUnit::FunctionArgument(arg, _) => *arg,
-            CodegenUnit::Variable { value, .. } => *value,
+            Slot::FunctionArgument(arg, _) => *arg,
+            Slot::Variable { value, .. } => *value,
         }
     }
 }
 
-impl Into<LLVMValueRef> for CodegenUnit {
+impl Into<LLVMValueRef> for Slot {
     fn into(self) -> LLVMValueRef {
         match self {
-            CodegenUnit::Function(func, _) => func.as_ref(),
-            CodegenUnit::FunctionArgument(arg, _) => arg,
-            CodegenUnit::Variable { value, .. } => value,
+            Slot::FunctionArgument(arg, _) => arg,
+            Slot::Variable { value, .. } => value,
         }
     }
 }
 
-impl CodegenUnit {
+impl Slot {
     pub fn get_aggregate_name(&self) -> Option<String> {
         match self {
-            CodegenUnit::Variable {
+            Slot::Variable {
                 ty:
                     PrimitiveType::TypeRef(rec)
                     | PrimitiveType::NamedType {
@@ -108,12 +84,12 @@ impl CodegenUnit {
                     },
                 ..
             } => Some(rec.clone()),
-            CodegenUnit::FunctionArgument(
+            Slot::FunctionArgument(
                 _arg,
                 PrimitiveType::TypeRef(rec)
                 | PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
             ) => Some(rec.clone()),
-            CodegenUnit::Variable {
+            Slot::Variable {
                 ty:
                     PrimitiveType::VariantType(name)
                     | PrimitiveType::NamedType {
@@ -126,42 +102,9 @@ impl CodegenUnit {
         }
     }
 
-    pub fn ret_ty(&self) -> PrimitiveType {
-        match self {
-            CodegenUnit::Function(
-                _,
-                PrimitiveType::Function {
-                    ext: _,
-                    ret_ty: box ret_ty,
-                    params: _,
-                },
-            ) => ret_ty.clone(),
-            _ => panic!("ICE ret_ty {:?}", self),
-        }
-    }
-
-    pub fn param_types(&self) -> Vec<PrimitiveType> {
-        match self {
-            CodegenUnit::Function(_, PrimitiveType::Function { params, .. }) => params
-                .iter()
-                .filter_map(|p| match p {
-                    //TODO: Handle Unit
-                    PrimitiveType::Unit => None,
-                    PrimitiveType::NamedType {
-                        name: _,
-                        ty: Some(box ty),
-                    } => Some(ty.clone()),
-                    p => Some(p.clone()),
-                })
-                .collect::<Vec<_>>()
-                .clone(),
-            _ => panic!("ICE param_types {:?}", self),
-        }
-    }
-
     pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<(u32, PrimitiveType)> {
         match self {
-            CodegenUnit::Variable {
+            Slot::Variable {
                 ty:
                     PrimitiveType::NamedType {
                         name: _,
@@ -176,27 +119,13 @@ impl CodegenUnit {
         }
     }
 
-    pub fn bb(&self, name: String) -> LLVMBasicBlockRef {
-        match self {
-            CodegenUnit::Function(func, _) => func.append_basic_block(name.as_ref()),
-            _ => panic!("Cannot append basic block on {:?}", self),
-        }
-    }
-
-    fn get_param(&self, index: u32) -> LLVMValueRef {
-        match self {
-            CodegenUnit::Function(func, _) => func.get_param(index),
-            _ => panic!("Cannot get parameter from {:?}", self),
-        }
-    }
-
     pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
         match self {
-            CodegenUnit::Variable {
+            Slot::Variable {
                 ty: PrimitiveType::Array { .. },
                 ..
             }
-            | CodegenUnit::Variable {
+            | Slot::Variable {
                 ty:
                     PrimitiveType::NamedType {
                         ty: Some(box PrimitiveType::Array { .. }),
@@ -204,11 +133,11 @@ impl CodegenUnit {
                     },
                 ..
             } => self.into(),
-            CodegenUnit::Variable {
+            Slot::Variable {
                 ty: PrimitiveType::Slice { .. },
                 ..
             }
-            | CodegenUnit::Variable {
+            | Slot::Variable {
                 ty:
                     PrimitiveType::NamedType {
                         ty: Some(box PrimitiveType::Slice { .. }),
@@ -219,37 +148,35 @@ impl CodegenUnit {
                 builder.build_extract_value(self.into(), 0);
                 unimplemented!();
             }
-            CodegenUnit::Variable { mutable, .. } => match mutable {
+            Slot::Variable { mutable, .. } => match mutable {
                 Mutability::Constant => self.into(),
                 _ => builder.build_load(self.into()),
             },
-            CodegenUnit::FunctionArgument(_, PrimitiveType::Slice { .. }) => {
+            Slot::FunctionArgument(_, PrimitiveType::Slice { .. }) => {
                 builder.build_load(self.into())
             }
-            CodegenUnit::FunctionArgument(_, _) => self.into(),
-            _ => panic!("Cannot load non-variable"),
+            Slot::FunctionArgument(_, _) => self.into(),
         }
     }
 
     pub fn var_ty(&self) -> &PrimitiveType {
         match self {
-            CodegenUnit::Variable { ty, .. } => match ty {
+            Slot::Variable { ty, .. } => match ty {
                 PrimitiveType::NamedType {
                     name: _,
                     ty: Some(ty),
                 } => ty,
                 ty => ty,
             },
-            CodegenUnit::FunctionArgument(_, ty) => ty,
-            _ => panic!("ICE var_ty {:?}", self),
+            Slot::FunctionArgument(_, ty) => ty,
         }
     }
 
     pub fn get_mutability(&self) -> &Mutability {
         match self {
-            CodegenUnit::Variable { mutable, .. } => mutable,
-            CodegenUnit::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
-            CodegenUnit::FunctionArgument(_, PrimitiveType::Slice { .. }) => &Mutability::Mutable,
+            Slot::Variable { mutable, .. } => mutable,
+            Slot::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
+            Slot::FunctionArgument(_, PrimitiveType::Slice { .. }) => &Mutability::Mutable,
             _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }

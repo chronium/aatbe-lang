@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
         builder::value,
-        unit::{CodegenUnit, Mutability},
+        unit::{Mutability, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -47,7 +47,7 @@ fn fold_expression(module: &AatbeModule, expr: &Expression) -> Option<ValueTypeP
     }
 }
 
-pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit> {
+pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
     match ast {
         AST::Global {
             ty:
@@ -77,7 +77,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit>
                     .llvm_module_ref()
                     .add_global(ty.llvm_ty_in_ctx(module), name.as_ref());
                 module.llvm_module_ref().set_initializer(val_ref, *val);
-                CodegenUnit::Variable {
+                Slot::Variable {
                     mutable: Mutability::Global,
                     name: name.clone(),
                     ty: val.prim().clone(),
@@ -107,7 +107,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<CodegenUnit>
                     Some(val)
                 }
             })
-            .map(|val| CodegenUnit::Variable {
+            .map(|val| Slot::Variable {
                 mutable: Mutability::Constant,
                 name: name.clone(),
                 ty: val.prim().clone(),

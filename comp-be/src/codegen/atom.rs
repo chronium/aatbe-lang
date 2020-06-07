@@ -2,7 +2,8 @@ use crate::{
     codegen::{
         builder::{cast, core, op, ty},
         expr::const_expr::const_atom,
-        AatbeModule, CodegenUnit, CompileError, ValueTypePair,
+        unit::Slot,
+        AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::{LLVMTyInCtx, TypeKind, TypedefKind},
@@ -153,9 +154,9 @@ impl AatbeModule {
                 match var_ref.var_ty() {
                     ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
                         let val: ValueTypePair = var_ref.into();
-                        Some((*val, ty.clone()).into())
+                        Some((*val, ty).into())
                     }
-                    ty => Some((var_ref.load_var(self.llvm_builder_ref()), ty.clone()).into()),
+                    ty => Some((var_ref.load_var(self.llvm_builder_ref()), ty).into()),
                 }
             }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
@@ -284,7 +285,7 @@ impl AatbeModule {
 
                                 self.push_in_scope(
                                     val,
-                                    CodegenUnit::Variable {
+                                    Slot::Variable {
                                         mutable: var_ref.get_mutability().clone(),
                                         name: val.clone(),
                                         ty: PrimitiveType::Variant {

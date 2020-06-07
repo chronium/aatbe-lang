@@ -92,6 +92,14 @@ fn main() -> io::Result<()> {
     if module.errors().len() > 0 {
         warn!("Compilation failed. Errors were found");
         module.errors().iter().for_each(|err| match err {
+            CompileError::NoFunctionOverload {
+                name,
+                values,
+                found,
+            } => error!(
+                "Could not find function overload for `{} {}`. Found overloads\n\t{}",
+                name, values, found
+            ),
             CompileError::FailedBinary { op, lhs, rhs } => {
                 error!("Could not compile `{} {} {}`", lhs, op, rhs)
             }

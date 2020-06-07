@@ -1,3 +1,4 @@
+use crate::codegen::unit::function::Func;
 use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module, LLVM};
 use std::{
     collections::HashMap,
@@ -14,9 +15,9 @@ use crate::{
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
-            store_value,
+            store_value, Slot,
         },
-        CodegenUnit, CompileError, Scope, ValueTypePair,
+        CompileError, Scope, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::{
@@ -27,9 +28,10 @@ use crate::{
     },
 };
 
+use super::unit::function::{find_func, FuncTyMap};
 use parser::{
     ast,
-    ast::{AtomKind, Expression, PrimitiveType, AST},
+    ast::{AtomKind, Expression, FunctionType, PrimitiveType, AST},
 };
 
 pub type InternalFunc = dyn Fn(&mut AatbeModule, &Vec<Expression>, String) -> Option<ValueTypePair>;
@@ -412,7 +414,7 @@ impl AatbeModule {
                 let val = self.codegen_expr(_value).unwrap();
 
                 let func_ret = self
-                    .get_func(self.get_function().as_ref().expect("Compiler borked rets"))
+                    .get_func(self.get_function().expect("Compiler borked rets"))
                     .expect("Must be in a function for ret statement")
                     .ret_ty()
                     .clone();
@@ -541,7 +543,7 @@ impl AatbeModule {
                 }
             },
             Expression::Function { ty, type_names, .. } if type_names.len() == 0 => match ty {
-                PrimitiveType::Function {
+                FunctionType {
                     ret_ty: _,
                     params: _,
                     ext: true,
@@ -608,15 +610,15 @@ impl AatbeModule {
         self.scope_stack.push(Scope::with_name(name));
     }
 
-    pub fn start_scope_with_function(&mut self, name: &String, builder: Builder) {
-        self.scope_stack.push(Scope::with_function(name, builder));
+    pub fn start_scope_with_function(&mut self, func: (String, FunctionType), builder: Builder) {
+        self.scope_stack.push(Scope::with_function(func, builder));
     }
 
     pub fn exit_scope(&mut self) {
         self.scope_stack.pop();
     }
 
-    pub fn get_in_scope(&self, name: &String) -> Option<&CodegenUnit> {
+    pub fn get_in_scope(&self, name: &String) -> Option<&Slot> {
         for scope in self.scope_stack.iter().rev() {
             if let Some(sym) = scope.find_symbol(name) {
                 return Some(sym);
@@ -626,7 +628,7 @@ impl AatbeModule {
         None
     }
 
-    pub fn get_function(&self) -> Option<String> {
+    pub fn get_function(&self) -> Option<(String, FunctionType)> {
         for scope in self.scope_stack.iter().rev() {
             if let Some(function) = scope.function() {
                 return Some(function);
@@ -635,42 +637,62 @@ impl AatbeModule {
         None
     }
 
-    pub fn basic_block(&self, name: String) -> LLVMBasicBlockRef {
-        let func = self
-            .get_func(self.get_function().as_ref().expect("Compiler borked ifs"))
-            .expect("Must be in a function for if statement");
-
-        func.bb(name)
+    pub fn basic_block(&mut self, name: String) -> LLVMBasicBlockRef {
+        for scope in self.scope_stack.iter().rev() {
+            let bb = scope.bb(self, &name);
+            if let Some(bb) = bb {
+                return bb;
+            }
+        }
+        panic!("Compiler broke. Scope stack is corrupted.");
     }
 
-    pub fn push_in_scope(&mut self, name: &String, unit: CodegenUnit) {
+    pub fn push_in_scope(&mut self, name: &String, unit: Slot) {
         self.scope_stack
             .last_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
     }
 
-    pub fn export_global(&mut self, name: &String, unit: CodegenUnit) {
+    pub fn add_function(&mut self, name: &String, func: Func) {
+        self.scope_stack
+            .last_mut()
+            .expect("Compiler broke. Scope stack is corrupted.")
+            .add_function(name, func);
+    }
+
+    pub fn export_function(&mut self, name: &String, func: Func) {
+        self.scope_stack
+            .first_mut()
+            .expect("Compiler broke. Scope stack is corrupted.")
+            .add_function(name, func);
+    }
+
+    pub fn export_global(&mut self, name: &String, unit: Slot) {
         self.scope_stack
             .first_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
     }
 
-    pub fn get_func(&self, name: &String) -> Option<&CodegenUnit> {
-        let val_ref = self.get_in_scope(name);
-        match val_ref {
-            Some(CodegenUnit::Function(_, _)) => val_ref,
-            _ => None,
+    pub fn get_func_group(&self, name: &String) -> Option<&FuncTyMap> {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(func) = scope.func_by_name(name) {
+                return Some(func);
+            }
         }
+
+        None
     }
 
-    pub fn get_params(&self, name: &String) -> Option<Vec<PrimitiveType>> {
-        let val_ref = self.get_in_scope(name);
-        match val_ref {
-            Some(CodegenUnit::Function(_, _)) => val_ref.map(|fun| fun.param_types()),
-            _ => None,
+    pub fn get_func(&self, func: (String, FunctionType)) -> Option<&Func> {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(group) = scope.func_by_name(&func.0) {
+                return find_func(group, &func.1);
+            }
         }
+
+        None
     }
 
     pub fn propagate_generic_body(
@@ -691,7 +713,7 @@ impl AatbeModule {
         }
     }
 
-    pub fn get_params_generic(
+    /*pub fn get_params_generic(
         &mut self,
         template: &String,
         name: &String,
@@ -719,7 +741,7 @@ impl AatbeModule {
                             export: true,
                         };
                         declare_and_compile_function(self, &function);
-                        if let PrimitiveType::Function { params, .. } = ty {
+                        if let FunctionType { params, .. } = ty {
                             Some(
                                 params
                                     .iter()
@@ -739,26 +761,27 @@ impl AatbeModule {
                     None => unreachable!(),
                 })
         })
-    }
+    }*/
 
-    pub fn is_extern(&self, name: &String) -> bool {
-        let val_ref = self.get_in_scope(name);
-        match val_ref {
-            Some(CodegenUnit::Function(_, ty)) => ty.ext(),
-            _ => false,
+    pub fn is_extern(&self, func: (String, FunctionType)) -> bool {
+        let val_ref = self.get_func(func);
+        if let Some(func) = val_ref {
+            func.is_extern()
+        } else {
+            false
         }
     }
 
-    pub fn get_var(&self, name: &String) -> Option<&CodegenUnit> {
+    pub fn get_var(&self, name: &String) -> Option<&Slot> {
         let val_ref = self.get_in_scope(name);
         match val_ref {
-            Some(CodegenUnit::Variable {
+            Some(Slot::Variable {
                 mutable: _,
                 name: _,
                 ty: _,
                 value: _,
             }) => val_ref,
-            Some(CodegenUnit::FunctionArgument(_arg, _)) => val_ref,
+            Some(Slot::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
         }
     }
@@ -767,7 +790,7 @@ impl AatbeModule {
         &mut self,
         name: &String,
         types: Vec<PrimitiveType>,
-    ) -> Option<PrimitiveType> {
+    ) -> Option<FunctionType> {
         if types.len() == 0 {
             return None;
         }
@@ -790,7 +813,7 @@ impl AatbeModule {
 
         if let Some(Expression::Function {
             type_names,
-            ty: PrimitiveType::Function { ret_ty, params, .. },
+            ty: FunctionType { ret_ty, params, .. },
             ..
         }) = self.function_templates.get(name)
         {
@@ -842,7 +865,7 @@ impl AatbeModule {
                 })
                 .collect::<Vec<_>>();
 
-            let ty = PrimitiveType::Function {
+            let ty = FunctionType {
                 ext: false,
                 ret_ty,
                 params,
@@ -856,14 +879,16 @@ impl AatbeModule {
                 attributes: vec![],
                 export: false,
             };
-            let mangled = function.mangle(self);
 
-            self.push_in_scope(
-                &mangled,
-                CodegenUnit::Function(
-                    self.llvm_module_ref()
-                        .get_or_add_function(mangled.as_ref(), ty.llvm_ty_in_ctx(self)),
+            self.add_function(
+                &name,
+                Func::new(
                     ty.clone(),
+                    name.clone(),
+                    self.llvm_module_ref().get_or_add_function(
+                        function.mangle(self).as_ref(),
+                        ty.llvm_ty_in_ctx(self),
+                    ),
                 ),
             );
             Some(ty)

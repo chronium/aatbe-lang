@@ -52,7 +52,7 @@ pub enum Expression {
     },
     Function {
         name: String,
-        ty: PrimitiveType,
+        ty: FunctionType,
         body: Option<Box<Expression>>,
         attributes: Vec<String>,
         type_names: Vec<String>,
@@ -97,7 +97,20 @@ pub enum LoopType {
     Until,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct FunctionType {
+    pub ext: bool,
+    pub ret_ty: Box<PrimitiveType>,
+    pub params: Vec<PrimitiveType>,
+}
+
+impl From<FunctionType> for PrimitiveType {
+    fn from(func: FunctionType) -> Self {
+        PrimitiveType::Function(func)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum PrimitiveType {
     Unit,
     Str,
@@ -115,11 +128,7 @@ pub enum PrimitiveType {
         parent: String,
         variant: String,
     },
-    Function {
-        ext: bool,
-        ret_ty: Box<PrimitiveType>,
-        params: Vec<PrimitiveType>,
-    },
+    Function(FunctionType),
     NamedType {
         name: String,
         ty: Option<Box<PrimitiveType>>,
@@ -143,22 +152,18 @@ impl PrimitiveType {
                 name: _,
                 ty: Some(box ty),
             } => ty,
-            PrimitiveType::Function {
-                ext: _,
-                ret_ty: _,
-                params: _,
-            } => panic!("ICE primty inner {:?}", self),
+            PrimitiveType::Function(..) => panic!("ICE primty inner {:?}", self),
             other => other,
         }
     }
 
     pub fn ext(&self) -> bool {
         match self {
-            PrimitiveType::Function {
+            PrimitiveType::Function(FunctionType {
                 ext,
                 ret_ty: _,
                 params: _,
-            } => ext.clone(),
+            }) => ext.clone(),
             _ => panic!("ICE PrimitiveType ext {:?}", self),
         }
     }
@@ -187,13 +192,13 @@ pub enum AtomKind {
     NamedValue { name: String, val: Box<Expression> },
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum Boolean {
     True,
     False,
 }
 
-#[derive(Debug, PartialEq, Clone, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, PartialOrd, Eq, Hash)]
 pub enum IntSize {
     Bits8,
     Bits16,
@@ -213,7 +218,7 @@ impl From<usize> for IntSize {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum FloatSize {
     Bits32,
     Bits64,

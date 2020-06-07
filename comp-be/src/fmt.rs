@@ -1,4 +1,6 @@
-use parser::ast::{AtomKind, Boolean, Expression, FloatSize, IntSize, LValue, PrimitiveType};
+use parser::ast::{
+    AtomKind, Boolean, Expression, FloatSize, FunctionType, IntSize, LValue, PrimitiveType,
+};
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
@@ -6,7 +8,34 @@ pub trait AatbeFmt {
 
 impl AatbeFmt for PrimitiveType {
     fn fmt(self) -> String {
-        (&self).fmt().clone()
+        (&self).fmt()
+    }
+}
+
+impl AatbeFmt for FunctionType {
+    fn fmt(self) -> String {
+        (&self).fmt()
+    }
+}
+
+impl AatbeFmt for &FunctionType {
+    fn fmt(self) -> String {
+        let params = if self.params.len() == 1 && self.params[0] == PrimitiveType::Unit {
+            String::from("()")
+        } else {
+            format!(
+                "{}",
+                self.params
+                    .iter()
+                    .map(|p| p.fmt())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        };
+
+        let ret_ty = format!(" -> {}", (&*self.ret_ty).fmt());
+
+        format!("{}{}", params, ret_ty)
     }
 }
 
@@ -44,7 +73,7 @@ impl AatbeFmt for &PrimitiveType {
             }
             PrimitiveType::Unit => String::from("()"),
             PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
-            PrimitiveType::Function { ret_ty, .. } => ret_ty.clone().fmt(),
+            PrimitiveType::Function(func) => func.fmt(),
             PrimitiveType::Slice { ty } => format!("{}[]", ty.clone().fmt()),
             PrimitiveType::GenericTypeRef(name, types) => format!(
                 "{}[{}]",
@@ -145,23 +174,15 @@ impl AatbeFmt for &Expression {
             ),
             Expression::Function {
                 name,
-                ty:
-                    PrimitiveType::Function {
-                        ext,
-                        ret_ty: box ret_ty,
-                        params,
-                    },
+                export,
+                ty: ty @ FunctionType { ext, .. },
                 ..
             } => format!(
-                "{}fn {} {} -> {}",
+                "{}{}fn {}{}",
+                if *export { "exp " } else { "" },
                 if *ext { "ext " } else { "" },
                 name,
-                params
-                    .iter()
-                    .map(|val| val.fmt())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                ret_ty.fmt(),
+                ty.fmt(),
             ),
             _ => panic!("ICE fmt {:?}", self),
         }

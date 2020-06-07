@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod parser_tests {
+    use crate::ast::FunctionType;
     use crate::{
         ast::{AtomKind, BindType, Boolean, IntSize, LValue, TypeKind},
         lexer::{token::Token, Lexer},
@@ -56,7 +57,7 @@ mod parser_tests {
                 body: None,
                 type_names: vec![],
                 export: true,
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -77,7 +78,7 @@ mod parser_tests {
                 body: None,
                 type_names: vec![],
                 export: false,
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: true,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -104,7 +105,7 @@ fn main () -> ()
                 body: None,
                 export: false,
                 type_names: vec![],
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -131,7 +132,7 @@ fn main () -> () = ()
                 type_names: vec![],
                 export: false,
                 body: Some(box Expression::Atom(AtomKind::Unit)),
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -203,7 +204,7 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                         )),
                     ),
                 ),),
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -230,7 +231,7 @@ fn main () -> () = {}
                 body: Some(box Expression::Block(vec![])),
                 type_names: vec![],
                 export: false,
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -259,7 +260,7 @@ fn main () -> () = { () }
                 body: Some(box Expression::Block(vec![Expression::Atom(
                     AtomKind::Unit
                 )])),
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -295,7 +296,7 @@ fn main () -> () = {
                     body: None,
                     type_names: vec![],
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: true,
                         ret_ty: box PrimitiveType::Int(IntSize::Bits32),
                         params: vec![PrimitiveType::Str],
@@ -307,7 +308,7 @@ fn main () -> () = {
                     body: None,
                     type_names: vec![],
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![
@@ -359,7 +360,7 @@ fn main () -> () = {
                             ]
                         }
                     ])),
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::Unit],
@@ -425,7 +426,7 @@ fn main () -> () = {
                         ))),
                     }
                 ])),
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -516,7 +517,7 @@ fn main () -> () = {
                         is_expr: false,
                     },
                 ])),
-                ty: PrimitiveType::Function {
+                ty: FunctionType {
                     ext: false,
                     ret_ty: box PrimitiveType::Unit,
                     params: vec![PrimitiveType::Unit],
@@ -548,7 +549,7 @@ fn main () -> ()
                     body: None,
                     type_names: vec![],
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::Unit],
@@ -668,7 +669,7 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                             }
                         ],
                     }),
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::Unit],
@@ -687,7 +688,7 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                             val: box Expression::Atom(AtomKind::StringLiteral("Aloha".to_string()))
                         },],
                     }),
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::Unit],
@@ -726,7 +727,7 @@ fn generic_test[T] value: T
                     type_names: vec![String::from("T")],
                     body: None,
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::GenericTypeRef(
@@ -741,7 +742,7 @@ fn generic_test[T] value: T
                     type_names: vec![String::from("T")],
                     body: None,
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::NamedType {
@@ -773,7 +774,7 @@ fn test () = generic_test[i32] 64
                     type_names: vec![String::from("T")],
                     body: None,
                     export: false,
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::NamedType {
@@ -795,7 +796,7 @@ fn test () = generic_test[i32] 64
                             PrimitiveType::Int(IntSize::Bits32)
                         ))]
                     }),
-                    ty: PrimitiveType::Function {
+                    ty: FunctionType {
                         ext: false,
                         ret_ty: box PrimitiveType::Unit,
                         params: vec![PrimitiveType::Unit],

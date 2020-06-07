@@ -3,7 +3,7 @@ use crate::{
     fmt::AatbeFmt,
     ty::variant::{Variant, VariantType},
 };
-use parser::ast::{FloatSize, IntSize, PrimitiveType};
+use parser::ast::{FloatSize, FunctionType, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 
@@ -225,6 +225,38 @@ pub trait LLVMTyInCtx {
     fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef;
 }
 
+impl LLVMTyInCtx for FunctionType {
+    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
+        let ret = self.ret_ty.llvm_ty_in_ctx(module);
+        let mut varargs = false;
+        let mut param_types = self
+            .params
+            .iter()
+            .filter_map(|t| match t {
+                PrimitiveType::TypeRef(name) => {
+                    Some(module.typectx_ref().get_type(name)?.llvm_ty_in_ctx(module))
+                }
+                PrimitiveType::Symbol(_) => None,
+                PrimitiveType::Unit => None,
+                PrimitiveType::Varargs => {
+                    varargs = true;
+                    None
+                }
+                _ => Some(t.llvm_ty_in_ctx(module)),
+            })
+            .collect::<Vec<_>>();
+
+        unsafe {
+            LLVMFunctionType(
+                ret,
+                param_types.as_mut_ptr(),
+                param_types.len() as u32,
+                varargs as i32,
+            )
+        }
+    }
+}
+
 impl LLVMTyInCtx for PrimitiveType {
     fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
         let ctx = module.llvm_context_ref();
@@ -292,38 +324,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 box PrimitiveType::Str => ctx.PointerType(ctx.Int8PointerType()),
                 _ => panic!("llvm_ty_in_ctx {:?}", ty),
             },
-            PrimitiveType::Function {
-                ext: _,
-                ret_ty,
-                params,
-            } => {
-                let ret = ret_ty.llvm_ty_in_ctx(module);
-                let mut varargs = false;
-                let mut param_types = params
-                    .iter()
-                    .filter_map(|t| match t {
-                        PrimitiveType::TypeRef(name) => {
-                            Some(module.typectx_ref().get_type(name)?.llvm_ty_in_ctx(module))
-                        }
-                        PrimitiveType::Symbol(_) => None,
-                        PrimitiveType::Unit => None,
-                        PrimitiveType::Varargs => {
-                            varargs = true;
-                            None
-                        }
-                        _ => Some(t.llvm_ty_in_ctx(module)),
-                    })
-                    .collect::<Vec<_>>();
-
-                unsafe {
-                    LLVMFunctionType(
-                        ret,
-                        param_types.as_mut_ptr(),
-                        param_types.len() as u32,
-                        varargs as i32,
-                    )
-                }
-            }
+            PrimitiveType::Function(ty) => ty.llvm_ty_in_ctx(module),
             PrimitiveType::Newtype(name) => module
                 .typectx_ref()
                 .get_type(&name)

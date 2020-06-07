@@ -1,6 +1,6 @@
 use crate::codegen::AatbeModule;
 
-use parser::ast::{AtomKind, Expression, FloatSize, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, PrimitiveType};
 
 pub trait NameMangler {
     fn mangle(&self, module: &AatbeModule) -> String;
@@ -17,7 +17,7 @@ impl NameMangler for Expression {
                 type_names,
                 export: _,
             } => match ty {
-                PrimitiveType::Function {
+                FunctionType {
                     ext: false,
                     ret_ty: _,
                     params: _,
@@ -37,12 +37,11 @@ impl NameMangler for Expression {
                         name.clone()
                     }
                 }
-                PrimitiveType::Function {
+                FunctionType {
                     ext: true,
                     ret_ty: _,
                     params: _,
                 } => name.clone(),
-                _ => panic!("ICE non function type mangle"),
             },
             _ => panic!("Cannot name mangle {:?}", self),
         }
@@ -65,27 +64,28 @@ impl NameMangler for AtomKind {
     }
 }
 
+impl NameMangler for FunctionType {
+    fn mangle(&self, module: &AatbeModule) -> String {
+        let params_mangled = self
+            .params
+            .iter()
+            .map(|p| p.mangle(module))
+            .filter(|m| !m.is_empty())
+            .collect::<Vec<_>>()
+            .join(".");
+        if !params_mangled.is_empty() {
+            format!("A{}", params_mangled)
+        } else {
+            String::new()
+        }
+    }
+}
+
 impl NameMangler for PrimitiveType {
     fn mangle(&self, module: &AatbeModule) -> String {
         match self {
             PrimitiveType::TypeRef(ty) => ty.clone(),
-            PrimitiveType::Function {
-                ext: _,
-                ret_ty: _,
-                params,
-            } => {
-                let params_mangled = params
-                    .iter()
-                    .map(|p| p.mangle(module))
-                    .filter(|m| !m.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(".");
-                if !params_mangled.is_empty() {
-                    format!("A{}", params_mangled)
-                } else {
-                    String::new()
-                }
-            }
+            PrimitiveType::Function(ty) => ty.mangle(module),
             // TODO: Handle Unit
             PrimitiveType::Unit => String::new(),
             PrimitiveType::NamedType {
@@ -99,6 +99,7 @@ impl NameMangler for PrimitiveType {
             PrimitiveType::Bool => String::from("b"),
             PrimitiveType::Char => String::from("c"),
             PrimitiveType::Ref(r) => format!("R{}", r.mangle(module)),
+            PrimitiveType::Pointer(p) => format!("P{}", p.mangle(module)),
             PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle(module)),
             PrimitiveType::Slice { ty } => format!("S{}", ty.mangle(module)),
             PrimitiveType::Symbol(name) => format!("N{}", name),

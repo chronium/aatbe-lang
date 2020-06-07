@@ -12,11 +12,15 @@ pub mod unit;
 pub use expr::*;
 pub use module::AatbeModule;
 pub use scope::Scope;
-pub use unit::CodegenUnit;
 
 pub type GenRes = Result<ValueTypePair, CompileError>;
 
 pub enum CompileError {
+    NoFunctionOverload {
+        name: String,
+        found: String,
+        values: String,
+    },
     NoGenericFunction {
         function: String,
     },
@@ -105,6 +109,12 @@ impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
     }
 }
 
+impl From<(LLVMValueRef, &PrimitiveType)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, &PrimitiveType)) -> ValueTypePair {
+        ValueTypePair(val, TypeKind::Primitive(ty.clone()))
+    }
+}
+
 impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
     fn from(vtp: ValueTypePair) -> (LLVMValueRef, TypeKind) {
         (vtp.0, vtp.1)
@@ -134,16 +144,12 @@ impl ValueTypePair {
         match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
                 prim @ (PrimitiveType::Str | PrimitiveType::Array { .. }) => {
-                    Some((*val, prim.clone()).into())
+                    Some((*val, prim).into())
                 }
-                PrimitiveType::Slice { .. } => Some(
-                    (
-                        module.llvm_builder_ref().build_extract_value(*val, 0),
-                        prim.clone(),
-                    )
-                        .into(),
-                ),
-                PrimitiveType::Pointer(box ty) => Some((*val, ty.clone()).into()),
+                PrimitiveType::Slice { .. } => {
+                    Some((module.llvm_builder_ref().build_extract_value(*val, 0), prim).into())
+                }
+                PrimitiveType::Pointer(box ty) => Some((*val, ty).into()),
                 _ => None,
             },
             _ => None,

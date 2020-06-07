@@ -1,5 +1,8 @@
 use crate::{
-    codegen::{unit::Mutability, AatbeModule, CodegenUnit, CompileError, ValueTypePair},
+    codegen::{
+        unit::{Mutability, Slot},
+        AatbeModule, CompileError, ValueTypePair,
+    },
     fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx, TypeKind},
 };
@@ -80,7 +83,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
             if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
                 module.push_in_scope(
                     name,
-                    CodegenUnit::Variable {
+                    Slot::Variable {
                         mutable: Mutability::from(exterior_bind),
                         name: name.clone(),
                         ty: ty.clone(),
@@ -96,7 +99,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
 
             module.push_in_scope(
                 name,
-                CodegenUnit::Variable {
+                Slot::Variable {
                     mutable: Mutability::from(exterior_bind),
                     name: name.clone(),
                     ty: ty.clone(),
@@ -287,7 +290,7 @@ pub fn store_value(
                                 &mut [module.llvm_context_ref().SInt32(0), *index],
                             );
 
-                            Some((gep, ty.clone()).into())
+                            Some((gep, ty).into())
                         }
                         TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => {
                             let arr = module.llvm_builder_ref().build_struct_gep(*val, 0);
@@ -296,7 +299,7 @@ pub fn store_value(
                                 &mut [module.llvm_context_ref().SInt32(0), *index],
                             );
 
-                            Some((gep, ty.clone()).into())
+                            Some((gep, ty).into())
                         }
                         _ => {
                             module.add_error(CompileError::NotIndexable {

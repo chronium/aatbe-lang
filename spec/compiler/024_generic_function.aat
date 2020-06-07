@@ -1,4 +1,5 @@
 // spector:name Declare and call generic function
+// spector:shouldfail
 
 fn generic[T] value: T = { }
 

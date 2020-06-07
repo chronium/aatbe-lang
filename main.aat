@@ -1,29 +1,8 @@
-use "io/fio"
-use "prelude"
+extern fn printf str, ... -> i32
 
 @entry
-fn main argc: i32, argv: str* = {
-    if argc != 2 {
-        println "Please provide a file to cat"
-        exit -1
-    }
-    var file = fopen argv[1] as str, "r"
-
-    if file as u64 == 0u64 {
-        printf "Could not open file %s\n", argv[1]
-        exit -1
-    }
-
-    var eof = false
-    var c: char
-
-    while eof != true {
-        c = fgetc file
-
-        if c == EOF then
-            eof = true
-        else print c
-    }
-
-    fclose file
+fn main() -> () = {
+    printf "\"Hello World\"[0] = %c\n", "Hello World"[0]
+    val aloha: str = "Aloha"
+    printf "aloha[0] = %c\n", aloha[0]
 }

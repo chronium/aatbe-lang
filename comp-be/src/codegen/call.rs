@@ -2,6 +2,7 @@ use crate::{
     codegen::{
         builder::{cast, core, ty, value},
         mangle_v1::NameMangler,
+        unit::function::find_call,
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -12,17 +13,9 @@ use parser::ast::{AtomKind, Expression, PrimitiveType};
 impl AatbeModule {
     pub fn codegen_call(&mut self, call_expr: &Expression) -> Option<ValueTypePair> {
         match call_expr {
-            Expression::Call {
-                name: raw_name,
-                types,
-                args,
-            } => {
-                if self.has_internal(&raw_name) {
-                    return self.get_internal(&raw_name).upgrade().unwrap()(
-                        self,
-                        &args,
-                        raw_name.clone(),
-                    );
+            Expression::Call { name, types, args } => {
+                if self.has_internal(&name) {
+                    return self.get_internal(&name).upgrade().unwrap()(self, &args, name.clone());
                 }
 
                 let mut call_types = vec![];
@@ -91,122 +84,44 @@ impl AatbeModule {
                     return None;
                 }
 
-                let name = if (!self.is_extern(raw_name) || types.len() > 0) && call_types.len() > 0
-                {
-                    format!(
-                        "{}{}A{}",
-                        raw_name,
-                        if types.len() > 0 {
-                            format!("G{}", types.len())
-                        } else {
-                            String::default()
-                        },
-                        call_types
-                            .iter()
-                            .map(|arg| arg.mangle(self))
-                            .collect::<Vec<_>>()
-                            .join(".")
-                    )
-                } else {
-                    raw_name.clone()
-                };
+                let group = self.get_func_group(name);
 
-                let mut mismatch = false;
-
-                let params = match self.get_params_generic(&raw_name, &name, types.to_vec()) {
-                    None => {
-                        self.add_error(CompileError::UnknownFunction {
-                            name: format!(
-                                "{}{}",
-                                raw_name.clone(),
-                                if types.len() > 0 {
-                                    format!(
-                                        "[{}]",
-                                        types
-                                            .iter()
-                                            .map(|ty| ty.fmt())
-                                            .collect::<Vec<_>>()
-                                            .join(", ")
-                                    )
-                                } else {
-                                    String::default()
-                                }
-                            ),
-                            values: args
-                                .iter()
-                                .map(|val| format!("{}", val.fmt()))
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                        });
-                        return None;
-                    }
-                    Some(params) => params,
-                };
-
-                for (i, fty) in params.iter().enumerate() {
-                    match fty {
-                        PrimitiveType::Slice { ty: box ty } => match &call_types[i] {
-                            PrimitiveType::Array { ty: box aty, .. } => {
-                                if ty != aty {
-                                    mismatch = true;
-                                };
-                            }
-                            _ => mismatch = true,
-                        },
-                        PrimitiveType::Pointer(ty) => match &call_types[i] {
-                            PrimitiveType::Ref(pty) | PrimitiveType::Pointer(pty) => {
-                                if ty != pty {
-                                    mismatch = true;
-                                }
-                            }
-                            _ => mismatch = true,
-                        },
-                        PrimitiveType::TypeRef(name) => match &call_types[i] {
-                            PrimitiveType::VariantType(var_name) => {
-                                if &self
-                                    .typectx_ref()
-                                    .get_parent_for_variant(var_name)
-                                    .expect("")
-                                    .type_name
-                                    != name
-                                {
-                                    mismatch = true
-                                }
-                            }
-                            PrimitiveType::TypeRef(tr) => {
-                                if name != tr {
-                                    mismatch = true;
-                                }
-                            }
-                            _ => mismatch = true,
-                        },
-                        PrimitiveType::Varargs => break,
-                        _ => mismatch = &call_types[i] != fty,
-                    }
-                }
-
-                if mismatch {
-                    println!("{:?} {:?}", params, call_types);
-                    self.add_error(CompileError::MismatchedArguments {
-                        function: raw_name.clone(),
-                        expected_ty: params
-                            .iter()
-                            .map(|p| p.fmt())
-                            .collect::<Vec<_>>()
-                            .join(", "),
-                        found_ty: call_types
-                            .iter()
-                            .map(|arg| arg.fmt())
-                            .collect::<Vec<_>>()
-                            .join(", "),
+                if group.is_none() {
+                    let args = args
+                        .iter()
+                        .map(|val| format!("{}", val.fmt()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    self.add_error(CompileError::UnknownFunction {
+                        name: name.clone(),
+                        values: args,
                     });
+                    return None;
                 }
 
-                Some(core::call(
-                    self,
-                    self.get_func(&name).unwrap(),
-                    &mut call_args,
-                ))
+                let func = find_call(group.unwrap(), &call_types);
+
+                if func.is_none() {
+                    let found = group
+                        .unwrap()
+                        .iter()
+                        .map(|gr| gr.fmt())
+                        .collect::<Vec<_>>()
+                        .join("\t\n");
+                    let args = args
+                        .iter()
+                        .map(|val| format!("{}", val.fmt()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    self.add_error(CompileError::NoFunctionOverload {
+                        name: name.clone(),
+                        found,
+                        values: args,
+                    });
+                    return None;
+                }
+
+                Some(core::call(self, func.unwrap(), &mut call_args))
             }
             _ => unreachable!(),
         }

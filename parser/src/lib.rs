@@ -16,6 +16,7 @@ use crate::{
     parser::{ParseError, ParseResult, Parser},
 };
 
+use ast::FunctionType;
 use std::path::PathBuf;
 
 impl Parser {
@@ -322,7 +323,7 @@ impl Parser {
             body,
             type_names,
             export,
-            ty: PrimitiveType::Function {
+            ty: FunctionType {
                 ext,
                 ret_ty,
                 params,

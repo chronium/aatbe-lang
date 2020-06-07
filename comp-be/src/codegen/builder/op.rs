@@ -3,27 +3,15 @@ use llvm_sys_wrapper::LLVMValueRef;
 use parser::ast::PrimitiveType;
 
 pub fn neg(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (
-        module.llvm_builder_ref().build_neg(*val),
-        val.prim().clone(),
-    )
-        .into()
+    (module.llvm_builder_ref().build_neg(*val), val.prim()).into()
 }
 
 pub fn fneg(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (
-        module.llvm_builder_ref().build_fneg(*val),
-        val.prim().clone(),
-    )
-        .into()
+    (module.llvm_builder_ref().build_fneg(*val), val.prim()).into()
 }
 
 pub fn not(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (
-        module.llvm_builder_ref().build_not(*val),
-        val.prim().clone(),
-    )
-        .into()
+    (module.llvm_builder_ref().build_not(*val), val.prim()).into()
 }
 
 pub fn ieq(module: &AatbeModule, lhs: LLVMValueRef, rhs: LLVMValueRef) -> ValueTypePair {

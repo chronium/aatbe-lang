@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{AatbeModule, CodegenUnit, ValueTypePair},
+    codegen::{unit::function::Func, AatbeModule, ValueTypePair},
     ty::{LLVMTyInCtx, TypeKind},
 };
 use llvm_sys_wrapper::{LLVMBasicBlockRef, LLVMTypeRef, LLVMValueRef};
@@ -66,26 +66,14 @@ pub fn alloca_with_name_ty(module: &AatbeModule, ty: &PrimitiveType, name: &str)
         .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name)
 }
 
-pub fn call(
-    module: &AatbeModule,
-    func: &CodegenUnit,
-    call_args: &mut Vec<LLVMValueRef>,
-) -> ValueTypePair {
-    match func {
-        CodegenUnit::Function(
-            func,
-            PrimitiveType::Function {
-                ret_ty: box ret_ty, ..
-            },
-        ) => (
-            module
-                .llvm_builder_ref()
-                .build_call(func.as_ref(), call_args.as_mut()),
-            ret_ty.clone(),
-        )
-            .into(),
-        _ => unreachable!(),
-    }
+pub fn call(module: &AatbeModule, func: &Func, call_args: &mut Vec<LLVMValueRef>) -> ValueTypePair {
+    (
+        module
+            .llvm_builder_ref()
+            .build_call(func.as_ref(), call_args.as_mut()),
+        func.ret_ty(),
+    )
+        .into()
 }
 
 pub fn extract_i8(module: &AatbeModule, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
@@ -169,11 +157,7 @@ pub fn extract_u64(module: &AatbeModule, agg_val: LLVMValueRef, index: u32) -> V
 }
 
 pub fn ret(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (
-        module.llvm_builder_ref().build_ret(*val),
-        val.prim().clone(),
-    )
-        .into()
+    (module.llvm_builder_ref().build_ret(*val), val.prim()).into()
 }
 
 pub fn ret_void(module: &AatbeModule) {
