@@ -90,11 +90,14 @@ impl Func {
     fn accepts(&self, args: &Vec<PrimitiveType>) -> bool {
         let params = &self.ty.params;
 
-        if params.len() != args.len() {
+        if params.len() != args.len() && !(params.contains(&PrimitiveType::Varargs)) {
             return false;
         };
 
         for (i, param) in params.iter().enumerate() {
+            if matches!(param, PrimitiveType::Varargs) {
+                continue;
+            }
             let arg = &args[i];
 
             match param {

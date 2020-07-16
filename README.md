@@ -6,9 +6,13 @@
 Anything's A Tuple if you're Brave Enough.
 
 Goals:
-* Fullty featured standard library, similar to how Rust's stdlib is.
+* Fully featured standard library, similar to how Rust's stdlib is.
 * Clean and easy syntax, similar to Scala and Ruby
 * Easy to pick up, even for a person who has no experience with programming.
+
+# Discord
+
+Feel free to join the Discord, you can find more updates there, a lot more often, and we have a great community of developers: https://discord.gg/25zTv9M
 
 # Requirements
 You need the latest Rust Nightly.

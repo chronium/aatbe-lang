@@ -7,3 +7,4 @@
 *.o
 
 test.c
+*.out
