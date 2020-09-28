@@ -5,14 +5,19 @@ use crate::{
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
+    ty::LLVMTyInCtx,
 };
-
 use parser::ast::{AtomKind, Expression, PrimitiveType};
 
 impl AatbeModule {
     pub fn codegen_call(&mut self, call_expr: &Expression) -> Option<ValueTypePair> {
         match call_expr {
-            Expression::Call { name, types, args } => {
+            // TODO: generics
+            Expression::Call {
+                name,
+                types: _,
+                args,
+            } => {
                 if self.has_internal(&name) {
                     return self.get_internal(&name).upgrade().unwrap()(self, &args, name.clone());
                 }
@@ -136,20 +141,37 @@ impl AatbeModule {
         }
         let arr = module.codegen_expr(&values[0])?;
         match arr.prim() {
-            PrimitiveType::Array { len, .. } => {
-                return Some(value::u32(module, *len));
-            }
-            PrimitiveType::Slice { .. } => {
-                return Some(core::extract_u32(module, *arr, 1));
-            }
+            PrimitiveType::Array { len, .. } => Some(value::u32(module, *len)),
+            PrimitiveType::Slice { .. } => Some(core::extract_u32(module, *arr, 1)),
             _ => {
                 module.add_error(CompileError::MismatchedArguments {
                     function: String::from("len"),
                     expected_ty: String::from("[x; n]"),
                     found_ty: arr.prim().clone().fmt(),
                 });
-                return None;
+                None
             }
         }
+    }
+
+    pub fn internal_box(
+        module: &mut AatbeModule,
+        values: &Vec<Expression>,
+        _name: String,
+    ) -> Option<ValueTypePair> {
+        if values.len() != 1 {
+            return None;
+        }
+        let val = module.codegen_expr(&values[0])?;
+        let val_ty = val.prim().clone();
+        let ptr = module
+            .llvm_builder_ref()
+            .build_malloc(val_ty.clone().llvm_ty_in_ctx(module));
+        module.llvm_builder_ref().build_store(
+            *val,
+            core::inbounds_gep(module, ptr, &mut vec![*value::s64(module, 0)]),
+        );
+
+        Some((ptr, PrimitiveType::Box(box val_ty.clone())).into())
     }
 }

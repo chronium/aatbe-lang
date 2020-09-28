@@ -149,7 +149,7 @@ pub fn declare_and_compile_function(
     match func {
         Expression::Function { ty, body, name, .. } => match ty {
             FunctionType {
-                ret_ty,
+                ret_ty: _,
                 params: _,
                 ext: true,
             } => None,

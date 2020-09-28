@@ -1,9 +1,8 @@
-fn foo () = {
-    if true == true {}
-    else if true == false {}
-    else {}
-}
+extern fn printf str, ... -> i32
 
 @entry
 fn main() -> () = {
+    val foo: @i32 = box 64
+
+    printf "%i\n", *foo
 }

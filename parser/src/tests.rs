@@ -815,7 +815,7 @@ type Generic[T]
 type Newtype = u32
 type Option[T] = None | Some T
 type Number = u8 | u16
-type Complex = u8 | u16 | Comp str
+type Complex = u8 | u16 | Comp @str
 ",
             "Typedef tests"
         );
@@ -865,7 +865,10 @@ type Complex = u8 | u16 | Comp str
                     variants: Some(vec![
                         TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits8)),
                         TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits16)),
-                        TypeKind::Variant(String::from("Comp"), Some(vec![PrimitiveType::Str]))
+                        TypeKind::Variant(
+                            String::from("Comp"),
+                            Some(vec![PrimitiveType::Box(box PrimitiveType::Str)])
+                        )
                     ]),
                 },
             ])

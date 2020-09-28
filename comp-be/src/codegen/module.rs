@@ -63,6 +63,7 @@ impl AatbeModule {
 
         let mut internal_functions: HashMap<String, Rc<InternalFunc>> = HashMap::new();
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
+        internal_functions.insert(String::from("box"), Rc::new(AatbeModule::internal_box));
 
         let mut compilation_units = HashMap::new();
         compilation_units.insert(name.clone(), base_cu);
@@ -188,6 +189,7 @@ impl AatbeModule {
         }
     }
 
+    #[allow(unused_unsafe)]
     pub fn gen_variants(&mut self, typedef: &AST) {
         match typedef {
             AST::Typedef {

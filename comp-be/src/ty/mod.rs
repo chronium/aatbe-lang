@@ -336,6 +336,9 @@ impl LLVMTyInCtx for PrimitiveType {
             PrimitiveType::Variant { variant, .. } => {
                 module.typectx_ref().get_variant(variant).expect("ICE").ty
             }
+            PrimitiveType::Box(box val) => module
+                .llvm_context_ref()
+                .PointerType(val.llvm_ty_in_ctx(module)),
             _ => panic!("ICE: llvm_ty_in_ctx {:?}", self),
         }
     }

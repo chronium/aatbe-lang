@@ -30,6 +30,9 @@ impl Parser {
                 Some(Symbol::Ampersand) => capture!(res parse_type, self)
                     .ok()
                     .and_then(|ty| Some(PrimitiveType::Ref(box ty))),
+                Some(Symbol::At) => capture!(res parse_type, self)
+                    .ok()
+                    .and_then(|ty| Some(PrimitiveType::Box(box ty))),
                 Some(Symbol::LBracket) => capture!(res parse_type, self).ok().and_then(|ty| {
                     let len = if sym!(bool Comma, self) {
                         self.peek().and_then(|tok| tok.int()).map(|len| len as u32)
