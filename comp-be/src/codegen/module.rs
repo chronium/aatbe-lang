@@ -28,7 +28,10 @@ use crate::{
     },
 };
 
-use super::unit::function::{find_func, FuncTyMap};
+use super::{
+    builder::{cast, core},
+    unit::function::{find_func, FuncTyMap},
+};
 use parser::{
     ast,
     ast::{AtomKind, Expression, FunctionType, PrimitiveType, AST},
@@ -295,7 +298,7 @@ impl AatbeModule {
                                         );
                                         let variant = module.llvm_builder_ref().build_bitcast(
                                             parent,
-                                            module.llvm_context_ref().PointerType(*ty),
+                                            module.llvm_context_ref().PointerType(unsafe { *ty }),
                                         );
                                         if let Some(types) = types {
                                             if types.len() != values.len() {
@@ -411,7 +414,7 @@ impl AatbeModule {
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
         match expr {
             Expression::Ret(box _value) => {
-                let val = self.codegen_expr(_value).unwrap();
+                let val = self.codegen_expr(_value)?;
 
                 let func_ret = self
                     .get_func(self.get_function().expect("Compiler borked rets"))
@@ -419,7 +422,31 @@ impl AatbeModule {
                     .ret_ty()
                     .clone();
 
-                if val.prim() != &func_ret {
+                if let PrimitiveType::VariantType(ty) = val.prim() {
+                    let parent_ty = self
+                        .typectx_ref()
+                        .get_parent_for_variant(ty)
+                        .expect("ICE: Variant without parent");
+                    if let PrimitiveType::TypeRef(name) = &func_ret {
+                        if &parent_ty.type_name == name {
+                            Some(core::ret(
+                                self,
+                                (cast::child_to_parent(self, val, parent_ty), func_ret).into(),
+                            ))
+                        } else if &parent_ty.type_name != name && ty != name {
+                            self.add_error(CompileError::ExpectedType {
+                                expected_ty: func_ret.fmt(),
+                                found_ty: val.prim().fmt(),
+                                value: _value.fmt(),
+                            });
+                            None
+                        } else {
+                            panic!("ICE");
+                        }
+                    } else {
+                        panic!("ICE");
+                    }
+                } else if val.prim() != &func_ret {
                     self.add_error(CompileError::ExpectedType {
                         expected_ty: func_ret.fmt(),
                         found_ty: val.prim().fmt(),
@@ -427,7 +454,7 @@ impl AatbeModule {
                     });
                     None
                 } else {
-                    Some((self.llvm_builder_ref().build_ret(*val), func_ret).into())
+                    Some(core::ret(self, val))
                 }
             }
             Expression::RecordInit {

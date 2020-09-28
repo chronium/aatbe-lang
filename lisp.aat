@@ -1,0 +1,99 @@
+extern fn printf str, ... -> i32
+extern fn malloc i32 -> u8*
+extern fn strlen str -> i32
+
+rec Parser(pos: i32, text: str, len: i32)
+
+fn peek parser: &Parser -> char = parser.text[parser.pos]
+
+fn consume parser: &Parser = parser.pos = parser.pos + 1
+
+fn eof parser: &Parser -> bool =
+    if ret parser.pos >= parser.len then true
+    else false
+
+fn isDigit c: char -> bool =
+    if ret c >= '0' && c <= '9' then true
+    else false
+
+fn isChar parser: &Parser, c: char -> bool =
+    if ret (peek &parser) == c then true
+    else false
+
+fn print b: bool = {
+    if b == true then printf "true"
+    else printf "false"
+}
+
+fn parseNumber parser: &Parser -> i32 = {
+    var accum = 0
+    val zero = '0' as i32
+
+    while (isDigit peek &parser) {
+        accum = accum * 10
+        accum = accum + (peek &parser) as i32 - zero
+        consume &parser
+    }
+
+    accum
+}
+
+type lispType = Int i32 | Bool bool | Error | Nil | Cons lispType*, lispType* | Char char
+
+
+fn parse parser: &Parser -> lispType = {
+    if isDigit peek &parser
+        ret Int parseNumber &parser
+    if isChar &parser, '(' {
+        consume &parser
+        if isChar &parser, ')' {
+            consume &parser
+            ret Nil ()
+        }
+        ret Error ()
+    } 
+    if isChar &parser, '#' {
+        consume &parser
+        if isChar &parser, 't' {
+            consume &parser
+            ret Bool true
+        }
+        if isChar &parser, 'f' {
+            consume &parser
+            ret Bool false
+        }
+        if isChar &parser, '\\' {
+            consume &parser
+            val c = peek &parser
+            ret Char c
+        }
+        ret Error ()
+    }
+    Error ()
+}
+
+fn print ty: lispType = {
+    if ty is Int
+        printf "%i", ty.0
+    if ty is Nil
+        printf "()"
+    if ty is Bool
+        if ty.0 == true
+            printf "#t"
+        else
+            printf "#f"
+    if ty is Char
+        printf "#\\%c", ty.0
+}
+
+@entry
+fn main() -> () = {
+    val text = "#\\a"
+    var parser = Parser {
+        pos: 0,
+        text: text,
+        len: strlen text,
+    }
+
+    print parse &parser
+}

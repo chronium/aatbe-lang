@@ -1,6 +1,9 @@
-extern fn printf str, ... -> i32
+fn foo () = {
+    if true == true {}
+    else if true == false {}
+    else {}
+}
 
 @entry
 fn main() -> () = {
-    printf "Hello World\n"
 }

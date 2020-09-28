@@ -1,4 +1,5 @@
 use crate::{
+    codegen::builder::cast,
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
@@ -148,7 +149,7 @@ pub fn declare_and_compile_function(
     match func {
         Expression::Function { ty, body, name, .. } => match ty {
             FunctionType {
-                ret_ty: _,
+                ret_ty,
                 params: _,
                 ext: true,
             } => None,
@@ -166,7 +167,20 @@ pub fn declare_and_compile_function(
                 // TODO: Typechecks
                 if has_return_type(ty) {
                     if let Some(val) = ret_val {
-                        core::ret(module, val);
+                        match val.prim() {
+                            PrimitiveType::VariantType(variant) => {
+                                let parent_ty = module
+                                    .typectx_ref()
+                                    .get_parent_for_variant(variant)
+                                    .expect("ICE: Variant without parent");
+                                let ret_ty = *ty.ret_ty.clone();
+                                core::ret(
+                                    module,
+                                    (cast::child_to_parent(module, val, parent_ty), ret_ty).into(),
+                                )
+                            }
+                            _ => core::ret(module, val),
+                        };
                     } else {
                         module.add_error(CompileError::ExpectedReturn {
                             function: func.clone().fmt(),

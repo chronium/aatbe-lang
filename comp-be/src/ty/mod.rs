@@ -333,6 +333,9 @@ impl LLVMTyInCtx for PrimitiveType {
                     _ => unreachable!(),
                 })
                 .expect(format!("Cannot find type for {:?}", self).as_ref()),
+            PrimitiveType::Variant { variant, .. } => {
+                module.typectx_ref().get_variant(variant).expect("ICE").ty
+            }
             _ => panic!("ICE: llvm_ty_in_ctx {:?}", self),
         }
     }

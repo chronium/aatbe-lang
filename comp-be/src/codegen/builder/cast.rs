@@ -1,5 +1,6 @@
 use crate::{
     codegen::{AatbeModule, ValueTypePair},
+    ty::variant::VariantType,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
@@ -109,6 +110,21 @@ pub fn bitcast_ty(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) 
         ty,
     )
         .into()
+}
+
+pub fn child_to_parent(
+    module: &AatbeModule,
+    val: ValueTypePair,
+    parent: &VariantType,
+) -> LLVMValueRef {
+    module.llvm_builder_ref().build_load(
+        module.llvm_builder_ref().build_bitcast(
+            *val,
+            module
+                .llvm_context_ref()
+                .PointerType(parent.llvm_ty_in_ctx(module)),
+        ),
+    )
 }
 
 pub fn bitcast_to(module: &AatbeModule, val: LLVMValueRef, ty: LLVMTypeRef) -> LLVMValueRef {

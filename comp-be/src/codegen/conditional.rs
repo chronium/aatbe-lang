@@ -20,13 +20,13 @@ impl AatbeModule {
                 else_expr,
                 is_expr,
             } => {
-                let then_bb = self.basic_block(String::default());
+                let then_bb = self.basic_block("then".to_string());
                 let else_bb = if let Some(_) = else_expr {
-                    Some(self.basic_block(String::default()))
+                    Some(self.basic_block("else".to_string()))
                 } else {
                     None
                 };
-                let end_bb = self.basic_block(String::default());
+                let end_bb = self.basic_block("end".to_string());
 
                 self.start_scope();
                 let cond = self.codegen_expr(cond_expr)?;
