@@ -1,8 +1,8 @@
 extern fn printf str, ... -> i32
 
+type Foo = A bool | B @Foo
+
 @entry
 fn main() -> () = {
-    val foo: @i32 = box 64
-
-    printf "%i\n", *foo
+    val foo = A true
 }

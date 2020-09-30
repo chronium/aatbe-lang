@@ -243,12 +243,14 @@ impl Parser {
                 let mut variants = vec![];
 
                 if let PrimitiveType::TypeRef(name) = ty {
+                    self.variants.push(name.clone());
                     variants.push(TypeKind::Variant(name, vars));
                 } else {
                     variants.push(TypeKind::Newtype(ty));
                 }
                 loop {
                     if let Ok(name) = ident!(res self) {
+                        self.variants.push(name.clone());
                         variants.push(TypeKind::Variant(name, self.parse_free_type_list().ok()));
                     } else {
                         variants.push(TypeKind::Newtype(capture!(res parse_type, self)?));
