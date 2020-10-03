@@ -47,6 +47,17 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         }
                         PrimitiveType::TypeRef(rec.clone())
                     }
+                    box PrimitiveType::VariantType(_) => {
+                        if let Some(e) = value {
+                            let pair = module.codegen_expr(e)?;
+
+                            let ty = pair.prim().clone();
+                            vtp = Some(pair);
+                            ty
+                        } else {
+                            unreachable!();
+                        }
+                    }
                     _ => *ty.clone(),
                 },
                 None => {

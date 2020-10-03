@@ -121,6 +121,12 @@ impl TypeContext {
         self.types.get(name)
     }
 
+    pub fn llvm_ty_in_ctx(&self, name: &String) -> Option<&dyn LLVMTyInCtx> {
+        self.get_type(name)
+            .map(|t| t as &dyn LLVMTyInCtx)
+            .or_else(|| self.get_variant(name).map(|t| t as &dyn LLVMTyInCtx))
+    }
+
     pub fn get_aggregate(&self, name: &String) -> Option<&dyn Aggregate> {
         match self.types.get(name)? {
             TypeKind::RecordType(record) => Some(record),
@@ -297,7 +303,7 @@ impl LLVMTyInCtx for PrimitiveType {
             } => ty.llvm_ty_in_ctx(module),
             PrimitiveType::TypeRef(name) => module
                 .typectx_ref()
-                .get_type(name)
+                .llvm_ty_in_ctx(name)
                 .expect(format!("Type {} is not declared", name).as_str())
                 .llvm_ty_in_ctx(module),
             PrimitiveType::GenericTypeRef(name, types) => {
@@ -336,6 +342,16 @@ impl LLVMTyInCtx for PrimitiveType {
             PrimitiveType::Variant { variant, .. } => {
                 module.typectx_ref().get_variant(variant).expect("ICE").ty
             }
+            PrimitiveType::VariantType(variant) => {
+                module
+                    .typectx_ref()
+                    .get_parent_for_variant(variant)
+                    .expect("ICE")
+                    .ty
+            }
+            PrimitiveType::Box(box val) => module
+                .llvm_context_ref()
+                .PointerType(val.llvm_ty_in_ctx(module)),
             _ => panic!("ICE: llvm_ty_in_ctx {:?}", self),
         }
     }

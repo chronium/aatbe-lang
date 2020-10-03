@@ -3,6 +3,7 @@ pub mod macros;
 pub mod atom;
 pub mod conditionals;
 pub mod expression;
+pub mod pass;
 
 use crate::{
     ast::AST,
@@ -33,11 +34,16 @@ pub type ParseResult<T> = Result<T, ParseError>;
 pub struct Parser {
     pub tt: Vec<Token>,
     pub index: usize,
+    pub variants: Vec<String>,
 }
 
 impl Parser {
     pub fn new(tt: Vec<Token>) -> Self {
-        Self { tt, index: 0usize }
+        Self {
+            tt,
+            index: 0usize,
+            variants: Vec::new(),
+        }
     }
 
     pub fn next(&mut self) -> Option<Token> {
@@ -137,6 +143,6 @@ impl Parser {
             );
         }?;
 
-        Ok(AST::File(res))
+        Ok(pass::type_resolution(&self.variants, &AST::File(res)))
     }
 }

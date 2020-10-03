@@ -1,9 +1,8 @@
-fn foo () = {
-    if true == true {}
-    else if true == false {}
-    else {}
-}
+extern fn printf str, ... -> i32
+
+type Foo = A bool | B @Foo
 
 @entry
 fn main() -> () = {
+    val foo: A = A true
 }

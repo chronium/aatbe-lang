@@ -134,6 +134,7 @@ impl AatbeModule {
                             _ => unimplemented!(),
                         }
                     }
+                    PrimitiveType::Box(box ty) => Some(core::load_prim(self, *acc, ty.clone())),
                     _ => unimplemented!(),
                 }
             }

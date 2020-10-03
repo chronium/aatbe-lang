@@ -35,6 +35,12 @@ pub struct Variant {
     pub discriminant: u32,
 }
 
+impl LLVMTyInCtx for Variant {
+    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+        self.ty
+    }
+}
+
 impl VariantType {
     pub fn get_variant(&self, name: &String) -> Option<&Variant> {
         self.variants.get(name)

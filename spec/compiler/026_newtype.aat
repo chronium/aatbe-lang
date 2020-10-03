@@ -1,4 +1,5 @@
 // spector:name Declare and initialize newtype
+// spector:shouldfail
 
 type Newtype = i32
 

@@ -143,6 +143,7 @@ pub enum PrimitiveType {
         ty: Box<PrimitiveType>,
     },
     Symbol(String),
+    Box(Box<PrimitiveType>),
 }
 
 impl PrimitiveType {
