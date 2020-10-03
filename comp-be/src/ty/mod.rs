@@ -342,6 +342,13 @@ impl LLVMTyInCtx for PrimitiveType {
             PrimitiveType::Variant { variant, .. } => {
                 module.typectx_ref().get_variant(variant).expect("ICE").ty
             }
+            PrimitiveType::VariantType(variant) => {
+                module
+                    .typectx_ref()
+                    .get_parent_for_variant(variant)
+                    .expect("ICE")
+                    .ty
+            }
             PrimitiveType::Box(box val) => module
                 .llvm_context_ref()
                 .PointerType(val.llvm_ty_in_ctx(module)),

@@ -150,6 +150,15 @@ fn resolve_atomkind(variants: &Vec<String>, atom: &AtomKind) -> AtomKind {
             name: name.clone(),
             val: box resolve_expr(variants, val),
         },
+        AtomKind::Cast(box atom, ty) => AtomKind::Cast(
+            box resolve_atomkind(variants, &atom),
+            resolve_prim(variants, &ty),
+        ),
+        AtomKind::Index(box atom, box expr) => AtomKind::Index(
+            box resolve_atomkind(variants, &atom),
+            box resolve_expr(variants, &expr),
+        ),
+        AtomKind::Ref(box atom) => AtomKind::Ref(box resolve_atomkind(variants, &atom)),
         _ => panic!("unhandled {:?}", atom),
     }
 }

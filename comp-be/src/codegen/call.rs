@@ -32,11 +32,16 @@ impl AatbeModule {
                             call_types.push(PrimitiveType::Symbol(sym.clone()));
                             None
                         }
+                        Expression::Atom(AtomKind::Unit) => {
+                            call_types.push(PrimitiveType::Unit);
+                            None
+                        }
                         _ => {
                             let expr = self.codegen_expr(arg);
 
                             if expr.is_none() {
                                 error = true;
+
                                 None
                             } else {
                                 expr.map_or(None, |arg| match arg.prim().clone() {
@@ -162,11 +167,17 @@ impl AatbeModule {
         if values.len() != 1 {
             return None;
         }
+
         let val = module.codegen_expr(&values[0])?;
         let val_ty = val.prim().clone();
         let ptr = module
             .llvm_builder_ref()
             .build_malloc(val_ty.clone().llvm_ty_in_ctx(module));
+
+        if let PrimitiveType::VariantType(_) = val_ty.inner() {
+            unimplemented!();
+        }
+
         module.llvm_builder_ref().build_store(
             *val,
             core::inbounds_gep(module, ptr, &mut vec![*value::s64(module, 0)]),

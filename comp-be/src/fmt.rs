@@ -117,6 +117,7 @@ impl AatbeFmt for &AtomKind {
             AtomKind::Ref(val) => format!("&{}", val.fmt()),
             AtomKind::Deref(val) => format!("*{}", val.fmt()),
             AtomKind::SymbolLiteral(sym) => format!(":{}", sym),
+            AtomKind::Unit => format!("()"),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

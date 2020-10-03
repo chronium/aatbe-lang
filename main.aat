@@ -4,5 +4,5 @@ type Foo = A bool | B @Foo
 
 @entry
 fn main() -> () = {
-    val foo = A true
+    val foo: A = A true
 }

@@ -4,6 +4,7 @@ use clap::{clap_app, crate_authors, crate_description, crate_version};
 use std::{
     env,
     ffi::CString,
+    ffi::OsString,
     fs::OpenOptions,
     io,
     io::Write,
@@ -215,6 +216,15 @@ fn main() -> io::Result<()> {
                     .arg(tmp_out.as_path())
                     .arg("-o")
                     .arg(path.with_extension("out"))
+                    .args(
+                        matches
+                            .values_of("LIB")
+                            .map(|v| {
+                                v.map(|v| OsString::from(&format!("-l{}", v)))
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or(vec![OsString::from("")]),
+                    )
                     .spawn()
                     .expect("could not find clang");
             }
