@@ -159,6 +159,10 @@ fn resolve_atomkind(variants: &Vec<String>, atom: &AtomKind) -> AtomKind {
             box resolve_expr(variants, &expr),
         ),
         AtomKind::Ref(box atom) => AtomKind::Ref(box resolve_atomkind(variants, &atom)),
+        AtomKind::SymbolLiteral(s) => AtomKind::SymbolLiteral(s.clone()),
+        AtomKind::Array(expr) => {
+            AtomKind::Array(expr.iter().map(|e| resolve_expr(variants, &e)).collect())
+        }
         _ => panic!("unhandled {:?}", atom),
     }
 }
