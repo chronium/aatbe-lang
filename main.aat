@@ -1,8 +1,8 @@
-extern fn printf str, ... -> i32
+fn foo () -> i32 = 64
 
-type Foo = A bool | B @Foo
+rec Foo(i: i32)
 
 @entry
 fn main() -> () = {
-    val foo: A = A true
+    val i = Foo (i: 64)
 }

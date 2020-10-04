@@ -51,7 +51,7 @@ pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<&'a Func> 
     return None;
 }
 
-pub fn find_call<'a>(map: &'a FuncTyMap, args: &Vec<PrimitiveType>) -> Option<&'a Func> {
+pub fn find_function<'a>(map: &'a FuncTyMap, args: &Vec<PrimitiveType>) -> Option<&'a Func> {
     for func in map {
         if func.accepts(args) {
             return Some(func);

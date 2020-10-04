@@ -8,3 +8,5 @@
 
 test.c
 *.out
+
+changes.md

@@ -10,6 +10,7 @@ use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 use std::{collections::HashMap, fmt};
 
 pub mod aggregate;
+pub mod infer;
 pub mod record;
 pub mod size;
 pub mod variant;
@@ -316,6 +317,7 @@ impl LLVMTyInCtx for PrimitiveType {
                         .collect::<Vec<_>>()
                         .join(", ")
                 );
+
                 module
                     .typectx_ref()
                     .get_type(&rec)

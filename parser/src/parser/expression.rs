@@ -191,11 +191,11 @@ impl Parser {
             vec![]
         };
 
-        sym!(required LCurly, self);
+        sym!(required LParen, self);
         let values = self
             .parse_named_value_list()
             .expect(format!("Expected a named argument list at {}", record).as_str());
-        sym!(required RCurly, self);
+        sym!(required RParen, self);
 
         Ok(Expression::RecordInit {
             record,
