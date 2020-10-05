@@ -5,9 +5,7 @@ extern fn puts str -> i32
 rec String(s: str)
 
 fn new :String, value: str -> String = {
-    String {
-        s: value
-    }
+    String { s: value }
 }
 
 @entry

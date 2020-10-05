@@ -1,14 +1,15 @@
 // spector:name Declare and initialize generic type
+// spector:shouldfail
 
 rec Generic[T](value: T)
 
 @entry
 fn main () = {
-    val ti32 = Generic[i32] {
+    val ti32 = Generic[i32] (
         value: 10
-    }
+    )
 
-    val tstr: Generic[str] = Generic[str] {
+    val tstr: Generic[str] = Generic[str] (
         value: "Hello"
-    }
+    )
 }

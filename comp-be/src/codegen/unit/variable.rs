@@ -1,3 +1,4 @@
+use crate::ty::infer::infer_type;
 use crate::{
     codegen::{
         unit::{Mutability, Slot},
@@ -37,7 +38,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
             value,
             exterior_bind,
         } => {
-            let mut vtp = None;
+            /*let mut vtp = None;
             let ty = match ty {
                 Some(ty) => match ty {
                     box PrimitiveType::GenericTypeRef(name, types) => {
@@ -89,9 +90,9 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         unreachable!();
                     }
                 }
-            };
+            };*/
 
-            if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
+            /*if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
                 module.push_in_scope(
                     name,
                     Slot::Variable {
@@ -102,7 +103,37 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                     },
                 );
                 return Some(ty.clone());
+            }*/
+
+            if value.is_none() {
+                let ty = ty.as_ref().expect("ICE: Ty none for none value");
+                let val_ref = module
+                    .llvm_builder_ref()
+                    .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
+
+                module.push_in_scope(
+                    name,
+                    Slot::Variable {
+                        mutable: Mutability::from(exterior_bind),
+                        name: name.clone(),
+                        ty: *ty.clone(),
+                        value: val_ref,
+                    },
+                );
+
+                return Some(*ty.clone());
             }
+
+            // TODO: Variants, generic records
+            let ty = infer_type(
+                module,
+                &*(value.as_ref().expect("ICE: Value cannot be none")),
+            );
+
+            if ty.is_none() {
+                panic!("ICE: ty is none {:?} value", value);
+            }
+            let (ty, constant) = ty.unwrap();
 
             let var_ref = module
                 .llvm_builder_ref()
@@ -142,21 +173,56 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         },
                     );
                 } else {
-                    let val = if vtp.is_none() {
-                        let val = module.codegen_expr(e)?;
+                    match ty.clone() {
+                        PrimitiveType::Array { ref ty, len } if !constant => {
+                            if let box Expression::Atom(AtomKind::Array(exprs)) = e {
+                                let vals = exprs
+                                    .iter()
+                                    .filter_map(|e| module.codegen_expr(e))
+                                    .collect::<Vec<_>>();
 
-                        if val.prim() != ty.inner() {
-                            module.add_error(CompileError::ExpectedType {
-                                expected_ty: ty.inner().fmt(),
-                                found_ty: val.prim().fmt(),
-                                value: value.as_ref().unwrap().fmt(),
-                            });
-                        };
-                        val
-                    } else {
-                        vtp.unwrap()
+                                if vals.len() != len as usize {
+                                    panic!("ICE: array vals len != array len");
+                                }
+
+                                vals.iter().for_each(|v| {
+                                    if v.prim() != ty.as_ref() {
+                                        module.add_error(CompileError::ExpectedType {
+                                            expected_ty: ty.inner().fmt(),
+                                            found_ty: v.prim().fmt(),
+                                            value: value.as_ref().unwrap().fmt(),
+                                        });
+                                    }
+                                });
+
+                                vals.iter().enumerate().for_each(|(i, v)| {
+                                    let ptr = module.llvm_builder_ref().build_inbounds_gep(
+                                        var_ref,
+                                        &mut [
+                                            module.llvm_context_ref().SInt32(0),
+                                            module.llvm_context_ref().SInt32(i as u64),
+                                        ],
+                                    );
+                                    module.llvm_builder_ref().build_store(**v, ptr);
+                                });
+                            } else {
+                                panic!("ICE: arr ty not arr val");
+                            }
+                        }
+                        _ => {
+                            let val = module.codegen_expr(e)?;
+
+                            if val.prim() != ty.inner() {
+                                module.add_error(CompileError::ExpectedType {
+                                    expected_ty: ty.inner().fmt(),
+                                    found_ty: val.prim().fmt(),
+                                    value: value.as_ref().unwrap().fmt(),
+                                });
+                            };
+
+                            module.llvm_builder_ref().build_store(*val, var_ref);
+                        }
                     };
-                    module.llvm_builder_ref().build_store(*val, var_ref);
                 }
             }
             Some(ty.clone())

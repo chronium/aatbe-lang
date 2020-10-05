@@ -165,7 +165,6 @@ impl AatbeModule {
                     self.compilation_units.insert(cu.name().clone(), cu);
 
                     self.exit_scope();
-                    //println!("{:?}", self.scope_stack);
                 }
             }
             AST::Typedef {

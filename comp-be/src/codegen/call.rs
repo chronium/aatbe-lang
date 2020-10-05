@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
         builder::{cast, core, ty, value},
-        unit::function::find_call,
+        unit::function::find_function,
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -24,6 +24,7 @@ impl AatbeModule {
 
                 let mut call_types = vec![];
 
+                // TODO: Type inference
                 let mut error = false;
                 let mut call_args = args
                     .iter()
@@ -108,7 +109,7 @@ impl AatbeModule {
                     return None;
                 }
 
-                let func = find_call(group.unwrap(), &call_types);
+                let func = find_function(group.unwrap(), &call_types);
 
                 if func.is_none() {
                     let found = group

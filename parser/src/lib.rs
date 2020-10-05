@@ -88,11 +88,11 @@ impl Parser {
             None
         }
         .and_then(|ty| {
-            if sym!(bool Star, self) {
-                Some(PrimitiveType::Pointer(box ty))
-            } else {
-                Some(ty)
+            let mut ty = ty;
+            while sym!(bool Star, self) {
+                ty = PrimitiveType::Pointer(box ty);
             }
+            Some(ty)
         })
         .ok_or(ParseError::ExpectedType)
     }
