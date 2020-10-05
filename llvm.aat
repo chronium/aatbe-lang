@@ -1,0 +1,34 @@
+type LLVMTypeRef
+type LLVMValueRef
+type LLVMContextRef
+type LLVMModuleRef
+
+extern fn LLVMGetGlobalContext () -> LLVMContextRef*
+extern fn LLVMInitializeNativeTarget () -> bool
+extern fn LLVMInitializeNativeAsmPrinter () -> bool
+extern fn LLVMModuleCreateWithName str -> LLVMModuleRef*
+extern fn LLVMDumpModule m: LLVMModuleRef* -> ()
+extern fn LLVMAddFunction m: LLVMModuleRef*, str, ty: LLVMTypeRef* -> LLVMValueRef*
+
+extern fn LLVMVoidType () -> LLVMTypeRef*
+extern fn LLVMPointerType p: LLVMTypeRef*, u32 -> LLVMTypeRef*
+extern fn LLVMInt8Type () -> LLVMTypeRef*
+extern fn LLVMFunctionType r: LLVMTypeRef*, p: [LLVMTypeRef*], u32, bool -> LLVMTypeRef*
+
+extern fn malloc u64 -> char*
+extern fn printf str, ... -> ()
+
+fn main () = {
+    val module = LLVMModuleCreateWithName "test"
+
+    val cty = LLVMInt8Type ()
+    val cpty = LLVMPointerType cty, 0u32
+    val vty = LLVMVoidType ()
+
+    val args = [cpty]
+    val fty = LLVMFunctionType vty, args as [LLVMTypeRef*], 1u32, true
+
+    LLVMAddFunction module, "printf", fty
+    
+    LLVMDumpModule module
+}

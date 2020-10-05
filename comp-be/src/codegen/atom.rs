@@ -77,6 +77,22 @@ impl AatbeModule {
                     (PrimitiveType::Float(_), PrimitiveType::UInt(_)) => {
                         return Some(cast::ftou(self, val, ty))
                     }
+                    // FIXME: Huge hack to work for llvm test
+                    (PrimitiveType::Array { .. }, PrimitiveType::Slice { ty: box ty }) => {
+                        return Some(
+                            (
+                                self.llvm_builder_ref().build_inbounds_gep(
+                                    *val,
+                                    &mut [
+                                        self.llvm_context_ref().SInt32(0),
+                                        self.llvm_context_ref().SInt32(0),
+                                    ],
+                                ),
+                                PrimitiveType::Pointer(box ty.clone()),
+                            )
+                                .into(),
+                        )
+                    }
                     _ => {}
                 };
 

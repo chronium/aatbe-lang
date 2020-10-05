@@ -236,6 +236,7 @@ impl LLVMTyInCtx for FunctionType {
     fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
         let ret = self.ret_ty.llvm_ty_in_ctx(module);
         let mut varargs = false;
+        let ext = self.ext;
         let mut param_types = self
             .params
             .iter()
@@ -248,6 +249,19 @@ impl LLVMTyInCtx for FunctionType {
                 PrimitiveType::Varargs => {
                     varargs = true;
                     None
+                }
+                PrimitiveType::NamedType {
+                    ty: Some(box PrimitiveType::Slice { ty: box ty }),
+                    ..
+                }
+                | PrimitiveType::Slice { ty: box ty }
+                    if ext =>
+                {
+                    Some(
+                        module
+                            .llvm_context_ref()
+                            .PointerType(ty.llvm_ty_in_ctx(module)),
+                    )
                 }
                 _ => Some(t.llvm_ty_in_ctx(module)),
             })
@@ -330,6 +344,7 @@ impl LLVMTyInCtx for PrimitiveType {
                 tr @ box PrimitiveType::UInt(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
                 tr @ box PrimitiveType::Int(_) => ctx.PointerType(tr.llvm_ty_in_ctx(module)),
                 box PrimitiveType::Str => ctx.PointerType(ctx.Int8PointerType()),
+                box PrimitiveType::Pointer(box ty) => ctx.PointerType(ty.llvm_ty_in_ctx(module)),
                 _ => panic!("llvm_ty_in_ctx {:?}", ty),
             },
             PrimitiveType::Function(ty) => ty.llvm_ty_in_ctx(module),
