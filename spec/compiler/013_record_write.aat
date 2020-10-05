@@ -6,7 +6,7 @@ rec String(s: str)
 
 @entry
 fn main () -> () = {
-    val msg: String = String (s: "Hello World")
+    val msg: String = String { s: "Hello World" }
     puts msg.s
     msg.s = "Aloha"
     puts msg.s
