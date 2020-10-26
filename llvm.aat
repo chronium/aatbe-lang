@@ -1,22 +1,41 @@
-type LLVMTypeRef
-type LLVMValueRef
-type LLVMContextRef
-type LLVMModuleRef
+type LLVMType
+type LLVMValue
+type LLVMContext
+type LLVMModule
+type LLVMBasicBlock
+type LLVMBuilder
 
-extern fn LLVMGetGlobalContext () -> LLVMContextRef*
+type LLVMTypeRef = LLVMType*
+type LLVMValueRef = LLVMValue*
+type LLVMContextRef = LLVMContext*
+type LLVMModuleRef = LLVMModule*
+type LLVMBasicBlockRef = LLVMBasicBlock*
+type LLVMBuilderRef = LLVMBuilder*
+
+extern fn LLVMGetGlobalContext () -> LLVMContextRef
 extern fn LLVMInitializeNativeTarget () -> bool
 extern fn LLVMInitializeNativeAsmPrinter () -> bool
-extern fn LLVMModuleCreateWithName str -> LLVMModuleRef*
-extern fn LLVMDumpModule m: LLVMModuleRef* -> ()
-extern fn LLVMAddFunction m: LLVMModuleRef*, str, ty: LLVMTypeRef* -> LLVMValueRef*
+extern fn LLVMModuleCreateWithName str -> LLVMModuleRef
+extern fn LLVMDumpModule m: LLVMModuleRef -> ()
+extern fn LLVMAddFunction m: LLVMModuleRef, str, ty: LLVMTypeRef -> LLVMValueRef
+extern fn LLVMCreateBuilder () -> LLVMBuilderRef
+extern fn LLVMAppendBasicBlock LLVMValueRef, str -> LLVMBasicBlockRef
+extern fn LLVMPositionBuilderAtEnd LLVMBuilderRef, LLVMBasicBlockRef -> ()
 
-extern fn LLVMVoidType () -> LLVMTypeRef*
-extern fn LLVMPointerType p: LLVMTypeRef*, u32 -> LLVMTypeRef*
-extern fn LLVMInt8Type () -> LLVMTypeRef*
-extern fn LLVMFunctionType r: LLVMTypeRef*, p: [LLVMTypeRef*], u32, bool -> LLVMTypeRef*
+extern fn LLVMVoidType () -> LLVMTypeRef
+extern fn LLVMPointerType p: LLVMTypeRef, u32 -> LLVMTypeRef
+extern fn LLVMInt8Type () -> LLVMTypeRef
+extern fn LLVMInt32Type () -> LLVMTypeRef
+extern fn LLVMFunctionType r: LLVMTypeRef, p: [LLVMTypeRef], u32, bool -> LLVMTypeRef
+
+extern fn LLVMConstInt LLVMTypeRef, u64, bool -> LLVMValueRef
+extern fn LLVMBuildAdd LLVMBuilderRef, LLVMValueRef, LLVMValueRef, str -> LLVMValueRef
+extern fn LLVMBuildRet LLVMBuilderRef, LLVMValueRef -> LLVMValueRef
 
 extern fn malloc u64 -> char*
 extern fn printf str, ... -> ()
+
+fn sint32 value: u64 -> LLVMValueRef = LLVMConstInt (LLVMInt32Type ()), value, true
 
 fn main () = {
     val module = LLVMModuleCreateWithName "test"
@@ -26,9 +45,24 @@ fn main () = {
     val vty = LLVMVoidType ()
 
     val args = [cpty]
-    val fty = LLVMFunctionType vty, args as [LLVMTypeRef*], 1u32, true
-
+    val fty = LLVMFunctionType vty, args as [LLVMTypeRef], 1u32, true
     LLVMAddFunction module, "printf", fty
+
+    val margs = [vty]
+    val mty = LLVMFunctionType (LLVMInt32Type ()), margs as [LLVMTypeRef], 1u32, false
+    val m = LLVMAddFunction module, "main", mty
+
+    val ebb = LLVMAppendBasicBlock m, "entry"
+    val builder = LLVMCreateBuilder ()
+
+    LLVMPositionBuilderAtEnd builder, ebb
+
+    val x = sint32 64u64
+    val y = sint32 128u64
+
+    val res = LLVMBuildAdd builder, x, y, "res"
+
+    LLVMBuildRet builder, res
     
     LLVMDumpModule module
 }

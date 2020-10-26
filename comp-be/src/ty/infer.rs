@@ -66,6 +66,7 @@ pub fn infer_atom(module: &AatbeModule, atom: &AtomKind) -> Option<(PrimitiveTyp
             Some((var.var_ty().clone(), false))
         }
         AtomKind::Cast(_, ty) => Some((ty.clone(), false)),
+        AtomKind::Parenthesized(box expr) => infer_type(module, expr),
         _ => unimplemented!("{:?}", atom),
     }
 }

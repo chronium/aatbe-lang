@@ -16,12 +16,7 @@ Feel free to join the Discord, you can find more updates there, a lot more often
 
 # Requirements
 You need the latest Rust Nightly.
-The following are the required ubuntu packages: `llvm-6.0-dev`, `clang`, some form of build essentials.
-
-After installing `llvm`, you need to run the following command:
-```
-> sudo ln -sf /usr/bin/llvm-config-6.0 /usr/bin/llvm-config
-```
+The following are the required ubuntu packages: `llvm-dev`, `clang`, some form of build essentials.
 
 # Usage
 ```
