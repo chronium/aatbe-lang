@@ -11,6 +11,9 @@ pub use function::{
 pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};
 
+pub mod module;
+pub use module::ModuleUnit;
+
 #[derive(Debug, Clone)]
 pub enum Mutability {
     Immutable,

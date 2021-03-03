@@ -15,7 +15,7 @@ use crate::{
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
-            store_value, Slot,
+            store_value, ModuleUnit, Slot,
         },
         CompileError, Scope, ValueTypePair,
     },
@@ -45,13 +45,13 @@ pub struct AatbeModule {
     llvm_module: Module,
     name: String,
     scope_stack: Vec<Scope>,
-    typectx: TypeContext,
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
     stdlib_path: Option<PathBuf>,
     internal_functions: HashMap<String, Rc<InternalFunc>>,
     compilation_units: HashMap<String, CompilationUnit>,
+    root_module: ModuleUnit,
 }
 
 impl AatbeModule {
@@ -65,6 +65,8 @@ impl AatbeModule {
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
         internal_functions.insert(String::from("box"), Rc::new(AatbeModule::internal_box));
 
+        let ast = box base_cu.ast().clone();
+
         let mut compilation_units = HashMap::new();
         compilation_units.insert(name.clone(), base_cu);
 
@@ -73,13 +75,13 @@ impl AatbeModule {
             llvm_module,
             name,
             scope_stack: vec![],
-            typectx: TypeContext::new(),
             compile_errors: vec![],
             record_templates: HashMap::new(),
             function_templates: HashMap::new(),
             stdlib_path,
             internal_functions,
             compilation_units,
+            root_module: ModuleUnit::new(ast),
         }
     }
 
@@ -96,8 +98,8 @@ impl AatbeModule {
             .ast()
             .clone();
 
-        self.decl_pass(&main_ast);
-        self.codegen_pass(&main_ast);
+        self.decl_pass();
+        self.codegen_pass();
 
         self.exit_scope();
     }
@@ -131,8 +133,9 @@ impl AatbeModule {
         }
     }
 
-    pub fn decl_pass(&mut self, ast: &AST) {
-        match ast {
+    pub fn decl_pass(&mut self) {
+        self.root_module.decl();
+        /*match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, None, types) => {
                 let rec = Record::new(self, name, types);
@@ -184,13 +187,17 @@ impl AatbeModule {
             AST::Typedef {
                 type_names: None, ..
             } => self.gen_newtype_ctors(&ast),
+            AST::Module(name, ast) => {
+                self.root_module.push(name, ModuleUnit::new(ast.clone()));
+            }
             _ => panic!("cannot decl {:?}", ast),
-        }
+        }*/
     }
 
     #[allow(unused_unsafe)]
     pub fn gen_variants(&mut self, typedef: &AST) {
-        match typedef {
+        todo!()
+        /*match typedef {
             AST::Typedef {
                 name,
                 type_names: None,
@@ -329,11 +336,12 @@ impl AatbeModule {
                     });
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
     pub fn gen_newtype_ctors(&mut self, typedef: &AST) {
-        match typedef {
+        todo!()
+        /*match typedef {
             AST::Typedef {
                 name,
                 type_names: None,
@@ -381,7 +389,7 @@ impl AatbeModule {
                 }
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
     pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
@@ -593,12 +601,13 @@ impl AatbeModule {
                 ret
             }
             Expression::Atom(atom) => self.codegen_atom(atom),
-            _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
+            _ => panic!("ICE: codegen_expr {:?}", expr),
         }
     }
 
-    pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
-        match ast {
+    pub fn codegen_pass(&mut self) -> Option<LLVMValueRef> {
+        self.root_module.codegen()
+        /*match ast {
             AST::Constant {
                 ty: PrimitiveType::NamedType { name, ty: _ },
                 export,
@@ -626,8 +635,13 @@ impl AatbeModule {
             AST::Import(..) => None,
             AST::Record(..) => None,
             AST::Typedef { .. } => None,
+            AST::Module(name, _) => self
+                .root_module
+                .get_mut(name)
+                .expect(format!("ICE: Module codegen but none found").as_str())
+                .codegen(),
             _ => panic!("cannot codegen {:?}", ast),
-        }
+        }*/
     }
 
     pub fn start_scope(&mut self) {
@@ -926,7 +940,8 @@ impl AatbeModule {
     }
 
     pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<PrimitiveType>) {
-        let rec = format!(
+        todo!()
+        /*let rec = format!(
             "{}[{}]",
             name,
             types
@@ -973,7 +988,7 @@ impl AatbeModule {
                 .get_record(&rec)
                 .unwrap()
                 .set_body(self, &fields);
-        }
+        }*/
     }
 
     pub fn fdir(&self) -> PathBuf {
@@ -1003,11 +1018,13 @@ impl AatbeModule {
     }
 
     pub fn typectx_ref(&self) -> &TypeContext {
-        &self.typectx
+        todo!()
+        //&self.typectx
     }
 
     pub fn typectx_ref_mut(&mut self) -> &mut TypeContext {
-        &mut self.typectx
+        todo!()
+        //&mut self.typectx
     }
 
     pub fn add_error(&mut self, error: CompileError) {

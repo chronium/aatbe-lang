@@ -60,6 +60,7 @@ pub enum Symbol {
     Dot,
     DoDot,
     GoDot,
+    Doubly,
 }
 
 impl From<Symbol> for String {
@@ -82,6 +83,7 @@ impl From<Symbol> for String {
             Symbol::And => String::from("&&"),
             Symbol::Xor => String::from("^"),
             Symbol::Modulo => String::from("%"),
+            Symbol::Doubly => String::from("::"),
             _ => panic!("Symbol to str {:?}", sym),
         }
     }
@@ -114,6 +116,7 @@ pub enum Keyword {
     Type,
     Is,
     Exp,
+    Module,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -252,6 +255,7 @@ impl FromStr for Keyword {
             "type" => Ok(Self::Type),
             "is" => Ok(Self::Is),
             "exp" => Ok(Self::Exp),
+            "module" => Ok(Self::Module),
             _ => Err(()),
         }
     }

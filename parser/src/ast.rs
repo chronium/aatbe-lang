@@ -1,5 +1,7 @@
 use std::fmt;
 
+type ModPath = Vec<String>;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum AST {
     File(Vec<AST>),
@@ -22,6 +24,7 @@ pub enum AST {
         export: bool,
         value: Box<Expression>,
     },
+    Module(String, Box<AST>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -144,6 +147,7 @@ pub enum PrimitiveType {
     },
     Symbol(String),
     Box(Box<PrimitiveType>),
+    Path(ModPath),
 }
 
 impl PrimitiveType {

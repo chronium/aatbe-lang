@@ -64,7 +64,25 @@ impl Parser {
                         sym!(RBracket, self);
                         Some(PrimitiveType::GenericTypeRef(tyref, types))
                     } else {
-                        Some(PrimitiveType::TypeRef(tyref))
+                        if matches!(self.peek_symbol(Symbol::Doubly), Some(true)) {
+                            let mut res = vec![tyref];
+                            self.next();
+                            loop {
+                                match self.peek_ident() {
+                                    None => break,
+                                    Some(ty) => {
+                                        self.next();
+                                        res.push(ty);
+                                        if matches!(self.peek_symbol(Symbol::Doubly), Some(true)) {
+                                            self.next();
+                                        }
+                                    }
+                                }
+                            }
+                            Some(PrimitiveType::Path(res))
+                        } else {
+                            Some(PrimitiveType::TypeRef(tyref))
+                        }
                     }
                 }
                 None => None,
@@ -334,5 +352,21 @@ impl Parser {
                 params,
             },
         }))
+    }
+
+    fn parse_module(&mut self) -> ParseResult<AST> {
+        if kw!(bool Module, self) {
+            let name = ident!(required self);
+            sym!(required LCurly, self);
+            if sym!(bool RCurly, self) {
+                Ok(AST::Module(name, box AST::File(vec![])))
+            } else {
+                let res = Ok(AST::Module(name, box self.parse()?));
+                sym!(required RCurly, self);
+                res
+            }
+        } else {
+            Err(ParseError::Continue)
+        }
     }
 }

@@ -133,14 +133,18 @@ impl Parser {
                 None => break Err(ParseError::InvalidEOF),
             };
 
-            res.push(
-                capture!(res parse_use, self)
-                    .or_else(|_| capture!(res parse_function, self))
-                    .or_else(|_| capture!(res parse_record, self))
-                    .or_else(|_| capture!(res parse_const_global, self))
-                    .or_else(|_| capture!(res parse_typedef, self))
-                    .unwrap_or_else(|r| panic!("{:?} {:?}", r, self.peek())),
-            );
+            let result = capture!(res parse_use, self)
+                .or_else(|_| capture!(res parse_function, self))
+                .or_else(|_| capture!(res parse_record, self))
+                .or_else(|_| capture!(res parse_const_global, self))
+                .or_else(|_| capture!(res parse_typedef, self))
+                .or_else(|_| capture!(res parse_module, self));
+
+            match result {
+                Err(ParseError::Continue) => break Ok(()),
+                Err(err) => panic!("{:?} {:?}", err, self.peek()),
+                Ok(ast) => res.push(ast),
+            };
         }?;
 
         Ok(pass::type_resolution(&self.variants, &AST::File(res)))

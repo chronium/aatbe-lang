@@ -1,9 +1,1 @@
-fn foo i: i32* -> () = {}
 
-@entry
-fn main() -> () = {
-    val i = 32
-    val fa = [i]
-
-    foo fa as [i32]
-}

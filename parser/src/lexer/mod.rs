@@ -239,9 +239,13 @@ impl<'c> Lexer<'c> {
                 ',' => {
                     symbol!(tokens, Symbol::Comma, pos);
                 }
-                ':' => {
-                    symbol!(tokens, Symbol::Colon, pos);
-                }
+                ':' => match self.chars.peek() {
+                    Some(':') => {
+                        self.advance();
+                        symbol!(tokens, Symbol::Doubly, pos)
+                    }
+                    _ => symbol!(tokens, Symbol::Colon, pos),
+                },
                 '%' => {
                     symbol!(tokens, Symbol::Modulo, pos);
                 }

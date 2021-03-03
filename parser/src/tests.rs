@@ -874,4 +874,68 @@ type Complex = u8 | u16 | Comp @str
             ])
         );
     }
+
+    #[test]
+    fn empty_module() {
+        let pt = parse_test!(
+            "
+module mod {
+
+}",
+            "Parse Module"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Module("mod".to_string(), box AST::File(vec![]))])
+        );
+    }
+
+    #[test]
+    fn module() {
+        let pt = parse_test!(
+            "
+module mod {
+
+    type Opaque
+
+}",
+            "Parse Module"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Module(
+                "mod".to_string(),
+                box AST::File(vec![AST::Typedef {
+                    name: String::from("Opaque"),
+                    type_names: None,
+                    variants: None,
+                }])
+            )])
+        );
+    }
+
+    #[test]
+    fn module_path() {
+        let pt = parse_test!(
+            "
+type Newtype = mod::test::next
+",
+            "Typedef tests"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Typedef {
+                name: String::from("Newtype"),
+                type_names: None,
+                variants: Some(vec![TypeKind::Newtype(PrimitiveType::Path(vec![
+                    "mod".to_string(),
+                    "test".to_string(),
+                    "next".to_string(),
+                ]))]),
+            },])
+        );
+    }
 }

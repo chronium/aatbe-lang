@@ -27,6 +27,7 @@ pub fn type_resolution(variants: &Vec<String>, ast: &AST) -> AST {
             types.clone(),
             fields.iter().map(|f| resolve_prim(variants, f)).collect(),
         ),
+        AST::Module(_, _) => ast.clone(),
         _ => panic!("unhandled {:?}", ast),
     }
 }
