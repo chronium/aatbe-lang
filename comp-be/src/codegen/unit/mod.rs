@@ -12,7 +12,13 @@ pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};
 
 pub mod module;
-pub use module::ModuleUnit;
+pub use module::{FuncType, ModuleContext, ModuleUnit};
+
+pub mod decl;
+pub use decl::decl;
+
+pub mod comp;
+pub use comp::comp;
 
 #[derive(Debug, Clone)]
 pub enum Mutability {

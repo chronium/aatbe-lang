@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{builder::core, AatbeModule, ValueTypePair},
+    codegen::{builder::core, unit::ModuleContext, AatbeModule, ValueTypePair},
     ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 
@@ -21,7 +21,7 @@ impl VariantType {
 }
 
 impl LLVMTyInCtx for VariantType {
-    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, _: &ModuleContext) -> LLVMTypeRef {
         self.ty
     }
 }
@@ -36,7 +36,7 @@ pub struct Variant {
 }
 
 impl LLVMTyInCtx for Variant {
-    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, _: &ModuleContext) -> LLVMTypeRef {
         self.ty
     }
 }
@@ -54,7 +54,7 @@ impl VariantType {
 impl Aggregate for Variant {
     fn gep_indexed_field(
         &self,
-        module: &AatbeModule,
+        ctx: &ModuleContext,
         index: u32,
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
@@ -64,7 +64,7 @@ impl Aggregate for Variant {
                 Err(TypeError::VariantOOB(self.name.clone(), index))
             }
             Some(types) => Ok((
-                core::struct_gep(module, aggregate_ref, index + 1),
+                core::struct_gep(ctx, aggregate_ref, index + 1),
                 types[index as usize].clone(),
             )
                 .into()),
@@ -73,7 +73,7 @@ impl Aggregate for Variant {
 
     fn gep_named_field(
         &self,
-        _module: &AatbeModule,
+        _ctx: &ModuleContext,
         name: &String,
         _aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {

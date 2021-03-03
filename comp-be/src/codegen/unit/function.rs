@@ -3,7 +3,7 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{Mutability, Slot},
+        unit::{FuncType, Mutability, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -16,6 +16,8 @@ use std::ops::Deref;
 use parser::ast::{Expression, FunctionType, PrimitiveType};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
+
+use super::ModuleContext;
 
 #[derive(Debug)]
 pub struct Func {
@@ -118,7 +120,7 @@ impl Func {
     }
 }
 
-pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
+pub fn declare_function(ctx: &mut ModuleContext, function: &Expression) {
     match function {
         Expression::Function {
             ty,
@@ -127,15 +129,15 @@ pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
             name,
             ..
         } if type_names.len() == 0 => {
-            let func = module
-                .llvm_module_ref()
-                .get_or_add_function(&function.mangle(module), ty.llvm_ty_in_ctx(module));
+            let func = ctx
+                .llvm_module
+                .get_or_add_function(&function.mangle(&ctx), ty.llvm_ty_in_ctx(&ctx));
 
             let func = Func::new(ty.clone(), name.clone(), func);
             if !export {
-                module.add_function(&name, func);
+                (ctx.register_function)(&name, func, FuncType::Local);
             } else {
-                module.export_function(&name, func);
+                (ctx.register_function)(&name, func, FuncType::Export);
             }
         }
         _ => unimplemented!("{:?}", function),
@@ -146,7 +148,8 @@ pub fn declare_and_compile_function(
     module: &mut AatbeModule,
     func: &Expression,
 ) -> Option<ValueTypePair> {
-    match func {
+    todo!()
+    /*match func {
         Expression::Function { ty, body, name, .. } => match ty {
             FunctionType {
                 ret_ty: _,
@@ -197,11 +200,12 @@ pub fn declare_and_compile_function(
             }
         },
         _ => unreachable!(),
-    }
+    }*/
 }
 
 pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
-    match function {
+    todo!()
+    /*match function {
         Expression::Function {
             attributes,
             name,
@@ -222,11 +226,12 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
             }
         }
         _ => unreachable!(),
-    }
+    }*/
 }
 
 pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
-    match function {
+    todo!()
+    /*match function {
         Expression::Function {
             name: fname, ty, ..
         } => {
@@ -302,7 +307,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
             };
         }
         _ => unreachable!(),
-    }
+    }*/
 }
 
 fn has_return_type(func: &FunctionType) -> bool {

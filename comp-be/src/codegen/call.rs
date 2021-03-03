@@ -11,7 +11,8 @@ use parser::ast::{AtomKind, Expression, PrimitiveType};
 
 impl AatbeModule {
     pub fn codegen_call(&mut self, call_expr: &Expression) -> Option<ValueTypePair> {
-        match call_expr {
+        todo!()
+        /*match call_expr {
             // TODO: generics
             Expression::Call {
                 name,
@@ -134,7 +135,7 @@ impl AatbeModule {
                 Some(core::call(self, func.unwrap(), &mut call_args))
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
     pub fn internal_len(
@@ -142,7 +143,8 @@ impl AatbeModule {
         values: &Vec<Expression>,
         _name: String,
     ) -> Option<ValueTypePair> {
-        if values.len() != 1 {
+        todo!()
+        /*if values.len() != 1 {
             return None;
         }
         let arr = module.codegen_expr(&values[0])?;
@@ -157,7 +159,7 @@ impl AatbeModule {
                 });
                 None
             }
-        }
+        }*/
     }
 
     pub fn internal_box(
@@ -165,7 +167,8 @@ impl AatbeModule {
         values: &Vec<Expression>,
         _name: String,
     ) -> Option<ValueTypePair> {
-        if values.len() != 1 {
+        todo!("internal_box")
+        /*if values.len() != 1 {
             return None;
         }
 
@@ -184,6 +187,6 @@ impl AatbeModule {
             core::inbounds_gep(module, ptr, &mut vec![*value::s64(module, 0)]),
         );
 
-        Some((ptr, PrimitiveType::Box(box val_ty.clone())).into())
+        Some((ptr, PrimitiveType::Box(box val_ty.clone())).into())*/
     }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{AatbeModule, ValueTypePair},
+    codegen::{unit::ModuleContext, AatbeModule, ValueTypePair},
     fmt::AatbeFmt,
     ty::variant::{Variant, VariantType},
 };
@@ -7,7 +7,7 @@ use parser::ast::{FloatSize, FunctionType, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 
-use std::{collections::HashMap, fmt};
+use std::{borrow::Borrow, collections::HashMap, fmt};
 
 pub mod aggregate;
 pub mod infer;
@@ -65,10 +65,10 @@ impl fmt::Debug for TypedefKind {
 }
 
 impl LLVMTyInCtx for TypeKind {
-    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef {
         match self {
-            TypeKind::RecordType(record) => record.llvm_ty_in_ctx(module),
-            TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(module),
+            TypeKind::RecordType(record) => record.llvm_ty_in_ctx(ctx),
+            TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(ctx),
             TypeKind::Typedef(TypedefKind::Opaque(ty)) => *ty,
             TypeKind::Typedef(TypedefKind::Newtype(ty, _)) => *ty,
             TypeKind::Typedef(TypedefKind::VariantType(VariantType { ty, .. })) => *ty,
@@ -212,7 +212,8 @@ impl TypeContext {
         fields: Vec<String>,
         reference: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
-        match fields.as_slice() {
+        todo!()
+        /*match fields.as_slice() {
             [field] => ty.gep_field(module, field, reference),
             [field, subfields @ ..] => {
                 let field = ty.gep_field(module, field, reference)?;
@@ -224,33 +225,33 @@ impl TypeContext {
                 self.gep_fields(module, ty, subfields.to_vec(), *field)
             }
             [] => unreachable!(),
-        }
+        }*/
     }
 }
 
 pub trait LLVMTyInCtx {
-    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef;
+    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef;
 }
 
 impl LLVMTyInCtx for FunctionType {
-    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
-        let ret = self.ret_ty.llvm_ty_in_ctx(module);
+    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef {
+        let ret = self.ret_ty.llvm_ty_in_ctx(ctx);
         let mut varargs = false;
         let ext = self.ext;
         let mut param_types = self
             .params
             .iter()
             .filter_map(|t| match t {
-                PrimitiveType::TypeRef(name) => {
+                /*PrimitiveType::TypeRef(name) => {
                     Some(module.typectx_ref().get_type(name)?.llvm_ty_in_ctx(module))
-                }
+                }*/
                 PrimitiveType::Symbol(_) => None,
                 PrimitiveType::Unit => None,
                 PrimitiveType::Varargs => {
                     varargs = true;
                     None
                 }
-                PrimitiveType::NamedType {
+                /*PrimitiveType::NamedType {
                     ty: Some(box PrimitiveType::Slice { ty: box ty }),
                     ..
                 }
@@ -262,8 +263,8 @@ impl LLVMTyInCtx for FunctionType {
                             .llvm_context_ref()
                             .PointerType(ty.llvm_ty_in_ctx(module)),
                     )
-                }
-                _ => Some(t.llvm_ty_in_ctx(module)),
+                }*/
+                _ => Some(t.llvm_ty_in_ctx(ctx)),
             })
             .collect::<Vec<_>>();
 
@@ -279,21 +280,21 @@ impl LLVMTyInCtx for FunctionType {
 }
 
 impl LLVMTyInCtx for PrimitiveType {
-    fn llvm_ty_in_ctx(&self, module: &AatbeModule) -> LLVMTypeRef {
-        let ctx = module.llvm_context_ref();
+    fn llvm_ty_in_ctx(&self, mctx: &ModuleContext) -> LLVMTypeRef {
+        let ctx = mctx.llvm_context;
 
         match self {
             PrimitiveType::Slice { ty } => ctx
                 .StructType(
                     &mut vec![
-                        ctx.PointerType(ctx.ArrayType(ty.llvm_ty_in_ctx(module), 0)),
+                        ctx.PointerType(ctx.ArrayType(ty.llvm_ty_in_ctx(mctx), 0)),
                         ctx.Int32Type(),
                     ],
                     false,
                 )
                 .as_ref(),
-            PrimitiveType::Array { ty, len } => ctx.ArrayType(ty.llvm_ty_in_ctx(module), *len),
-            PrimitiveType::Ref(r) => ctx.PointerType(r.llvm_ty_in_ctx(module)),
+            PrimitiveType::Array { ty, len } => ctx.ArrayType(ty.llvm_ty_in_ctx(mctx), *len),
+            PrimitiveType::Ref(r) => ctx.PointerType(r.llvm_ty_in_ctx(mctx)),
             PrimitiveType::Unit => ctx.VoidType(),
             PrimitiveType::Bool => ctx.Int1Type(),
             PrimitiveType::Int(IntSize::Bits8) | PrimitiveType::UInt(IntSize::Bits8) => {
@@ -315,8 +316,8 @@ impl LLVMTyInCtx for PrimitiveType {
             PrimitiveType::NamedType {
                 name: _,
                 ty: Some(ty),
-            } => ty.llvm_ty_in_ctx(module),
-            PrimitiveType::TypeRef(name) => module
+            } => ty.llvm_ty_in_ctx(mctx),
+            /*PrimitiveType::TypeRef(name) => module
                 .typectx_ref()
                 .llvm_ty_in_ctx(name)
                 .expect(format!("Type {} is not declared", name).as_str())
@@ -365,10 +366,8 @@ impl LLVMTyInCtx for PrimitiveType {
                     .get_parent_for_variant(variant)
                     .expect("ICE")
                     .ty
-            }
-            PrimitiveType::Box(box val) => module
-                .llvm_context_ref()
-                .PointerType(val.llvm_ty_in_ctx(module)),
+            }*/
+            PrimitiveType::Box(box val) => ctx.PointerType(val.llvm_ty_in_ctx(mctx)),
             _ => panic!("ICE: llvm_ty_in_ctx {:?}", self),
         }
     }

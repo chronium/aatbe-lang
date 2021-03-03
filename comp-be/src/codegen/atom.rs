@@ -14,7 +14,8 @@ use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
 
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
-        match atom {
+        todo!()
+        /*match atom {
             AtomKind::Cast(box val, ty) => {
                 let val = self.codegen_atom(val)?;
                 match (val.prim(), ty) {
@@ -228,7 +229,7 @@ impl AatbeModule {
                 Some(op::not(self, value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            AtomKind::Array(exprs) => {
+            /*AtomKind::Array(exprs) => {
                 let values = exprs
                     .iter()
                     .filter_map(|expr| self.codegen_expr(expr))
@@ -273,7 +274,7 @@ impl AatbeModule {
                     )
                         .into(),
                 )
-            }
+            }*/
             AtomKind::Is(box val, ty) => match val {
                 AtomKind::Ident(val) => {
                     let var_ref = self.get_var(val).expect("").clone();
@@ -327,6 +328,6 @@ impl AatbeModule {
                 ),
             },
             _ => panic!("ICE codegen_atom {:?}", atom),
-        }
+        }*/
     }
 }

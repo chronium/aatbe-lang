@@ -107,9 +107,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
 
             if value.is_none() {
                 let ty = ty.as_ref().expect("ICE: Ty none for none value");
-                let val_ref = module
-                    .llvm_builder_ref()
-                    .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
+                let val_ref = module.llvm_builder_ref().build_alloca_with_name(
+                    todo!(), /*ty.llvm_ty_in_ctx(module)*/
+                    name.as_ref(),
+                );
 
                 module.push_in_scope(
                     name,
@@ -137,7 +138,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
 
             let var_ref = module
                 .llvm_builder_ref()
-                .build_alloca_with_name(ty.llvm_ty_in_ctx(module), name.as_ref());
+                .build_alloca_with_name(todo!() /*ty.llvm_ty_in_ctx(module)*/, name.as_ref());
 
             module.push_in_scope(
                 name,
@@ -236,7 +237,8 @@ pub fn init_record(
     lval: &LValue,
     rec: &Expression,
 ) -> Option<ValueTypePair> {
-    fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
+    todo!()
+    /*fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
         match lvalue {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
@@ -325,7 +327,7 @@ pub fn init_record(
             }
         }),
         _ => unreachable!(),
-    }
+    }*/
 }
 
 pub fn store_value(

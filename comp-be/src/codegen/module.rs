@@ -51,7 +51,6 @@ pub struct AatbeModule {
     stdlib_path: Option<PathBuf>,
     internal_functions: HashMap<String, Rc<InternalFunc>>,
     compilation_units: HashMap<String, CompilationUnit>,
-    root_module: ModuleUnit,
 }
 
 impl AatbeModule {
@@ -81,7 +80,6 @@ impl AatbeModule {
             stdlib_path,
             internal_functions,
             compilation_units,
-            root_module: ModuleUnit::new(ast),
         }
     }
 
@@ -98,10 +96,17 @@ impl AatbeModule {
             .ast()
             .clone();
 
-        self.decl_pass();
-        self.codegen_pass();
+        let mut root_module = ModuleUnit::new(
+            box main_ast,
+            &self.llvm_context,
+            &self.llvm_module,
+            &self.llvm_builder_ref(),
+        );
 
-        self.exit_scope();
+        root_module.decl();
+        root_module.codegen();
+
+        //self.exit_scope();
     }
 
     pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
@@ -119,22 +124,8 @@ impl AatbeModule {
         CompilationUnit::new(path)
     }
 
-    pub fn decl_expr(&mut self, expr: &Expression) {
-        match expr {
-            Expression::Function { type_names, .. } if type_names.len() == 0 => {
-                declare_function(self, expr)
-            }
-            Expression::Function { name, .. } => {
-                if !self.function_templates.contains_key(name) {
-                    self.function_templates.insert(name.clone(), expr.clone());
-                }
-            }
-            _ => panic!("Top level {:?} unsupported", expr),
-        }
-    }
+    pub fn decl_pass(&mut self, root_module: &mut ModuleUnit) {
 
-    pub fn decl_pass(&mut self) {
-        self.root_module.decl();
         /*match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, None, types) => {
@@ -421,7 +412,8 @@ impl AatbeModule {
     }
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
-        match expr {
+        todo!()
+        /*match expr {
             Expression::Ret(box _value) => {
                 let val = self.codegen_expr(_value)?;
 
@@ -466,7 +458,7 @@ impl AatbeModule {
                     Some(core::ret(self, val))
                 }
             }
-            Expression::RecordInit {
+            /*Expression::RecordInit {
                 record,
                 types,
                 values,
@@ -512,7 +504,7 @@ impl AatbeModule {
                     )
                         .into(),
                 )
-            }
+            }*/
             Expression::Assign { lval, value } => match value {
                 box Expression::RecordInit {
                     record,
@@ -602,11 +594,11 @@ impl AatbeModule {
             }
             Expression::Atom(atom) => self.codegen_atom(atom),
             _ => panic!("ICE: codegen_expr {:?}", expr),
-        }
+        }*/
     }
 
-    pub fn codegen_pass(&mut self) -> Option<LLVMValueRef> {
-        self.root_module.codegen()
+    pub fn codegen_pass(&mut self, root_module: &mut ModuleUnit) -> Option<LLVMValueRef> {
+        todo!()
         /*match ast {
             AST::Constant {
                 ty: PrimitiveType::NamedType { name, ty: _ },
@@ -828,7 +820,7 @@ impl AatbeModule {
         }
     }
 
-    pub fn propagate_types_in_function(
+    /*pub fn propagate_types_in_function(
         &mut self,
         name: &String,
         types: Vec<PrimitiveType>,
@@ -937,7 +929,7 @@ impl AatbeModule {
         } else {
             None
         }
-    }
+    }*/
 
     pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<PrimitiveType>) {
         todo!()
@@ -1010,11 +1002,11 @@ impl AatbeModule {
     }
 
     pub fn llvm_module_ref(&self) -> &Module {
-        &self.llvm_module
+        todo!() //&self.llvm_module
     }
 
     pub fn llvm_context_ref(&self) -> &Context {
-        &self.llvm_context
+        todo!() //&self.llvm_context
     }
 
     pub fn typectx_ref(&self) -> &TypeContext {

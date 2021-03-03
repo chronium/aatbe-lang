@@ -48,7 +48,7 @@ fn fold_expression(module: &AatbeModule, expr: &Expression) -> Option<ValueTypeP
 }
 
 pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
-    match ast {
+    /*match ast {
         AST::Global {
             ty:
                 PrimitiveType::NamedType {
@@ -114,5 +114,6 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
                 value: *val,
             }),
         _ => unreachable!(),
-    }
+    }*/
+    todo!("{:?}", ast)
 }
