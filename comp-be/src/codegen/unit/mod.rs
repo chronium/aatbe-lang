@@ -12,7 +12,7 @@ pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};
 
 pub mod module;
-pub use module::{FuncType, ModuleContext, ModuleUnit};
+pub use module::{FuncType, ModuleCommand, ModuleContext, ModuleUnit};
 
 pub mod decl;
 pub use decl::decl;

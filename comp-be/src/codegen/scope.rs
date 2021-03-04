@@ -5,7 +5,7 @@ use crate::codegen::{
     },
     AatbeModule,
 };
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 use parser::ast::FunctionType;
@@ -16,7 +16,7 @@ pub struct Scope {
     functions: FunctionMap,
     name: String,
     function: Option<(String, FunctionType)>,
-    builder: Option<Builder>,
+    builder: Option<Rc<Builder>>,
     fdir: Option<PathBuf>,
 }
 
@@ -47,18 +47,21 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(builder),
+            builder: Some(Rc::new(builder)),
             fdir: None,
         }
     }
-    pub fn with_builder_and_fdir(builder: Builder, fdir: PathBuf) -> Self {
+    pub fn with_builder_and_fdir<P>(builder: Builder, fdir: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
         Self {
             refs: HashMap::new(),
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(builder),
-            fdir: Some(fdir),
+            builder: Some(Rc::new(builder)),
+            fdir: Some(fdir.into()),
         }
     }
     pub fn with_function(func: (String, FunctionType), builder: Builder) -> Self {
@@ -67,7 +70,7 @@ impl Scope {
             functions: HashMap::new(),
             name: func.0.clone(),
             function: Some(func),
-            builder: Some(builder),
+            builder: Some(Rc::new(builder)),
             fdir: None,
         }
     }
@@ -93,14 +96,14 @@ impl Scope {
     pub fn function(&self) -> Option<(String, FunctionType)> {
         self.function.clone()
     }
-    pub fn builder(&self) -> Option<&Builder> {
-        self.builder.as_ref()
+    pub fn builder(&self) -> Option<Rc<Builder>> {
+        self.builder.clone()
     }
     pub fn fdir(&self) -> Option<PathBuf> {
         self.fdir.clone()
     }
 
-    pub fn bb(&self, module: &AatbeModule, name: &String) -> Option<LLVMBasicBlockRef> {
+    /*pub fn bb(&self, module: &AatbeModule, name: &String) -> Option<LLVMBasicBlockRef> {
         let func = self.function.as_ref()?;
 
         Some(
@@ -108,7 +111,7 @@ impl Scope {
                 .unwrap()
                 .append_basic_block(name.as_ref()),
         )
-    }
+    }*/
 }
 
 /* TODO: Implement local dropping

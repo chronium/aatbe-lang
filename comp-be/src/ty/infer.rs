@@ -5,7 +5,7 @@ use crate::codegen::{unit::function::find_function, AatbeModule};
 pub fn infer_type(module: &AatbeModule, expr: &Expression) -> Option<(PrimitiveType, bool)> {
     match expr {
         Expression::Atom(atom) => infer_atom(module, &atom),
-        Expression::Call {
+        /*Expression::Call {
             name,
             args: call_args,
             ..
@@ -24,7 +24,7 @@ pub fn infer_type(module: &AatbeModule, expr: &Expression) -> Option<(PrimitiveT
             let func = find_function(group, &args)?;
 
             return Some((func.ret_ty().clone(), false));
-        }
+        }*/
         Expression::RecordInit { record, types, .. } if types.len() == 0 => {
             Some((PrimitiveType::TypeRef(record.clone()), true))
         }
@@ -60,11 +60,11 @@ pub fn infer_atom(module: &AatbeModule, atom: &AtomKind) -> Option<(PrimitiveTyp
                 None
             }
         }
-        AtomKind::Ident(name) => {
+        /*AtomKind::Ident(name) => {
             let var = module.get_var(name)?;
 
             Some((var.var_ty().clone(), false))
-        }
+        }*/
         AtomKind::Cast(_, ty) => Some((ty.clone(), false)),
         AtomKind::Parenthesized(box expr) => infer_type(module, expr),
         _ => unimplemented!("{:?}", atom),

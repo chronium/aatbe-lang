@@ -141,7 +141,8 @@ impl ValueTypePair {
     }
 
     pub fn indexable(&self, module: &AatbeModule) -> Option<ValueTypePair> {
-        match &self {
+        todo!()
+        /*match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
                 prim @ (PrimitiveType::Str | PrimitiveType::Array { .. }) => {
                     Some((*val, prim).into())
@@ -153,7 +154,7 @@ impl ValueTypePair {
                 _ => None,
             },
             _ => None,
-        }
+        }*/
     }
 }
 

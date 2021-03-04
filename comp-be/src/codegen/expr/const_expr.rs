@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
         builder::value,
-        unit::{Mutability, Slot},
+        unit::{ModuleContext, Mutability, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -9,40 +9,40 @@ use crate::{
 };
 use parser::ast::{AtomKind, Expression, PrimitiveType, AST};
 
-pub fn const_atom(module: &AatbeModule, atom: &AtomKind) -> Option<ValueTypePair> {
+pub fn const_atom(ctx: &ModuleContext, atom: &AtomKind) -> Option<ValueTypePair> {
     match atom {
-        AtomKind::StringLiteral(string) => Some(value::str(module, string.as_ref())),
-        AtomKind::CharLiteral(ch) => Some(value::char(module, *ch)),
+        AtomKind::StringLiteral(string) => Some(value::str(ctx, string.as_ref())),
+        AtomKind::CharLiteral(ch) => Some(value::char(ctx, *ch)),
         AtomKind::Integer(val, PrimitiveType::Int(size)) => {
-            Some(value::sint(module, size.clone(), *val))
+            Some(value::sint(ctx, size.clone(), *val))
         }
         AtomKind::Integer(val, PrimitiveType::UInt(size)) => {
-            Some(value::uint(module, size.clone(), *val))
+            Some(value::uint(ctx, size.clone(), *val))
         }
         AtomKind::Floating(val, PrimitiveType::Float(size)) => {
-            Some(value::floating(module, size.clone(), *val))
+            Some(value::floating(ctx, size.clone(), *val))
         }
         AtomKind::Cast(box AtomKind::Integer(val, _), PrimitiveType::Char) => {
-            Some(value::char(module, *val as u8 as char))
+            Some(value::char(ctx, *val as u8 as char))
         }
         AtomKind::Unary(op, box AtomKind::Integer(val, PrimitiveType::Int(size)))
             if op == &String::from("-") =>
         {
-            Some(value::sint(module, size.clone(), (-(*val as i64)) as u64))
+            Some(value::sint(ctx, size.clone(), (-(*val as i64)) as u64))
         }
         AtomKind::Unary(op, box AtomKind::Integer(val, PrimitiveType::UInt(size)))
             if op == &String::from("-") =>
         {
-            Some(value::uint(module, size.clone(), (-(*val as i64)) as u64))
+            Some(value::uint(ctx, size.clone(), (-(*val as i64)) as u64))
         }
-        AtomKind::Parenthesized(box atom) => fold_expression(module, atom),
+        AtomKind::Parenthesized(box atom) => fold_expression(ctx, atom),
         _ => panic!("ICE fold_atom {:?}", atom),
     }
 }
 
-fn fold_expression(module: &AatbeModule, expr: &Expression) -> Option<ValueTypePair> {
+fn fold_expression(ctx: &ModuleContext, expr: &Expression) -> Option<ValueTypePair> {
     match expr {
-        Expression::Atom(atom) => const_atom(module, atom),
+        Expression::Atom(atom) => const_atom(ctx, atom),
         _ => panic!("ICE fold_expression {:?}", expr),
     }
 }

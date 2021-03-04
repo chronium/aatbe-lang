@@ -3,7 +3,7 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{FuncType, Mutability, Slot},
+        unit::{FuncType, ModuleCommand, Mutability, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -135,9 +135,17 @@ pub fn declare_function(ctx: &mut ModuleContext, function: &Expression) {
 
             let func = Func::new(ty.clone(), name.clone(), func);
             if !export {
-                (ctx.register_function)(&name, func, FuncType::Local);
+                (ctx.dispatch)(ModuleCommand::RegisterFunction(
+                    &name,
+                    func,
+                    FuncType::Local,
+                ));
             } else {
-                (ctx.register_function)(&name, func, FuncType::Export);
+                (ctx.dispatch)(ModuleCommand::RegisterFunction(
+                    &name,
+                    func,
+                    FuncType::Export,
+                ));
             }
         }
         _ => unimplemented!("{:?}", function),

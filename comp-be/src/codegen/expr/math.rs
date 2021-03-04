@@ -1,10 +1,10 @@
-use crate::codegen::{AatbeModule, ValueTypePair};
+use crate::codegen::{unit::ModuleContext, ValueTypePair};
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn codegen_float_ops(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -12,11 +12,11 @@ pub fn codegen_float_ops(
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "+" => module.llvm_builder_ref().build_fadd(lhs, rhs),
-            "-" => module.llvm_builder_ref().build_fsub(lhs, rhs),
-            "*" => module.llvm_builder_ref().build_fmul(lhs, rhs),
-            "/" => module.llvm_builder_ref().build_fdiv(lhs, rhs),
-            "%" => module.llvm_builder_ref().build_frem(lhs, rhs),
+            "+" => ctx.llvm_builder.build_fadd(lhs, rhs),
+            "-" => ctx.llvm_builder.build_fsub(lhs, rhs),
+            "*" => ctx.llvm_builder.build_fmul(lhs, rhs),
+            "/" => ctx.llvm_builder.build_fdiv(lhs, rhs),
+            "%" => ctx.llvm_builder.build_frem(lhs, rhs),
             _ => panic!("ICE codegen_float_ops unhandled op {}", op),
         },
         PrimitiveType::Float(float_size),
@@ -25,7 +25,7 @@ pub fn codegen_float_ops(
 }
 
 pub fn codegen_signed_ops(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -33,11 +33,11 @@ pub fn codegen_signed_ops(
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "+" => module.llvm_builder_ref().build_add(lhs, rhs),
-            "-" => module.llvm_builder_ref().build_sub(lhs, rhs),
-            "*" => module.llvm_builder_ref().build_mul(lhs, rhs),
-            "/" => module.llvm_builder_ref().build_sdiv(lhs, rhs),
-            "%" => module.llvm_builder_ref().build_srem(lhs, rhs),
+            "+" => ctx.llvm_builder.build_add(lhs, rhs),
+            "-" => ctx.llvm_builder.build_sub(lhs, rhs),
+            "*" => ctx.llvm_builder.build_mul(lhs, rhs),
+            "/" => ctx.llvm_builder.build_sdiv(lhs, rhs),
+            "%" => ctx.llvm_builder.build_srem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
         PrimitiveType::Int(int_size),
@@ -46,7 +46,7 @@ pub fn codegen_signed_ops(
 }
 
 pub fn codegen_unsigned_ops(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -54,11 +54,11 @@ pub fn codegen_unsigned_ops(
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "+" => module.llvm_builder_ref().build_add(lhs, rhs),
-            "-" => module.llvm_builder_ref().build_sub(lhs, rhs),
-            "*" => module.llvm_builder_ref().build_mul(lhs, rhs),
-            "/" => module.llvm_builder_ref().build_udiv(lhs, rhs),
-            "%" => module.llvm_builder_ref().build_urem(lhs, rhs),
+            "+" => ctx.llvm_builder.build_add(lhs, rhs),
+            "-" => ctx.llvm_builder.build_sub(lhs, rhs),
+            "*" => ctx.llvm_builder.build_mul(lhs, rhs),
+            "/" => ctx.llvm_builder.build_udiv(lhs, rhs),
+            "%" => ctx.llvm_builder.build_urem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
         int_size,

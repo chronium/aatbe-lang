@@ -105,7 +105,9 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 return Some(ty.clone());
             }*/
 
-            if value.is_none() {
+            todo!();
+
+            /*if value.is_none() {
                 let ty = ty.as_ref().expect("ICE: Ty none for none value");
                 let val_ref = module.llvm_builder_ref().build_alloca_with_name(
                     todo!(), /*ty.llvm_ty_in_ctx(module)*/
@@ -123,7 +125,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 );
 
                 return Some(*ty.clone());
-            }
+            }*/
 
             // TODO: Variants, generic records
             let ty = infer_type(
@@ -135,11 +137,13 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                 panic!("ICE: ty is none {:?} value", value);
             }
             let (ty, constant) = ty.unwrap();
-
+            /*
             let var_ref = module
                 .llvm_builder_ref()
-                .build_alloca_with_name(todo!() /*ty.llvm_ty_in_ctx(module)*/, name.as_ref());
+                .build_alloca_with_name(todo!() /*ty.llvm_ty_in_ctx(module)*/, name.as_ref());*/
 
+            todo!();
+            /*
             module.push_in_scope(
                 name,
                 Slot::Variable {
@@ -149,8 +153,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                     value: var_ref,
                 },
             );
+            */
 
-            if let Some(e) = value {
+            todo!()
+            /*if let Some(e) = value {
                 if let box Expression::RecordInit {
                     record,
                     types,
@@ -225,8 +231,8 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         }
                     };
                 }
-            }
-            Some(ty.clone())
+            }*/
+            //Some(ty.clone())
         }
         _ => unreachable!(),
     }
@@ -336,7 +342,8 @@ pub fn store_value(
     value: &Expression,
 ) -> Option<ValueTypePair> {
     fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
-        match lvalue {
+        todo!()
+        /*match lvalue {
             LValue::Ident(name) => match module.get_var(name) {
                 None => panic!("Cannot find variable {}", name),
                 Some(var) => {
@@ -392,10 +399,11 @@ pub fn store_value(
                     None
                 }
             }
-        }
+        }*/
     }
 
-    get_lval(module, lval).and_then(|var| {
+    todo!()
+    /*get_lval(module, lval).and_then(|var| {
         let val = module.codegen_expr(value)?;
         if var.prim() != val.prim().inner() {
             module.add_error(CompileError::AssignMismatch {
@@ -409,5 +417,5 @@ pub fn store_value(
         } else {
             Some((module.llvm_builder_ref().build_store(*val, *var), var.ty()).into())
         }
-    })
+    })*/
 }

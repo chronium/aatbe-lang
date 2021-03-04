@@ -44,7 +44,6 @@ pub struct AatbeModule {
     llvm_context: Context,
     llvm_module: Module,
     name: String,
-    scope_stack: Vec<Scope>,
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
@@ -73,7 +72,6 @@ impl AatbeModule {
             llvm_context,
             llvm_module,
             name,
-            scope_stack: vec![],
             compile_errors: vec![],
             record_templates: HashMap::new(),
             function_templates: HashMap::new(),
@@ -85,10 +83,6 @@ impl AatbeModule {
 
     pub fn compile(&mut self) {
         let base_cu = self.compilation_units.get(&self.name).unwrap();
-        self.scope_stack.push(Scope::with_builder_and_fdir(
-            Builder::new_in_context(self.llvm_context.as_ref()),
-            base_cu.path().clone(),
-        ));
         let main_ast = self
             .compilation_units
             .get(&self.name.clone())
@@ -96,20 +90,21 @@ impl AatbeModule {
             .ast()
             .clone();
 
-        let mut root_module = ModuleUnit::new(
+        ModuleUnit::new(
+            base_cu.path().clone(),
             box main_ast,
             &self.llvm_context,
             &self.llvm_module,
-            &self.llvm_builder_ref(),
-        );
-
-        root_module.decl();
-        root_module.codegen();
+        )
+        .in_root_scope(|root_module| {
+            root_module.decl();
+            root_module.codegen();
+        });
 
         //self.exit_scope();
     }
 
-    pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
+    /*pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
         let mut path = self.fdir().with_file_name(module);
         path.set_extension("aat");
         if !path.exists() {
@@ -122,7 +117,7 @@ impl AatbeModule {
         }
 
         CompilationUnit::new(path)
-    }
+    }*/
 
     pub fn decl_pass(&mut self, root_module: &mut ModuleUnit) {
 
@@ -383,7 +378,7 @@ impl AatbeModule {
         }*/
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
+    /*pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
         match parts.as_slice() {
             [field, access @ ..] => {
                 let agg_bind = self.get_var(&field)?;
@@ -399,7 +394,7 @@ impl AatbeModule {
             }
             [] => unreachable!(),
         }
-    }
+    }*/
 
     pub fn has_ret(&self, expr: &Expression) -> bool {
         match expr {
@@ -636,7 +631,7 @@ impl AatbeModule {
         }*/
     }
 
-    pub fn start_scope(&mut self) {
+    /*pub fn start_scope(&mut self) {
         self.scope_stack.push(Scope::new());
     }
 
@@ -727,7 +722,7 @@ impl AatbeModule {
         }
 
         None
-    }
+    }*/
 
     pub fn propagate_generic_body(
         body: Box<Expression>,
@@ -797,7 +792,7 @@ impl AatbeModule {
         })
     }*/
 
-    pub fn is_extern(&self, func: (String, FunctionType)) -> bool {
+    /*pub fn is_extern(&self, func: (String, FunctionType)) -> bool {
         let val_ref = self.get_func(func);
         if let Some(func) = val_ref {
             func.is_extern()
@@ -818,7 +813,7 @@ impl AatbeModule {
             Some(Slot::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
         }
-    }
+    }*/
 
     /*pub fn propagate_types_in_function(
         &mut self,
@@ -983,7 +978,7 @@ impl AatbeModule {
         }*/
     }
 
-    pub fn fdir(&self) -> PathBuf {
+    /*pub fn fdir(&self) -> PathBuf {
         for scope in self.scope_stack.iter().rev() {
             if let Some(fdir) = scope.fdir() {
                 return fdir.clone();
@@ -992,14 +987,7 @@ impl AatbeModule {
         unreachable!();
     }
 
-    pub fn llvm_builder_ref(&self) -> &Builder {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(builder) = scope.builder() {
-                return builder;
-            }
-        }
-        unreachable!();
-    }
+    */
 
     pub fn llvm_module_ref(&self) -> &Module {
         todo!() //&self.llvm_module

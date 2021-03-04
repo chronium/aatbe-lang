@@ -1,18 +1,18 @@
-use crate::codegen::{AatbeModule, ValueTypePair};
+use crate::codegen::{unit::ModuleContext, ValueTypePair};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn codegen_eq_ne(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "==" => module.llvm_builder_ref().build_icmp_eq(lhs, rhs),
-            "!=" => module.llvm_builder_ref().build_icmp_ne(lhs, rhs),
+            "==" => ctx.llvm_builder.build_icmp_eq(lhs, rhs),
+            "!=" => ctx.llvm_builder.build_icmp_ne(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
         },
         PrimitiveType::Bool,
@@ -21,15 +21,15 @@ pub fn codegen_eq_ne(
 }
 
 pub fn codegen_boolean(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "&&" => module.llvm_builder_ref().build_and(lhs, rhs),
-            "||" => module.llvm_builder_ref().build_or(lhs, rhs),
+            "&&" => ctx.llvm_builder.build_and(lhs, rhs),
+            "||" => ctx.llvm_builder.build_or(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne unhandled op {}", op),
         },
         PrimitiveType::Bool,
@@ -38,15 +38,15 @@ pub fn codegen_boolean(
 }
 
 pub fn codegen_eq_ne_float(
-    module: &AatbeModule,
+    ctx: &ModuleContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
 ) -> ValueTypePair {
     (
         match op.as_str() {
-            "==" => module.llvm_builder_ref().build_fcmp_ueq(lhs, rhs),
-            "!=" => module.llvm_builder_ref().build_fcmp_une(lhs, rhs),
+            "==" => ctx.llvm_builder.build_fcmp_ueq(lhs, rhs),
+            "!=" => ctx.llvm_builder.build_fcmp_une(lhs, rhs),
             _ => panic!("ICE codegen_eq_ne_float unhandled op {}", op),
         },
         PrimitiveType::Bool,
