@@ -69,8 +69,8 @@ impl AatbeModule {
         compilation_units.insert(name.clone(), base_cu);
 
         Self {
-            llvm_context,
             llvm_module,
+            llvm_context,
             name,
             compile_errors: vec![],
             record_templates: HashMap::new(),
@@ -683,19 +683,7 @@ impl AatbeModule {
             .add_symbol(name, unit);
     }
 
-    pub fn add_function(&mut self, name: &String, func: Func) {
-        self.scope_stack
-            .last_mut()
-            .expect("Compiler broke. Scope stack is corrupted.")
-            .add_function(name, func);
-    }
 
-    pub fn export_function(&mut self, name: &String, func: Func) {
-        self.scope_stack
-            .first_mut()
-            .expect("Compiler broke. Scope stack is corrupted.")
-            .add_function(name, func);
-    }
 
     pub fn export_global(&mut self, name: &String, unit: Slot) {
         self.scope_stack
@@ -990,7 +978,7 @@ impl AatbeModule {
     */
 
     pub fn llvm_module_ref(&self) -> &Module {
-        todo!() //&self.llvm_module
+        &self.llvm_module
     }
 
     pub fn llvm_context_ref(&self) -> &Context {

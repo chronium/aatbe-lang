@@ -17,6 +17,7 @@ use crate::{
 
 use super::function::Func;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum FuncType {
     Local,
     Export,
@@ -102,7 +103,19 @@ impl<'ctx> ModuleUnit<'ctx> {
         self.scope_stack.pop();
     }
 
-    fn dispatch(&mut self, command: ModuleCommand) {}
+    fn dispatch(&mut self, command: ModuleCommand) {
+        match command {
+            ModuleCommand::RegisterFunction(name, func, ty) => {
+                if ty == FuncType::Local {
+                    self.scope_stack.last_mut()
+                } else {
+                    self.scope_stack.first_mut()
+                }
+                .expect("ICE: Scope stack is corrupted.")
+                .add_function(name, func);
+            }
+        }
+    }
 
     pub fn push(&mut self, name: &String, module: ModuleUnit<'ctx>) -> Option<ModuleUnit<'ctx>> {
         self.modules.insert(name.clone(), module)
@@ -148,5 +161,9 @@ impl<'ctx> ModuleUnit<'ctx> {
             }
         }
         unreachable!();
+    }
+
+    pub fn llvm_module_ref(&self) -> &Module {
+        &self.llvm_module
     }
 }
