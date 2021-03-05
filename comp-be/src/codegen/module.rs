@@ -63,8 +63,6 @@ impl AatbeModule {
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
         internal_functions.insert(String::from("box"), Rc::new(AatbeModule::internal_box));
 
-        let ast = box base_cu.ast().clone();
-
         let mut compilation_units = HashMap::new();
         compilation_units.insert(name.clone(), base_cu);
 
@@ -90,6 +88,8 @@ impl AatbeModule {
             .ast()
             .clone();
 
+        let root_builder = Builder::new_in_context(self.llvm_context.as_ref());
+
         ModuleUnit::new(
             base_cu.path().clone(),
             box main_ast,
@@ -97,11 +97,9 @@ impl AatbeModule {
             &self.llvm_module,
         )
         .in_root_scope(|root_module| {
-            root_module.decl();
-            root_module.codegen();
+            root_module.decl(&root_builder);
+            root_module.codegen(&root_builder);
         });
-
-        //self.exit_scope();
     }
 
     /*pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
@@ -639,14 +637,6 @@ impl AatbeModule {
         self.scope_stack.push(Scope::with_name(name));
     }
 
-    pub fn start_scope_with_function(&mut self, func: (String, FunctionType), builder: Builder) {
-        self.scope_stack.push(Scope::with_function(func, builder));
-    }
-
-    pub fn exit_scope(&mut self) {
-        self.scope_stack.pop();
-    }
-
     pub fn get_in_scope(&self, name: &String) -> Option<&Slot> {
         for scope in self.scope_stack.iter().rev() {
             if let Some(sym) = scope.find_symbol(name) {
@@ -702,15 +692,7 @@ impl AatbeModule {
         None
     }
 
-    pub fn get_func(&self, func: (String, FunctionType)) -> Option<&Func> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(group) = scope.func_by_name(&func.0) {
-                return find_func(group, &func.1);
-            }
-        }
-
-        None
-    }*/
+    */
 
     pub fn propagate_generic_body(
         body: Box<Expression>,

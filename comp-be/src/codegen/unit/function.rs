@@ -3,15 +3,19 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{FuncType, ModuleCommand, Mutability, Slot},
+        unit::{FuncType, Message, Mutability, Query, QueryResponse, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::Function;
-use std::collections::HashMap;
-use std::ops::Deref;
+use std::{
+    borrow::Borrow,
+    collections::HashMap,
+    ops::Deref,
+    rc::{Rc, Weak},
+};
 
 use parser::ast::{Expression, FunctionType, PrimitiveType};
 
@@ -41,13 +45,13 @@ impl AatbeFmt for &Func {
     }
 }
 
-pub type FuncTyMap = Vec<Func>;
+pub type FuncTyMap = Vec<Rc<Func>>;
 pub type FunctionMap = HashMap<String, FuncTyMap>;
 
-pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<&'a Func> {
+pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<Weak<Func>> {
     for func in map {
         if &func.ty == ty {
-            return Some(func);
+            return Some(Rc::downgrade(func));
         }
     }
     return None;
@@ -120,7 +124,7 @@ impl Func {
     }
 }
 
-pub fn declare_function(ctx: &mut ModuleContext, function: &Expression) {
+pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
     match function {
         Expression::Function {
             ty,
@@ -135,29 +139,21 @@ pub fn declare_function(ctx: &mut ModuleContext, function: &Expression) {
 
             let func = Func::new(ty.clone(), name.clone(), func);
             if !export {
-                (ctx.dispatch)(ModuleCommand::RegisterFunction(
-                    &name,
-                    func,
-                    FuncType::Local,
-                ));
+                ctx.dispatch(Message::RegisterFunction(&name, func, FuncType::Local));
             } else {
-                (ctx.dispatch)(ModuleCommand::RegisterFunction(
-                    &name,
-                    func,
-                    FuncType::Export,
-                ));
+                ctx.dispatch(Message::RegisterFunction(&name, func, FuncType::Export));
             }
         }
         _ => unimplemented!("{:?}", function),
     }
 }
 
-pub fn declare_and_compile_function(
-    module: &mut AatbeModule,
+pub fn declare_and_compile_function<'ctx>(
+    ctx: ModuleContext,
     func: &Expression,
 ) -> Option<ValueTypePair> {
-    todo!()
-    /*match func {
+    //todo!("{:?}", func);
+    match func {
         Expression::Function { ty, body, name, .. } => match ty {
             FunctionType {
                 ret_ty: _,
@@ -165,9 +161,18 @@ pub fn declare_and_compile_function(
                 ext: true,
             } => None,
             _ => {
-                let builder = Builder::new_in_context(module.llvm_context_ref().as_ref());
-                module.start_scope_with_function((name.clone(), ty.clone()), builder);
-                codegen_function(module, func);
+                ctx.in_function_scope((name.clone(), ty.clone()), |ctx| {
+                    codegen_function(&ctx, func);
+
+                    if !has_return_type(ty) {
+                        core::ret_void(&ctx);
+                    } else {
+                        todo!();
+                    }
+
+                    None
+                })
+                /*
                 inject_function_in_scope(module, func);
                 let ret_val = module.codegen_expr(
                     &body
@@ -187,7 +192,8 @@ pub fn declare_and_compile_function(
                                 let ret_ty = *ty.ret_ty.clone();
                                 core::ret(
                                     module,
-                                    (cast::child_to_parent(module, val, parent_ty), ret_ty).into(),
+                                    (cast::child_to_parent(module, val, parent_ty), ret_ty)
+                                        .into(),
                                 )
                             }
                             _ => core::ret(module, val),
@@ -202,39 +208,40 @@ pub fn declare_and_compile_function(
                     core::ret_void(module);
                 }
 
-                module.exit_scope();
-
-                None
+                module.exit_scope();*/
             }
         },
         _ => unreachable!(),
-    }*/
+    }
 }
 
-pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
-    todo!()
-    /*match function {
+pub fn codegen_function(ctx: &ModuleContext, function: &Expression) {
+    match function {
         Expression::Function {
             attributes,
             name,
             ty,
             ..
         } => {
-            let func = module.get_func((name.clone(), ty.clone())).unwrap();
+            let func = ctx.query(Query::Function((name, ty)));
 
-            if !attributes.is_empty() {
-                for attr in attributes {
-                    match attr.to_lowercase().as_ref() {
-                        "entry" => core::pos_at_end(module, func.bb("entry".to_string())),
-                        _ => panic!("Cannot decorate function with {}", name),
-                    };
+            if let QueryResponse::Function(Some(func)) = func {
+                let func = func.upgrade().expect("ICE");
+
+                if !attributes.is_empty() {
+                    for attr in attributes {
+                        match attr.to_lowercase().as_ref() {
+                            "entry" => core::pos_at_end(ctx, func.bb("entry".to_string())),
+                            _ => panic!("Cannot decorate function with {}", name),
+                        };
+                    }
+                } else {
+                    core::pos_at_end(ctx, func.bb(String::default()));
                 }
-            } else {
-                core::pos_at_end(module, func.bb(String::default()));
             }
         }
         _ => unreachable!(),
-    }*/
+    }
 }
 
 pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {

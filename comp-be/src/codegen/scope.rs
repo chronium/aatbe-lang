@@ -16,7 +16,6 @@ pub struct Scope {
     functions: FunctionMap,
     name: String,
     function: Option<(String, FunctionType)>,
-    builder: Option<Rc<Builder>>,
     fdir: Option<PathBuf>,
 }
 
@@ -27,7 +26,6 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: None,
             fdir: None,
         }
     }
@@ -37,7 +35,6 @@ impl Scope {
             functions: HashMap::new(),
             name: name.clone(),
             function: None,
-            builder: None,
             fdir: None,
         }
     }
@@ -47,11 +44,10 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(Rc::new(builder)),
             fdir: None,
         }
     }
-    pub fn with_builder_and_fdir<P>(builder: Builder, fdir: P) -> Self
+    pub fn with_fdir<P>(fdir: P) -> Self
     where
         P: Into<PathBuf>,
     {
@@ -60,7 +56,6 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(Rc::new(builder)),
             fdir: Some(fdir.into()),
         }
     }
@@ -70,7 +65,6 @@ impl Scope {
             functions: HashMap::new(),
             name: func.0.clone(),
             function: Some(func),
-            builder: Some(Rc::new(builder)),
             fdir: None,
         }
     }
@@ -84,7 +78,7 @@ impl Scope {
             self.functions.insert(name.clone(), vec![]);
         }
 
-        self.functions.get_mut(name).unwrap().push(func);
+        self.functions.get_mut(name).unwrap().push(Rc::new(func));
     }
 
     pub fn find_symbol(&self, name: &String) -> Option<&Slot> {
@@ -95,9 +89,6 @@ impl Scope {
     }
     pub fn function(&self) -> Option<(String, FunctionType)> {
         self.function.clone()
-    }
-    pub fn builder(&self) -> Option<Rc<Builder>> {
-        self.builder.clone()
     }
     pub fn fdir(&self) -> Option<PathBuf> {
         self.fdir.clone()
