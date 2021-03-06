@@ -1,5 +1,7 @@
 extern fn printf str, ... -> ()
 
+fn world () -> str = "World!\n"
+
 @entry
-fn main () -> () =
-    printf "Hello"
+fn main () =
+    printf "Hello %s", world()

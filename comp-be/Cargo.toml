@@ -13,3 +13,4 @@ path = "src/lib.rs"
 llvm-sys-wrapper = { path = "../llvm-sys-wrapper" }
 tuple-combinator = "0.2.1"
 parser = { path = "../parser" }
+log = "0.4.14"

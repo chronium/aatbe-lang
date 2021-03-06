@@ -1,6 +1,7 @@
 use comp_be::codegen::{comp_unit::CompilationUnit, AatbeModule, CompileError};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
+use flexi_logger::Logger;
 use std::{
     env,
     ffi::CString,
@@ -17,7 +18,6 @@ use glob::glob;
 use llvm_sys::support::LLVMLoadLibraryPermanently;
 use llvm_sys_wrapper::{CodegenLevel, CPU, LLVM};
 use log::{error, warn};
-use simplelog::*;
 
 fn main() -> io::Result<()> {
     dotenv().ok();
@@ -34,10 +34,7 @@ fn main() -> io::Result<()> {
     (@arg LIB: -l ... +takes_value "Link with library without prefix or extension"))
     .get_matches();
 
-    if let Err(_) = TermLogger::init(LevelFilter::Warn, Config::default(), TerminalMode::Mixed) {
-        SimpleLogger::init(LevelFilter::Warn, Config::default())
-            .expect("No logger should be already set")
-    }
+    Logger::with_env_or_str("trace").start().unwrap();
 
     let input_path = Path::new(matches.value_of_os("INPUT").unwrap()).to_path_buf();
     let main_cu = CompilationUnit::new(input_path.clone())?;

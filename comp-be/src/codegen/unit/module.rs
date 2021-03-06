@@ -13,23 +13,28 @@ use crate::{
 
 use super::function::{Func, FuncTyMap};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+use log::*;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FuncType {
     Local,
     Export,
 }
 
+#[derive(Debug)]
 pub enum Message<'cmd> {
     RegisterFunction(&'cmd String, Func, FuncType),
     EnterFunctionScope((String, FunctionType)),
     ExitScope,
 }
 
+#[derive(Debug)]
 pub enum Query<'cmd> {
     Function((&'cmd String, &'cmd FunctionType)),
     FunctionGroup(&'cmd String),
 }
 
+#[derive(Debug)]
 pub enum QueryResponse {
     Function(Option<Weak<Func>>),
     FunctionGroup(Option<RefCell<FuncTyMap>>),
@@ -135,23 +140,21 @@ impl<'ctx> ModuleUnit<'ctx> {
     }
 
     fn enter_root_scope(&self) {
+        trace!("Enter root scope");
         self.scope_stack
             .borrow_mut()
             .push(Scope::with_fdir(self.path.clone()));
     }
 
-    fn in_function_scope(&self, func: (String, FunctionType), builder: Builder) {
-        self.enter_function_scope(func, builder);
-        self.exit_scope();
-    }
-
     fn enter_function_scope(&self, func: (String, FunctionType), builder: Builder) {
+        trace!("Enter function scope {}", func.0);
         self.scope_stack
             .borrow_mut()
             .push(Scope::with_function(func, builder));
     }
 
     fn exit_scope(&self) {
+        trace!("Exit scope");
         self.scope_stack.borrow_mut().pop();
     }
 
@@ -169,7 +172,7 @@ impl<'ctx> ModuleUnit<'ctx> {
             }
             Message::EnterFunctionScope(func) => {
                 let builder = Builder::new_in_context(self.llvm_context.as_ref());
-                self.in_function_scope(func, builder);
+                self.enter_function_scope(func, builder);
             }
             Message::ExitScope => self.exit_scope(),
         }

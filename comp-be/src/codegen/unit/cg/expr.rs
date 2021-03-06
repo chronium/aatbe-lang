@@ -20,6 +20,7 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
             } => None,
             _ => declare_and_compile_function(ctx, expr),
         },
+        Expression::Block(body) if body.len() == 0 => None,
         _ => todo!("{:?}", expr),
     }
 }

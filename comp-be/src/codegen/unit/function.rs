@@ -164,7 +164,7 @@ pub fn declare_and_compile_function<'ctx>(
                 ctx.in_function_scope((name.clone(), ty.clone()), |ctx| {
                     codegen_function(&ctx, func);
 
-                    expr::cg(
+                    let ret_val = expr::cg(
                         &body
                             .as_ref()
                             .expect("ICE Function with no body but not external"),
@@ -174,7 +174,14 @@ pub fn declare_and_compile_function<'ctx>(
                     if !has_return_type(ty) {
                         core::ret_void(&ctx);
                     } else {
-                        todo!();
+                        if let Some(val) = ret_val {
+                            match val.prim() {
+                                PrimitiveType::VariantType(_variant) => todo!(),
+                                _ => core::ret(&ctx, val),
+                            };
+                        } else {
+                            todo!()
+                        }
                     }
 
                     None

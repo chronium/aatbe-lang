@@ -8,6 +8,8 @@ use crate::codegen::{
     ValueTypePair,
 };
 
+use log::*;
+
 pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
     if let Expression::Call {
         name,
@@ -15,6 +17,7 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
         args,
     } = expr
     {
+        trace!("Call {}", name);
         let mut call_types = vec![];
 
         let mut error = false;
@@ -54,6 +57,7 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
             .collect::<Vec<_>>();
 
         if error {
+            trace!("Got error");
             return None;
         }
 
@@ -63,15 +67,13 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
                     ctx,
                     func.upgrade().expect("ICE").borrow(),
                     &mut call_args,
-                ));
+                ))
             } else {
                 todo!();
             }
         } else {
             todo!();
         }
-
-        None
     } else {
         unreachable!()
     }
