@@ -3,7 +3,7 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{FuncType, Message, Mutability, Query, QueryResponse, Slot},
+        unit::{cg::expr, FuncType, Message, Mutability, Query, QueryResponse, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -12,6 +12,7 @@ use crate::{
 use llvm_sys_wrapper::Function;
 use std::{
     borrow::Borrow,
+    cell::RefCell,
     collections::HashMap,
     ops::Deref,
     rc::{Rc, Weak},
@@ -46,10 +47,10 @@ impl AatbeFmt for &Func {
 }
 
 pub type FuncTyMap = Vec<Rc<Func>>;
-pub type FunctionMap = HashMap<String, FuncTyMap>;
+pub type FunctionMap = HashMap<String, RefCell<FuncTyMap>>;
 
-pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<Weak<Func>> {
-    for func in map {
+pub fn find_func<'a>(map: RefCell<FuncTyMap>, ty: &FunctionType) -> Option<Weak<Func>> {
+    for func in map.borrow().iter() {
         if &func.ty == ty {
             return Some(Rc::downgrade(func));
         }
@@ -57,10 +58,10 @@ pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<Weak<Func>
     return None;
 }
 
-pub fn find_function<'a>(map: &'a FuncTyMap, args: &Vec<PrimitiveType>) -> Option<&'a Func> {
-    for func in map {
+pub fn find_function<'a>(map: RefCell<FuncTyMap>, args: &Vec<PrimitiveType>) -> Option<Weak<Func>> {
+    for func in map.borrow().iter() {
         if func.accepts(args) {
-            return Some(func);
+            return Some(Rc::downgrade(func));
         }
     }
     return None;
@@ -149,10 +150,9 @@ pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
 }
 
 pub fn declare_and_compile_function<'ctx>(
-    ctx: ModuleContext,
+    ctx: &ModuleContext,
     func: &Expression,
 ) -> Option<ValueTypePair> {
-    //todo!("{:?}", func);
     match func {
         Expression::Function { ty, body, name, .. } => match ty {
             FunctionType {
@@ -163,6 +163,13 @@ pub fn declare_and_compile_function<'ctx>(
             _ => {
                 ctx.in_function_scope((name.clone(), ty.clone()), |ctx| {
                     codegen_function(&ctx, func);
+
+                    expr::cg(
+                        &body
+                            .as_ref()
+                            .expect("ICE Function with no body but not external"),
+                        &ctx,
+                    );
 
                     if !has_return_type(ty) {
                         core::ret_void(&ctx);

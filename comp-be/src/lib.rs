@@ -7,7 +7,8 @@
     or_patterns,
     bindings_after_at,
     type_alias_impl_trait,
-    in_band_lifetimes
+    in_band_lifetimes,
+    move_ref_pattern
 )]
 
 pub mod codegen;

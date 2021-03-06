@@ -1,10 +1,4 @@
-use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::HashMap,
-    path::PathBuf,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Weak};
 
 use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module};
 use parser::ast::{Expression, FunctionType, AST};
@@ -17,7 +11,7 @@ use crate::{
     ty::TypeContext,
 };
 
-use super::function::Func;
+use super::function::{Func, FuncTyMap};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum FuncType {
@@ -33,10 +27,12 @@ pub enum Message<'cmd> {
 
 pub enum Query<'cmd> {
     Function((&'cmd String, &'cmd FunctionType)),
+    FunctionGroup(&'cmd String),
 }
 
 pub enum QueryResponse {
     Function(Option<Weak<Func>>),
+    FunctionGroup(Option<RefCell<FuncTyMap>>),
 }
 
 pub struct ModuleContext<'ctx> {
@@ -46,28 +42,6 @@ pub struct ModuleContext<'ctx> {
     pub function_templates: HashMap<String, Expression>,
     dispatch: &'ctx dyn Fn(Message) -> (),
     query: &'ctx dyn Fn(Query) -> QueryResponse,
-}
-
-impl ModuleContext<'ctx> {
-    pub fn dispatch(&self, command: Message) {
-        (self.dispatch)(command)
-    }
-
-    pub fn query(&self, query: Query) -> QueryResponse {
-        (self.query)(query)
-    }
-
-    pub fn in_function_scope<F>(&self, func: (String, FunctionType), f: F) -> Option<ValueTypePair>
-    where
-        F: FnOnce(ModuleContext) -> Option<ValueTypePair>,
-    {
-        self.dispatch(Message::EnterFunctionScope(func));
-        let builder = Builder::new_in_context(self.llvm_context.as_ref());
-        let ctx = self.with_builder(&builder);
-        let res = f(ctx);
-        self.dispatch(Message::ExitScope);
-        res
-    }
 }
 
 impl<'ctx> ModuleContext<'ctx> {
@@ -97,6 +71,26 @@ impl<'ctx> ModuleContext<'ctx> {
             query: self.query,
             function_templates: HashMap::new(),
         }
+    }
+
+    pub fn dispatch(&self, command: Message) {
+        (self.dispatch)(command)
+    }
+
+    pub fn query(&self, query: Query) -> QueryResponse {
+        (self.query)(query)
+    }
+
+    pub fn in_function_scope<F>(&self, func: (String, FunctionType), f: F) -> Option<ValueTypePair>
+    where
+        F: FnOnce(ModuleContext) -> Option<ValueTypePair>,
+    {
+        self.dispatch(Message::EnterFunctionScope(func));
+        let builder = Builder::new_in_context(self.llvm_context.as_ref());
+        let ctx = self.with_builder(&builder);
+        let res = f(ctx);
+        self.dispatch(Message::ExitScope);
+        res
     }
 }
 
@@ -184,6 +178,7 @@ impl<'ctx> ModuleUnit<'ctx> {
     fn query(&self, query: Query) -> QueryResponse {
         match query {
             Query::Function(func) => QueryResponse::Function(self.get_func(func)),
+            Query::FunctionGroup(name) => QueryResponse::FunctionGroup(self.get_func_group(name)),
         }
     }
 
@@ -229,7 +224,7 @@ impl<'ctx> ModuleUnit<'ctx> {
             box AST::File(ref nodes) => nodes.iter().fold(None, |_, n| {
                 cg(
                     n,
-                    ModuleContext::new(
+                    &ModuleContext::new(
                         self.llvm_context,
                         self.llvm_module,
                         root_builder,
@@ -240,6 +235,16 @@ impl<'ctx> ModuleUnit<'ctx> {
             }),
             _ => todo!("{:?}", self.ast),
         }
+    }
+
+    pub fn get_func_group(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
+        for scope in self.scope_stack.borrow().iter().rev() {
+            if let Some(func) = scope.func_by_name(name) {
+                return Some(func);
+            }
+        }
+
+        None
     }
 
     pub fn get_func(&self, func: (&String, &FunctionType)) -> Option<Weak<Func>> {

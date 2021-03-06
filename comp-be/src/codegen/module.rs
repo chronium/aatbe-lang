@@ -551,7 +551,6 @@ impl AatbeModule {
             }
             Expression::Loop { .. } => self.codegen_basic_loop(expr),
             Expression::If { .. } => self.codegen_if(expr),
-            Expression::Call { .. } => self.codegen_call(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
                 Err(_) => {
@@ -585,7 +584,6 @@ impl AatbeModule {
 
                 ret
             }
-            Expression::Atom(atom) => self.codegen_atom(atom),
             _ => panic!("ICE: codegen_expr {:?}", expr),
         }*/
     }
@@ -680,16 +678,6 @@ impl AatbeModule {
             .first_mut()
             .expect("Compiler broke. Scope stack is corrupted.")
             .add_symbol(name, unit);
-    }
-
-    pub fn get_func_group(&self, name: &String) -> Option<&FuncTyMap> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(func) = scope.func_by_name(name) {
-                return Some(func);
-            }
-        }
-
-        None
     }
 
     */

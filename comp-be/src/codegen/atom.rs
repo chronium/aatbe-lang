@@ -184,13 +184,8 @@ impl AatbeModule {
 
                 Some((*var, PrimitiveType::Ref(box var.prim().clone())).into())
             }
-            atom @ (AtomKind::StringLiteral(_) | AtomKind::CharLiteral(_)) => {
-                const_atom(self, atom)
-            }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
             atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
-            AtomKind::Bool(Boolean::True) => Some(value::t(self)),
-            AtomKind::Bool(Boolean::False) => Some(value::f(self)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
             AtomKind::Unary(op, val) if op == &String::from("-") => {

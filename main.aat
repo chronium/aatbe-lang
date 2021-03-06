@@ -1,2 +1,5 @@
+extern fn printf str, ... -> ()
+
 @entry
-fn main () -> () = {}
+fn main () -> () =
+    printf "Hello"

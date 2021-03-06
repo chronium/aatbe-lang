@@ -5,7 +5,7 @@ use crate::codegen::{
     },
     AatbeModule,
 };
-use std::{collections::HashMap, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 use parser::ast::FunctionType;
@@ -69,16 +69,20 @@ impl Scope {
         }
     }
 
-    pub fn func_by_name(&self, name: &String) -> Option<&FuncTyMap> {
-        self.functions.get(name)
+    pub fn func_by_name(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
+        self.functions.get(name).cloned()
     }
 
     pub fn add_function(&mut self, name: &String, func: Func) {
         if !self.functions.contains_key(name) {
-            self.functions.insert(name.clone(), vec![]);
+            self.functions.insert(name.clone(), RefCell::new(vec![]));
         }
 
-        self.functions.get_mut(name).unwrap().push(Rc::new(func));
+        self.functions
+            .get_mut(name)
+            .unwrap()
+            .get_mut()
+            .push(Rc::new(func));
     }
 
     pub fn find_symbol(&self, name: &String) -> Option<&Slot> {
