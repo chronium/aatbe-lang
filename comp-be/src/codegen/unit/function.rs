@@ -3,7 +3,7 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{cg::expr, FuncType, Message, Mutability, Query, QueryResponse, Slot},
+        unit::{cg::expr, FunctionVisibility, Message, Mutability, Query, QueryResponse, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -24,11 +24,16 @@ use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 
 use super::ModuleContext;
 
-#[derive(Debug)]
 pub struct Func {
     ty: FunctionType,
     name: String,
     inner: Function,
+}
+
+impl std::fmt::Debug for Func {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", AatbeFmt::fmt(self))
+    }
 }
 
 impl AatbeFmt for &Func {
@@ -140,9 +145,17 @@ pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
 
             let func = Func::new(ty.clone(), name.clone(), func);
             if !export {
-                ctx.dispatch(Message::RegisterFunction(&name, func, FuncType::Local));
+                ctx.dispatch(Message::RegisterFunction(
+                    &name,
+                    func,
+                    FunctionVisibility::Local,
+                ));
             } else {
-                ctx.dispatch(Message::RegisterFunction(&name, func, FuncType::Export));
+                ctx.dispatch(Message::RegisterFunction(
+                    &name,
+                    func,
+                    FunctionVisibility::Export,
+                ));
             }
         }
         _ => unimplemented!("{:?}", function),

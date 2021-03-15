@@ -3,7 +3,7 @@ use parser::ast::{Expression, FunctionType};
 use crate::codegen::{
     unit::{
         cg::{atom, call},
-        declare_and_compile_function, ModuleContext,
+        declare_and_compile_function, Message, ModuleContext,
     },
     ValueTypePair,
 };
@@ -21,6 +21,18 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
             _ => declare_and_compile_function(ctx, expr),
         },
         Expression::Block(body) if body.len() == 0 => None,
+        Expression::Block(body) => {
+            ctx.dispatch(Message::EnterAnonymousScope);
+
+            let ret = body
+                .iter()
+                .fold(None, |_, expr| Some(cg(expr, ctx)))
+                .unwrap();
+
+            ctx.dispatch(Message::ExitScope);
+
+            ret
+        }
         _ => todo!("{:?}", expr),
     }
 }

@@ -2,10 +2,13 @@ use std::borrow::Borrow;
 
 use parser::ast::{AtomKind, Expression, PrimitiveType};
 
-use crate::codegen::{
-    builder::core,
-    unit::{cg::expr, function::find_function, ModuleContext, Query, QueryResponse},
-    ValueTypePair,
+use crate::{
+    codegen::{
+        builder::core,
+        unit::{cg::expr, function::find_function, ModuleContext, Query, QueryResponse},
+        ValueTypePair,
+    },
+    fmt::AatbeFmt,
 };
 
 use log::*;
@@ -17,7 +20,7 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
         args,
     } = expr
     {
-        trace!("Call {}", name);
+        trace!("Call {}", AatbeFmt::fmt(expr));
         let mut call_types = vec![];
 
         let mut error = false;

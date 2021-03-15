@@ -77,11 +77,8 @@ fn main() -> io::Result<()> {
                 error!("-l{} found too many matches, please be more specific", lib);
             } else {
                 unsafe {
-                    LLVMLoadLibraryPermanently(
-                        CString::new(globs[0].to_str().unwrap())
-                            .expect("cstring failed")
-                            .as_ptr(),
-                    );
+                    let cs = CString::new(globs[0].to_str().unwrap()).expect("cstring failed");
+                    LLVMLoadLibraryPermanently(cs.as_ptr());
                 }
             }
         }
@@ -227,6 +224,6 @@ fn main() -> io::Result<()> {
             }
             Ok(())
         }
-        Err(err) => panic!(err),
+        Err(err) => panic!("{}", err),
     }
 }

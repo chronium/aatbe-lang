@@ -8,6 +8,7 @@ use crate::{
         unit::{cg, decl, function::find_func},
         Scope, ValueTypePair,
     },
+    fmt::AatbeFmt,
     ty::TypeContext,
 };
 
@@ -16,28 +17,84 @@ use super::function::{Func, FuncTyMap};
 use log::*;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum FuncType {
+pub enum FunctionVisibility {
     Local,
     Export,
 }
 
-#[derive(Debug)]
 pub enum Message<'cmd> {
-    RegisterFunction(&'cmd String, Func, FuncType),
+    RegisterFunction(&'cmd String, Func, FunctionVisibility),
     EnterFunctionScope((String, FunctionType)),
+    EnterAnonymousScope,
     ExitScope,
 }
 
-#[derive(Debug)]
+impl std::fmt::Debug for Message<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::RegisterFunction(name, ty, vis) => f
+                .debug_tuple("RegisterFunction")
+                .field(name)
+                .field(&AatbeFmt::fmt(ty))
+                .field(vis)
+                .finish(),
+            Message::EnterFunctionScope(func) => f
+                .debug_tuple("EnterFunctionScope")
+                .field(&func.0)
+                .field(&AatbeFmt::fmt(&func.1))
+                .finish(),
+            Message::EnterAnonymousScope => write!(f, "EnterAnonymousScope"),
+            Message::ExitScope => write!(f, "ExitScope"),
+        }
+    }
+}
+
 pub enum Query<'cmd> {
     Function((&'cmd String, &'cmd FunctionType)),
     FunctionGroup(&'cmd String),
 }
 
-#[derive(Debug)]
+impl std::fmt::Debug for Query<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Query::Function(func) => f
+                .debug_tuple("Function")
+                .field(func.0)
+                .field(&AatbeFmt::fmt(func.1))
+                .finish(),
+            Query::FunctionGroup(name) => f.debug_tuple("FunctionGroup").field(name).finish(),
+        }
+    }
+}
+
 pub enum QueryResponse {
     Function(Option<Weak<Func>>),
     FunctionGroup(Option<RefCell<FuncTyMap>>),
+}
+
+impl std::fmt::Debug for QueryResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryResponse::Function(ref func) => f
+                .debug_tuple("Function")
+                .field(
+                    &func
+                        .as_ref()
+                        .map(|f| AatbeFmt::fmt(f.upgrade().expect("ICE").as_ref())),
+                )
+                .finish(),
+            QueryResponse::FunctionGroup(group) => f
+                .debug_tuple("FunctionGroup")
+                .field(&format_args!(
+                    "{}",
+                    match group.as_ref() {
+                        None => String::from("[]"),
+                        Some(gr) => format!("{:?}", gr.borrow().iter().collect::<Vec<_>>()),
+                    }
+                ))
+                .finish(),
+        }
+    }
 }
 
 pub struct ModuleContext<'ctx> {
@@ -78,8 +135,8 @@ impl<'ctx> ModuleContext<'ctx> {
         }
     }
 
-    pub fn dispatch(&self, command: Message) {
-        (self.dispatch)(command)
+    pub fn dispatch(&self, message: Message) {
+        (self.dispatch)(message)
     }
 
     pub fn query(&self, query: Query) -> QueryResponse {
@@ -147,7 +204,7 @@ impl<'ctx> ModuleUnit<'ctx> {
     }
 
     fn enter_function_scope(&self, func: (String, FunctionType), builder: Builder) {
-        trace!("Enter function scope {}", func.0);
+        trace!("Enter function scope {:?}", func.0);
         self.scope_stack
             .borrow_mut()
             .push(Scope::with_function(func, builder));
@@ -158,11 +215,12 @@ impl<'ctx> ModuleUnit<'ctx> {
         self.scope_stack.borrow_mut().pop();
     }
 
-    fn dispatch(&self, command: Message) {
-        match command {
+    fn dispatch(&self, message: Message) {
+        trace!("Dispatch {:?}", message);
+        match message {
             Message::RegisterFunction(name, func, ty) => {
                 let mut scope_stack = self.scope_stack.borrow_mut();
-                if ty == FuncType::Local {
+                if ty == FunctionVisibility::Local {
                     scope_stack.last_mut()
                 } else {
                     scope_stack.first_mut()
@@ -174,15 +232,19 @@ impl<'ctx> ModuleUnit<'ctx> {
                 let builder = Builder::new_in_context(self.llvm_context.as_ref());
                 self.enter_function_scope(func, builder);
             }
+            Message::EnterAnonymousScope => {}
             Message::ExitScope => self.exit_scope(),
         }
     }
 
     fn query(&self, query: Query) -> QueryResponse {
-        match query {
+        trace!("Query {:?}", query);
+        let response = match query {
             Query::Function(func) => QueryResponse::Function(self.get_func(func)),
             Query::FunctionGroup(name) => QueryResponse::FunctionGroup(self.get_func_group(name)),
-        }
+        };
+        trace!("Response {:?}", response);
+        response
     }
 
     pub fn push(&mut self, name: &String, module: ModuleUnit<'ctx>) -> Option<ModuleUnit<'ctx>> {

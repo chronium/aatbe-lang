@@ -132,7 +132,7 @@ impl ValueTypePair {
                 }),
             ) => ty,
             ValueTypePair(_, TypeKind::Primitive(prim)) => prim,
-            _ => panic!("ICE prim {:?}"),
+            _ => panic!("ICE prim"),
         }
     }
 

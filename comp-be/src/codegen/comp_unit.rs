@@ -26,7 +26,7 @@ impl CompilationUnit {
             path,
             ast: match Parser::new(Lexer::new(code.as_str()).lex()).parse() {
                 Ok(ptree) => ptree,
-                Err(err) => panic!(format!("{:#?}", err)),
+                Err(err) => panic!("{:#?}", err),
             },
         })
     }
