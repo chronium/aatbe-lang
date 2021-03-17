@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{unit::ModuleContext, AatbeModule, ValueTypePair},
+    codegen::{unit::CompilerContext, AatbeModule, ValueTypePair},
     fmt::AatbeFmt,
     ty::variant::{Variant, VariantType},
 };
@@ -7,7 +7,7 @@ use parser::ast::{FloatSize, FunctionType, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::{LLVMFunctionType, LLVMTypeRef, LLVMValueRef};
 
-use std::{borrow::Borrow, collections::HashMap, fmt};
+use std::{collections::HashMap, fmt};
 
 pub mod aggregate;
 pub mod infer;
@@ -65,7 +65,7 @@ impl fmt::Debug for TypedefKind {
 }
 
 impl LLVMTyInCtx for TypeKind {
-    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, ctx: &CompilerContext) -> LLVMTypeRef {
         match self {
             TypeKind::RecordType(record) => record.llvm_ty_in_ctx(ctx),
             TypeKind::Primitive(primitive) => primitive.llvm_ty_in_ctx(ctx),
@@ -230,11 +230,11 @@ impl TypeContext {
 }
 
 pub trait LLVMTyInCtx {
-    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef;
+    fn llvm_ty_in_ctx(&self, ctx: &CompilerContext) -> LLVMTypeRef;
 }
 
 impl LLVMTyInCtx for FunctionType {
-    fn llvm_ty_in_ctx(&self, ctx: &ModuleContext) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, ctx: &CompilerContext) -> LLVMTypeRef {
         let ret = self.ret_ty.llvm_ty_in_ctx(ctx);
         let mut varargs = false;
         let ext = self.ext;
@@ -280,7 +280,7 @@ impl LLVMTyInCtx for FunctionType {
 }
 
 impl LLVMTyInCtx for PrimitiveType {
-    fn llvm_ty_in_ctx(&self, mctx: &ModuleContext) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, mctx: &CompilerContext) -> LLVMTypeRef {
         let ctx = mctx.llvm_context;
 
         match self {

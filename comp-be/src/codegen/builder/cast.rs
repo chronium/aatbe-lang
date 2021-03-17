@@ -1,12 +1,12 @@
 use crate::{
-    codegen::{unit::ModuleContext, ValueTypePair},
+    codegen::{unit::CompilerContext, ValueTypePair},
     ty::variant::VariantType,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
 use parser::ast::PrimitiveType;
 
-pub fn zext(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn zext(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder.build_zext(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
@@ -14,7 +14,7 @@ pub fn zext(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn trunc(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn trunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder.build_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
@@ -22,7 +22,7 @@ pub fn trunc(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Val
         .into()
 }
 
-pub fn ftrunc(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftrunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -31,7 +31,7 @@ pub fn ftrunc(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn itop(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn itop(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_int_to_ptr(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -40,7 +40,7 @@ pub fn itop(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn ptoi(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ptoi(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_ptr_to_int(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -49,7 +49,7 @@ pub fn ptoi(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn stof(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn stof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_si_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -58,7 +58,7 @@ pub fn stof(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn utof(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn utof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_ui_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -67,7 +67,7 @@ pub fn utof(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn ftos(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftos(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_to_si(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -76,7 +76,7 @@ pub fn ftos(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn ftou(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftou(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_to_ui(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -85,11 +85,11 @@ pub fn ftou(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> Valu
         .into()
 }
 
-pub fn bitcast(ctx: &ModuleContext, val: ValueTypePair, ty: &dyn LLVMTyInCtx) -> LLVMValueRef {
+pub fn bitcast(ctx: &CompilerContext, val: ValueTypePair, ty: &dyn LLVMTyInCtx) -> LLVMValueRef {
     ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx))
 }
 
-pub fn bitcast_ty(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn bitcast_ty(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
     (
         ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
@@ -98,7 +98,7 @@ pub fn bitcast_ty(ctx: &ModuleContext, val: ValueTypePair, ty: &PrimitiveType) -
 }
 
 pub fn child_to_parent(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     val: ValueTypePair,
     parent: &VariantType,
 ) -> LLVMValueRef {
@@ -108,6 +108,6 @@ pub fn child_to_parent(
     ))
 }
 
-pub fn bitcast_to(ctx: &ModuleContext, val: LLVMValueRef, ty: LLVMTypeRef) -> LLVMValueRef {
+pub fn bitcast_to(ctx: &CompilerContext, val: LLVMValueRef, ty: LLVMTypeRef) -> LLVMValueRef {
     ctx.llvm_builder.build_bitcast(val, ty)
 }

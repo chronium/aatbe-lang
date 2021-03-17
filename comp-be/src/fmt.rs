@@ -1,9 +1,18 @@
 use parser::ast::{
-    AtomKind, Boolean, Expression, FloatSize, FunctionType, IntSize, LValue, PrimitiveType,
+    AtomKind, Boolean, Expression, FloatSize, FunctionType, Ident, IntSize, LValue, PrimitiveType,
 };
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
+}
+
+impl AatbeFmt for &Ident {
+    fn fmt(self) -> String {
+        match self {
+            Ident::Local(path) => path.clone(),
+            Ident::Module(path) => todo!("{:?}", path),
+        }
+    }
 }
 
 impl AatbeFmt for PrimitiveType {
@@ -155,7 +164,7 @@ impl AatbeFmt for &Expression {
             ),
             Expression::Call { name, types, args } => format!(
                 "{}{} {}",
-                name,
+                name.fmt(),
                 if types.len() > 0 {
                     format!(
                         "[{}]",

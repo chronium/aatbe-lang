@@ -1,10 +1,10 @@
-use crate::codegen::{unit::ModuleContext, ValueTypePair};
+use crate::codegen::{unit::CompilerContext, ValueTypePair};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn codegen_eq_ne(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -21,7 +21,7 @@ pub fn codegen_eq_ne(
 }
 
 pub fn codegen_boolean(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -38,7 +38,7 @@ pub fn codegen_boolean(
 }
 
 pub fn codegen_eq_ne_float(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,

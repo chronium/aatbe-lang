@@ -3,11 +3,11 @@ use parser::ast::{AtomKind, Boolean};
 use crate::codegen::{
     builder::value,
     expr::const_expr::const_atom,
-    unit::{cg::expr, ModuleContext},
+    unit::{cg::expr, CompilerContext},
     ValueTypePair,
 };
 
-pub fn cg(atom: &AtomKind, ctx: &ModuleContext) -> Option<ValueTypePair> {
+pub fn cg(atom: &AtomKind, ctx: &CompilerContext) -> Option<ValueTypePair> {
     match atom {
         AtomKind::Parenthesized(expr) => expr::cg(expr, ctx),
         AtomKind::Unit => None,

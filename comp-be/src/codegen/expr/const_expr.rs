@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
         builder::value,
-        unit::{ModuleContext, Mutability, Slot},
+        unit::{CompilerContext, Mutability, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -9,7 +9,7 @@ use crate::{
 };
 use parser::ast::{AtomKind, Expression, PrimitiveType, AST};
 
-pub fn const_atom(ctx: &ModuleContext, atom: &AtomKind) -> Option<ValueTypePair> {
+pub fn const_atom(ctx: &CompilerContext, atom: &AtomKind) -> Option<ValueTypePair> {
     match atom {
         AtomKind::StringLiteral(string) => Some(value::str(ctx, string.as_ref())),
         AtomKind::CharLiteral(ch) => Some(value::char(ctx, *ch)),
@@ -40,7 +40,7 @@ pub fn const_atom(ctx: &ModuleContext, atom: &AtomKind) -> Option<ValueTypePair>
     }
 }
 
-fn fold_expression(ctx: &ModuleContext, expr: &Expression) -> Option<ValueTypePair> {
+fn fold_expression(ctx: &CompilerContext, expr: &Expression) -> Option<ValueTypePair> {
     match expr {
         Expression::Atom(atom) => const_atom(ctx, atom),
         _ => panic!("ICE fold_expression {:?}", expr),

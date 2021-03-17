@@ -69,11 +69,11 @@ impl Scope {
         }
     }
 
-    pub fn func_by_name(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
+    pub fn func_by_name(&self, name: &Vec<String>) -> Option<RefCell<FuncTyMap>> {
         self.functions.get(name).cloned()
     }
 
-    pub fn add_function(&mut self, name: &String, func: Func) {
+    pub fn add_function(&mut self, name: &Vec<String>, func: Func) {
         if !self.functions.contains_key(name) {
             self.functions.insert(name.clone(), RefCell::new(vec![]));
         }
@@ -96,6 +96,10 @@ impl Scope {
     }
     pub fn fdir(&self) -> Option<PathBuf> {
         self.fdir.clone()
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 
     /*pub fn bb(&self, module: &AatbeModule, name: &String) -> Option<LLVMBasicBlockRef> {

@@ -1,19 +1,20 @@
 use std::borrow::Borrow;
 
-use parser::ast::{AtomKind, Expression, PrimitiveType};
+use parser::ast::{AtomKind, Expression, Ident, PrimitiveType};
 
 use crate::{
     codegen::{
         builder::core,
-        unit::{cg::expr, function::find_function, ModuleContext, Query, QueryResponse},
+        unit::{cg::expr, function::find_function, CompilerContext, Query, QueryResponse},
         ValueTypePair,
     },
     fmt::AatbeFmt,
+    prefix,
 };
 
 use log::*;
 
-pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
+pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     if let Expression::Call {
         name,
         types: _,
@@ -64,13 +65,19 @@ pub fn cg(expr: &Expression, ctx: &ModuleContext) -> Option<ValueTypePair> {
             return None;
         }
 
-        if let QueryResponse::FunctionGroup(Some(group)) = ctx.query(Query::FunctionGroup(name)) {
-            if let Some(func) = find_function(group, &call_types) {
-                Some(core::call(
-                    ctx,
-                    func.upgrade().expect("ICE").borrow(),
-                    &mut call_args,
-                ))
+        if let Ident::Local(name) = name {
+            if let QueryResponse::FunctionGroup(Some(group)) =
+                ctx.query(Query::FunctionGroup(prefix!(call ctx, name.clone())))
+            {
+                if let Some(func) = find_function(group, &call_types) {
+                    Some(core::call(
+                        ctx,
+                        func.upgrade().expect("ICE").borrow(),
+                        &mut call_args,
+                    ))
+                } else {
+                    todo!();
+                }
             } else {
                 todo!();
             }

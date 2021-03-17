@@ -1,15 +1,14 @@
-use crate::codegen::AatbeModule;
-
 use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, PrimitiveType};
 
-use super::unit::ModuleContext;
+use super::unit::CompilerContext;
+use crate::prefix;
 
 pub trait NameMangler {
-    fn mangle(&self, ctx: &ModuleContext) -> String;
+    fn mangle(&self, ctx: &CompilerContext) -> String;
 }
 
 impl NameMangler for Expression {
-    fn mangle(&self, ctx: &ModuleContext) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
             Expression::Function {
                 name,
@@ -27,7 +26,7 @@ impl NameMangler for Expression {
                     if !attributes.contains(&String::from("entry")) {
                         format!(
                             "{}{}{}",
-                            name,
+                            prefix!(ctx, name.clone()).join("__"),
                             if type_names.len() > 0 {
                                 format!("G{}", type_names.len())
                             } else {
@@ -51,7 +50,7 @@ impl NameMangler for Expression {
 }
 
 impl NameMangler for AtomKind {
-    fn mangle(&self, ctx: &ModuleContext) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
             AtomKind::StringLiteral(lit) => format!("{:?}", lit),
             AtomKind::Ident(id) => id.clone(),
@@ -67,7 +66,7 @@ impl NameMangler for AtomKind {
 }
 
 impl NameMangler for FunctionType {
-    fn mangle(&self, ctx: &ModuleContext) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         let params_mangled = self
             .params
             .iter()
@@ -84,7 +83,7 @@ impl NameMangler for FunctionType {
 }
 
 impl NameMangler for PrimitiveType {
-    fn mangle(&self, ctx: &ModuleContext) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
             PrimitiveType::TypeRef(ty) => ty.clone(),
             PrimitiveType::Function(ty) => ty.mangle(ctx),
@@ -120,7 +119,7 @@ impl NameMangler for PrimitiveType {
 }
 
 impl NameMangler for IntSize {
-    fn mangle(&self, _ctx: &ModuleContext) -> String {
+    fn mangle(&self, _ctx: &CompilerContext) -> String {
         match self {
             IntSize::Bits8 => String::from("8"),
             IntSize::Bits16 => String::from("16"),
@@ -131,7 +130,7 @@ impl NameMangler for IntSize {
 }
 
 impl NameMangler for FloatSize {
-    fn mangle(&self, _ctx: &ModuleContext) -> String {
+    fn mangle(&self, _ctx: &CompilerContext) -> String {
         match self {
             FloatSize::Bits32 => String::from("32"),
             FloatSize::Bits64 => String::from("64"),

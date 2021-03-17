@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{builder::core, unit::ModuleContext, AatbeModule, ValueTypePair},
+    codegen::{builder::core, unit::CompilerContext, AatbeModule, ValueTypePair},
     ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 use parser::ast::PrimitiveType;
@@ -35,7 +35,7 @@ impl Record {
         }
     }
 
-    pub fn set_body(&self, ctx: &ModuleContext, types: &Vec<PrimitiveType>) {
+    pub fn set_body(&self, ctx: &CompilerContext, types: &Vec<PrimitiveType>) {
         let mut types = types
             .iter()
             .map(|ty| ty.llvm_ty_in_ctx(ctx))
@@ -57,7 +57,7 @@ impl Record {
 impl Aggregate for Record {
     fn gep_indexed_field(
         &self,
-        ctx: &ModuleContext,
+        ctx: &CompilerContext,
         index: u32,
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
@@ -73,7 +73,7 @@ impl Aggregate for Record {
 
     fn gep_named_field(
         &self,
-        ctx: &ModuleContext,
+        ctx: &CompilerContext,
         name: &String,
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
@@ -92,7 +92,7 @@ impl Aggregate for Record {
 }
 
 pub fn store_named_field(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     struct_ref: LLVMValueRef,
     rec_name: &String,
     rec: &Record,
@@ -119,7 +119,7 @@ pub fn store_named_field(
 }
 
 impl LLVMTyInCtx for &Record {
-    fn llvm_ty_in_ctx(&self, _ctx: &ModuleContext) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, _ctx: &CompilerContext) -> LLVMTypeRef {
         self.inner.as_ref()
     }
 }

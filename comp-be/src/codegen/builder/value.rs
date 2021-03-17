@@ -1,20 +1,20 @@
-use crate::codegen::{unit::ModuleContext, ValueTypePair};
+use crate::codegen::{unit::CompilerContext, ValueTypePair};
 use llvm_sys_wrapper::{LLVMValueRef, Struct};
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
-pub fn t(ctx: &ModuleContext) -> ValueTypePair {
+pub fn t(ctx: &CompilerContext) -> ValueTypePair {
     (ctx.llvm_context.SInt1(1), PrimitiveType::Bool).into()
 }
 
-pub fn f(ctx: &ModuleContext) -> ValueTypePair {
+pub fn f(ctx: &CompilerContext) -> ValueTypePair {
     (ctx.llvm_context.SInt1(0), PrimitiveType::Bool).into()
 }
 
-pub fn char(ctx: &ModuleContext, c: char) -> ValueTypePair {
+pub fn char(ctx: &CompilerContext, c: char) -> ValueTypePair {
     (ctx.llvm_context.SInt8(c as u64), PrimitiveType::Char).into()
 }
 
-pub fn s8(ctx: &ModuleContext, value: i8) -> ValueTypePair {
+pub fn s8(ctx: &CompilerContext, value: i8) -> ValueTypePair {
     (
         ctx.llvm_context.SInt8(value as u64),
         PrimitiveType::Int(IntSize::Bits8),
@@ -22,7 +22,7 @@ pub fn s8(ctx: &ModuleContext, value: i8) -> ValueTypePair {
         .into()
 }
 
-pub fn s16(ctx: &ModuleContext, value: i16) -> ValueTypePair {
+pub fn s16(ctx: &CompilerContext, value: i16) -> ValueTypePair {
     (
         ctx.llvm_context.SInt16(value as u64),
         PrimitiveType::Int(IntSize::Bits16),
@@ -30,7 +30,7 @@ pub fn s16(ctx: &ModuleContext, value: i16) -> ValueTypePair {
         .into()
 }
 
-pub fn s32(ctx: &ModuleContext, value: i32) -> ValueTypePair {
+pub fn s32(ctx: &CompilerContext, value: i32) -> ValueTypePair {
     (
         ctx.llvm_context.SInt32(value as u64),
         PrimitiveType::Int(IntSize::Bits32),
@@ -38,7 +38,7 @@ pub fn s32(ctx: &ModuleContext, value: i32) -> ValueTypePair {
         .into()
 }
 
-pub fn s64(ctx: &ModuleContext, value: i64) -> ValueTypePair {
+pub fn s64(ctx: &CompilerContext, value: i64) -> ValueTypePair {
     (
         ctx.llvm_context.SInt64(value as u64),
         PrimitiveType::Int(IntSize::Bits64),
@@ -46,7 +46,7 @@ pub fn s64(ctx: &ModuleContext, value: i64) -> ValueTypePair {
         .into()
 }
 
-pub fn u8(ctx: &ModuleContext, value: u8) -> ValueTypePair {
+pub fn u8(ctx: &CompilerContext, value: u8) -> ValueTypePair {
     (
         ctx.llvm_context.UInt8(value as u64),
         PrimitiveType::UInt(IntSize::Bits8),
@@ -54,7 +54,7 @@ pub fn u8(ctx: &ModuleContext, value: u8) -> ValueTypePair {
         .into()
 }
 
-pub fn u16(ctx: &ModuleContext, value: u16) -> ValueTypePair {
+pub fn u16(ctx: &CompilerContext, value: u16) -> ValueTypePair {
     (
         ctx.llvm_context.UInt16(value as u64),
         PrimitiveType::UInt(IntSize::Bits16),
@@ -62,7 +62,7 @@ pub fn u16(ctx: &ModuleContext, value: u16) -> ValueTypePair {
         .into()
 }
 
-pub fn u32(ctx: &ModuleContext, value: u32) -> ValueTypePair {
+pub fn u32(ctx: &CompilerContext, value: u32) -> ValueTypePair {
     (
         ctx.llvm_context.UInt32(value as u64),
         PrimitiveType::UInt(IntSize::Bits32),
@@ -70,7 +70,7 @@ pub fn u32(ctx: &ModuleContext, value: u32) -> ValueTypePair {
         .into()
 }
 
-pub fn u64(ctx: &ModuleContext, value: u64) -> ValueTypePair {
+pub fn u64(ctx: &CompilerContext, value: u64) -> ValueTypePair {
     (
         ctx.llvm_context.UInt64(value),
         PrimitiveType::UInt(IntSize::Bits64),
@@ -79,7 +79,7 @@ pub fn u64(ctx: &ModuleContext, value: u64) -> ValueTypePair {
 }
 
 pub fn slice(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     pointer: LLVMValueRef,
     ty: PrimitiveType,
     len: u32,
@@ -91,7 +91,7 @@ pub fn slice(
         .into()
 }
 
-pub fn sint(ctx: &ModuleContext, size: IntSize, value: u64) -> ValueTypePair {
+pub fn sint(ctx: &CompilerContext, size: IntSize, value: u64) -> ValueTypePair {
     (
         match size {
             IntSize::Bits8 => ctx.llvm_context.SInt8(value),
@@ -104,7 +104,7 @@ pub fn sint(ctx: &ModuleContext, size: IntSize, value: u64) -> ValueTypePair {
         .into()
 }
 
-pub fn uint(ctx: &ModuleContext, size: IntSize, value: u64) -> ValueTypePair {
+pub fn uint(ctx: &CompilerContext, size: IntSize, value: u64) -> ValueTypePair {
     (
         match size {
             IntSize::Bits8 => ctx.llvm_context.UInt8(value),
@@ -117,7 +117,7 @@ pub fn uint(ctx: &ModuleContext, size: IntSize, value: u64) -> ValueTypePair {
         .into()
 }
 
-pub fn floating(ctx: &ModuleContext, size: FloatSize, value: f64) -> ValueTypePair {
+pub fn floating(ctx: &CompilerContext, size: FloatSize, value: f64) -> ValueTypePair {
     (
         match size {
             FloatSize::Bits32 => ctx.llvm_context.Float(value),
@@ -128,7 +128,7 @@ pub fn floating(ctx: &ModuleContext, size: FloatSize, value: f64) -> ValueTypePa
         .into()
 }
 
-pub fn str(ctx: &ModuleContext, string: &str) -> ValueTypePair {
+pub fn str(ctx: &CompilerContext, string: &str) -> ValueTypePair {
     (
         ctx.llvm_builder.build_global_string_ptr(string),
         PrimitiveType::Str,

@@ -3,10 +3,14 @@ use crate::{
     codegen::{
         builder::core,
         mangle_v1::NameMangler,
-        unit::{cg::expr, FunctionVisibility, Message, Mutability, Query, QueryResponse, Slot},
+        unit::{
+            cg::expr, CompilerContext, FunctionVisibility, Message, Mutability, Query,
+            QueryResponse, Slot,
+        },
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
+    prefix,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::Function;
@@ -22,11 +26,10 @@ use parser::ast::{Expression, FunctionType, PrimitiveType};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 
-use super::ModuleContext;
-
+#[derive(Clone)]
 pub struct Func {
     ty: FunctionType,
-    name: String,
+    ident: Vec<String>,
     inner: Function,
 }
 
@@ -45,14 +48,14 @@ impl AatbeFmt for &Func {
             } else {
                 String::default()
             },
-            self.name,
+            self.ident.join("::"),
             (&self.ty).fmt()
         )
     }
 }
 
 pub type FuncTyMap = Vec<Rc<Func>>;
-pub type FunctionMap = HashMap<String, RefCell<FuncTyMap>>;
+pub type FunctionMap = HashMap<Vec<String>, RefCell<FuncTyMap>>;
 
 pub fn find_func<'a>(map: RefCell<FuncTyMap>, ty: &FunctionType) -> Option<Weak<Func>> {
     for func in map.borrow().iter() {
@@ -80,8 +83,8 @@ impl Deref for Func {
 }
 
 impl Func {
-    pub fn new(ty: FunctionType, name: String, inner: Function) -> Self {
-        Self { ty, name, inner }
+    pub fn new(ty: FunctionType, ident: Vec<String>, inner: Function) -> Self {
+        Self { ty, ident, inner }
     }
 
     pub fn ty(&self) -> &FunctionType {
@@ -130,7 +133,7 @@ impl Func {
     }
 }
 
-pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
+pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             ty,
@@ -143,16 +146,17 @@ pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
                 .llvm_module
                 .get_or_add_function(&function.mangle(&ctx), ty.llvm_ty_in_ctx(&ctx));
 
+            let name = prefix!(ctx, name.clone());
             let func = Func::new(ty.clone(), name.clone(), func);
             if !export {
-                ctx.dispatch(Message::RegisterFunction(
-                    &name,
+                ctx.dispatch(Message::DeclareFunction(
+                    name,
                     func,
                     FunctionVisibility::Local,
                 ));
             } else {
-                ctx.dispatch(Message::RegisterFunction(
-                    &name,
+                ctx.dispatch(Message::DeclareFunction(
+                    name,
                     func,
                     FunctionVisibility::Export,
                 ));
@@ -163,7 +167,7 @@ pub fn declare_function(ctx: &ModuleContext, function: &Expression) {
 }
 
 pub fn declare_and_compile_function<'ctx>(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     func: &Expression,
 ) -> Option<ValueTypePair> {
     match func {
@@ -242,7 +246,7 @@ pub fn declare_and_compile_function<'ctx>(
     }
 }
 
-pub fn codegen_function(ctx: &ModuleContext, function: &Expression) {
+pub fn codegen_function(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             attributes,
@@ -250,7 +254,7 @@ pub fn codegen_function(ctx: &ModuleContext, function: &Expression) {
             ty,
             ..
         } => {
-            let func = ctx.query(Query::Function((name, ty)));
+            let func = ctx.query(Query::Function((prefix!(ctx), ty)));
 
             if let QueryResponse::Function(Some(func)) = func {
                 let func = func.upgrade().expect("ICE");

@@ -3,6 +3,13 @@ use std::fmt;
 type ModPath = Vec<String>;
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum IdentPath {
+    Local(String),
+    Module(ModPath),
+    Root(ModPath),
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum AST {
     File(Vec<AST>),
     Error,
@@ -49,7 +56,7 @@ pub enum Expression {
         value: Box<Expression>,
     },
     Call {
-        name: String,
+        name: IdentPath,
         types: Vec<PrimitiveType>,
         args: Vec<Expression>,
     },

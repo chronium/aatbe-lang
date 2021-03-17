@@ -1,8 +1,7 @@
-extern fn printf str, ... -> ()
-
-fn world () -> str = "World!\n"
+module test {
+    fn t () -> () = ()
+}
 
 @entry
 fn main () = {
-    printf "Hello %s", world()
 }

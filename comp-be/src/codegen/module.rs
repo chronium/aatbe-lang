@@ -15,7 +15,7 @@ use crate::{
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
-            store_value, ModuleUnit, Slot,
+            store_value, CompilerUnit, Slot,
         },
         CompileError, Scope, ValueTypePair,
     },
@@ -90,7 +90,7 @@ impl AatbeModule {
 
         let root_builder = Builder::new_in_context(self.llvm_context.as_ref());
 
-        ModuleUnit::new(
+        CompilerUnit::new(
             base_cu.path().clone(),
             box main_ast,
             &self.llvm_context,
@@ -117,7 +117,7 @@ impl AatbeModule {
         CompilationUnit::new(path)
     }*/
 
-    pub fn decl_pass(&mut self, root_module: &mut ModuleUnit) {
+    pub fn decl_pass(&mut self, root_module: &mut CompilerUnit) {
 
         /*match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
@@ -588,7 +588,7 @@ impl AatbeModule {
         }*/
     }
 
-    pub fn codegen_pass(&mut self, root_module: &mut ModuleUnit) -> Option<LLVMValueRef> {
+    pub fn codegen_pass(&mut self, root_module: &mut CompilerUnit) -> Option<LLVMValueRef> {
         todo!()
         /*match ast {
             AST::Constant {

@@ -1,8 +1,8 @@
 use parser::ast::Expression;
 
-use crate::codegen::unit::{declare_function, ModuleContext};
+use crate::codegen::unit::{declare_function, CompilerContext};
 
-pub fn decl(expr: &Expression, ctx: &mut ModuleContext) {
+pub fn decl(expr: &Expression, ctx: &mut CompilerContext) {
     match expr {
         Expression::Function { type_names, .. } if type_names.len() == 0 => {
             declare_function(ctx, expr)

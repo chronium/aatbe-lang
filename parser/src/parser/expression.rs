@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Expression, LValue},
+    ast::{AtomKind, BindType, Expression, IdentPath, LValue},
     parser::{ParseError, ParseResult, Parser},
     token::{Keyword, Symbol, Token},
 };
@@ -86,7 +86,11 @@ impl Parser {
         if args.len() < 1 {
             Err(ParseError::ExpectedExpression)
         } else {
-            Ok(Expression::Call { name, types, args })
+            Ok(Expression::Call {
+                name: IdentPath::Local(name),
+                types,
+                args,
+            })
         }
     }
 

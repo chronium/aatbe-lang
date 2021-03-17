@@ -11,8 +11,10 @@ pub use function::{
 pub mod variable;
 pub use variable::{alloc_variable, init_record, store_value};
 
-pub mod module;
-pub use module::{FunctionVisibility, Message, ModuleContext, ModuleUnit, Query, QueryResponse};
+pub mod compiler;
+pub use compiler::{
+    CompilerContext, CompilerUnit, FunctionVisibility, Message, Query, QueryResponse,
+};
 
 pub mod decl;
 pub use decl::decl;

@@ -1,10 +1,10 @@
-use crate::codegen::{unit::ModuleContext, ValueTypePair};
+use crate::codegen::{unit::CompilerContext, ValueTypePair};
 use parser::ast::{FloatSize, IntSize, PrimitiveType};
 
 use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn codegen_float_ops(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -25,7 +25,7 @@ pub fn codegen_float_ops(
 }
 
 pub fn codegen_signed_ops(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -46,7 +46,7 @@ pub fn codegen_signed_ops(
 }
 
 pub fn codegen_unsigned_ops(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,

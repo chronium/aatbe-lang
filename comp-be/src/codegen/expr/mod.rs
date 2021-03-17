@@ -10,7 +10,7 @@ use math::{codegen_float_ops, codegen_signed_ops, codegen_unsigned_ops};
 pub mod const_expr;
 
 use crate::{
-    codegen::{unit::ModuleContext, CompileError, GenRes, ValueTypePair},
+    codegen::{unit::CompilerContext, CompileError, GenRes, ValueTypePair},
     fmt::AatbeFmt,
 };
 use parser::ast::{Expression, FloatSize, IntSize, PrimitiveType};
@@ -18,7 +18,7 @@ use parser::ast::{Expression, FloatSize, IntSize, PrimitiveType};
 use llvm_sys_wrapper::LLVMValueRef;
 
 fn dispatch_bool(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -31,7 +31,7 @@ fn dispatch_bool(
 }
 
 fn dispatch_signed(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -46,7 +46,7 @@ fn dispatch_signed(
 }
 
 fn dispatch_float(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -61,7 +61,7 @@ fn dispatch_float(
 }
 
 fn dispatch_unsigned(
-    ctx: &ModuleContext,
+    ctx: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -76,7 +76,7 @@ fn dispatch_unsigned(
 }
 
 pub fn codegen_binary(
-    module: &mut ModuleContext,
+    module: &mut CompilerContext,
     op: &String,
     lhs_expr: &Expression,
     rhs_expr: &Expression,

@@ -1,10 +1,10 @@
-use crate::codegen::{unit::ModuleContext, ValueTypePair};
+use crate::codegen::{unit::CompilerContext, ValueTypePair};
 use parser::ast::PrimitiveType;
 
 use llvm_sys_wrapper::LLVMValueRef;
 
 pub fn codegen_compare_float(
-    module: &ModuleContext,
+    module: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -23,7 +23,7 @@ pub fn codegen_compare_float(
 }
 
 pub fn codegen_compare_signed(
-    module: &ModuleContext,
+    module: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
@@ -42,7 +42,7 @@ pub fn codegen_compare_signed(
 }
 
 pub fn codegen_compare_unsigned(
-    module: &ModuleContext,
+    module: &CompilerContext,
     op: &String,
     lhs: LLVMValueRef,
     rhs: LLVMValueRef,
