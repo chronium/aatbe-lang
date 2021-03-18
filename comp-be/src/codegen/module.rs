@@ -9,9 +9,7 @@ use std::{
 
 use crate::{
     codegen::{
-        codegen_binary,
         comp_unit::CompilationUnit,
-        expr::const_expr::{const_atom, fold_constant},
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,

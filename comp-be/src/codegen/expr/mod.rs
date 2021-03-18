@@ -1,143 +1,100 @@
-mod eqne;
-use eqne::{codegen_boolean, codegen_eq_ne, codegen_eq_ne_float};
-
-mod compare;
-use compare::{codegen_compare_float, codegen_compare_signed, codegen_compare_unsigned};
-
-mod math;
-use math::{codegen_float_ops, codegen_signed_ops, codegen_unsigned_ops};
-
-pub mod const_expr;
-
 use crate::{
-    codegen::{unit::CompilerContext, CompileError, GenRes, ValueTypePair},
+    codegen::{
+        builder::value,
+        unit::{CompilerContext, Mutability, Slot},
+        AatbeModule, CompileError, ValueTypePair,
+    },
     fmt::AatbeFmt,
+    ty::LLVMTyInCtx,
 };
-use parser::ast::{Expression, FloatSize, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Expression, PrimitiveType, AST};
 
-use llvm_sys_wrapper::LLVMValueRef;
-
-fn dispatch_bool(
-    ctx: &CompilerContext,
-    op: &String,
-    lhs: LLVMValueRef,
-    rhs: LLVMValueRef,
-) -> Option<ValueTypePair> {
-    match op.as_str() {
-        "==" | "!=" => Some(codegen_eq_ne(ctx, op, lhs, rhs)),
-        "&&" | "||" => Some(codegen_boolean(ctx, op, lhs, rhs)),
-        _ => None,
+pub fn const_atom(ctx: &CompilerContext, atom: &AtomKind) -> Option<ValueTypePair> {
+    match atom {
+        AtomKind::StringLiteral(string) => Some(value::str(ctx, string.as_ref())),
+        AtomKind::CharLiteral(ch) => Some(value::char(ctx, *ch)),
+        AtomKind::Cast(box AtomKind::Integer(val, _), PrimitiveType::Char) => {
+            Some(value::char(ctx, *val as u8 as char))
+        }
+        AtomKind::Parenthesized(box atom) => fold_expression(ctx, atom),
+        _ => panic!("ICE fold_atom {:?}", atom),
     }
 }
 
-fn dispatch_signed(
-    ctx: &CompilerContext,
-    op: &String,
-    lhs: LLVMValueRef,
-    rhs: LLVMValueRef,
-    int_size: IntSize,
-) -> Option<ValueTypePair> {
-    match op.as_str() {
-        "+" | "-" | "*" | "/" | "%" => Some(codegen_signed_ops(ctx, op, lhs, rhs, int_size)),
-        ">" | "<" | ">=" | "<=" => Some(codegen_compare_signed(ctx, op, lhs, rhs)),
-        "==" | "!=" => Some(codegen_eq_ne(ctx, op, lhs, rhs)),
-        _ => None,
+fn fold_expression(ctx: &CompilerContext, expr: &Expression) -> Option<ValueTypePair> {
+    match expr {
+        Expression::Atom(atom) => const_atom(ctx, atom),
+        _ => panic!("ICE fold_expression {:?}", expr),
     }
 }
 
-fn dispatch_float(
-    ctx: &CompilerContext,
-    op: &String,
-    lhs: LLVMValueRef,
-    rhs: LLVMValueRef,
-    float_size: FloatSize,
-) -> Option<ValueTypePair> {
-    match op.as_str() {
-        "+" | "-" | "*" | "/" | "%" => Some(codegen_float_ops(ctx, op, lhs, rhs, float_size)),
-        ">" | "<" | ">=" | "<=" => Some(codegen_compare_float(ctx, op, lhs, rhs)),
-        "==" | "!=" => Some(codegen_eq_ne_float(ctx, op, lhs, rhs)),
-        _ => None,
-    }
-}
+pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
+    /*match ast {
+        AST::Global {
+            ty:
+                PrimitiveType::NamedType {
+                    name,
+                    ty: Some(box ty),
+                },
+            value,
+            export: _,
+        } => fold_expression(module, value)
+            .and_then(|val| {
+                if val.prim() != ty.inner() {
+                    module.add_error(CompileError::AssignMismatch {
+                        expected_ty: ty.fmt(),
+                        found_ty: val.prim().fmt(),
+                        value: value.fmt(),
+                        var: name.clone(),
+                    });
 
-fn dispatch_unsigned(
-    ctx: &CompilerContext,
-    op: &String,
-    lhs: LLVMValueRef,
-    rhs: LLVMValueRef,
-    int_size: PrimitiveType,
-) -> Option<ValueTypePair> {
-    match op.as_str() {
-        "+" | "-" | "*" | "/" | "%" => Some(codegen_unsigned_ops(ctx, op, lhs, rhs, int_size)),
-        ">" | "<" | ">=" | "<=" => Some(codegen_compare_unsigned(ctx, op, lhs, rhs)),
-        "==" | "!=" => Some(codegen_eq_ne(ctx, op, lhs, rhs)),
-        _ => None,
-    }
-}
-
-pub fn codegen_binary(
-    module: &mut CompilerContext,
-    op: &String,
-    lhs_expr: &Expression,
-    rhs_expr: &Expression,
-) -> GenRes {
-    todo!()
-    /*let lhs = module.codegen_expr(lhs_expr).ok_or(CompileError::Handled)?;
-    let rhs = module.codegen_expr(rhs_expr).ok_or(CompileError::Handled)?;
-
-    match (lhs.prim(), rhs.prim()) {
-        (PrimitiveType::Bool, PrimitiveType::Bool) => match dispatch_bool(ctx, op, *lhs, *rhs) {
-            Some(res) => Ok(res),
-            None => Err(CompileError::OpMismatch {
-                op: op.clone(),
-                types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                values: (lhs_expr.fmt(), rhs_expr.fmt()),
+                    None
+                } else {
+                    Some(val)
+                }
+            })
+            .map(|val| {
+                let val_ref = module
+                    .llvm_module_ref()
+                    .add_global(ty.llvm_ty_in_ctx(module), name.as_ref());
+                module.llvm_module_ref().set_initializer(val_ref, *val);
+                Slot::Variable {
+                    mutable: Mutability::Global,
+                    name: name.clone(),
+                    ty: val.prim().clone(),
+                    value: val_ref,
+                }
             }),
-        },
-        (PrimitiveType::Char, PrimitiveType::Char) => {
-            match dispatch_unsigned(ctx, op, *lhs, *rhs, PrimitiveType::Char) {
-                Some(res) => Ok(res),
-                None => Err(CompileError::OpMismatch {
-                    op: op.clone(),
-                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
-                }),
-            }
-        }
-        (PrimitiveType::UInt(lsz), PrimitiveType::UInt(rsz)) if lsz == rsz => {
-            match dispatch_unsigned(ctx, op, *lhs, *rhs, PrimitiveType::UInt(lsz.clone())) {
-                Some(res) => Ok(res),
-                None => Err(CompileError::OpMismatch {
-                    op: op.clone(),
-                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
-                }),
-            }
-        }
-        (PrimitiveType::Int(lsz), PrimitiveType::Int(rsz)) if lsz == rsz => {
-            match dispatch_signed(ctx, op, *lhs, *rhs, lsz.clone()) {
-                Some(res) => Ok(res),
-                None => Err(CompileError::OpMismatch {
-                    op: op.clone(),
-                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
-                }),
-            }
-        }
-        (PrimitiveType::Float(lsz), PrimitiveType::Float(rsz)) if lsz == rsz => {
-            match dispatch_float(ctx, op, *lhs, *rhs, lsz.clone()) {
-                Some(res) => Ok(res),
-                None => Err(CompileError::OpMismatch {
-                    op: op.clone(),
-                    types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                    values: (lhs_expr.fmt(), rhs_expr.fmt()),
-                }),
-            }
-        }
-        _ => Err(CompileError::BinaryMismatch {
-            op: op.clone(),
-            types: (lhs.prim().fmt(), rhs.prim().fmt()),
-            values: (lhs_expr.fmt(), rhs_expr.fmt()),
-        }),
+        AST::Constant {
+            ty:
+                PrimitiveType::NamedType {
+                    name,
+                    ty: Some(box ty),
+                },
+            value,
+            export: _,
+        } => fold_expression(module, value)
+            .and_then(|val| {
+                if val.prim() != ty.inner() {
+                    module.add_error(CompileError::AssignMismatch {
+                        expected_ty: ty.fmt(),
+                        found_ty: val.prim().fmt(),
+                        value: value.fmt(),
+                        var: name.clone(),
+                    });
+
+                    None
+                } else {
+                    Some(val)
+                }
+            })
+            .map(|val| Slot::Variable {
+                mutable: Mutability::Constant,
+                name: name.clone(),
+                ty: val.prim().clone(),
+                value: *val,
+            }),
+        _ => unreachable!(),
     }*/
+    todo!("{:?}", ast)
 }

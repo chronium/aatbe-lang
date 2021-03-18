@@ -4,5 +4,5 @@ module libc {
 
 @entry
 fn main () = {
-    libc::printf "Hello World!\n"
+    libc::printf "%d\n", '8' - '0'
 }

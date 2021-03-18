@@ -1,7 +1,6 @@
 use crate::{
     codegen::{
         builder::{cast, core, op, ty},
-        expr::const_expr::const_atom,
         unit::Slot,
         AatbeModule, CompileError, ValueTypePair,
     },
