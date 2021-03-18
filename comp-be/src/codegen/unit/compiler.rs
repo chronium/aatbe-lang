@@ -130,6 +130,7 @@ pub struct CompilerContext<'ctx> {
     pub function_templates: HashMap<String, Expression>,
     dispatch: &'ctx dyn Fn(Message) -> (),
     query: &'ctx dyn Fn(Query) -> QueryResponse,
+    trace: &'ctx dyn Fn(String) -> (),
 }
 
 impl<'ctx> CompilerContext<'ctx> {
@@ -140,6 +141,7 @@ impl<'ctx> CompilerContext<'ctx> {
         llvm_builder: &'ctx Builder,
         dispatch: &'ctx dyn Fn(Message) -> (),
         query: &'ctx dyn Fn(Query) -> QueryResponse,
+        trace: &'ctx dyn Fn(String) -> (),
     ) -> Self
     where
         P: Into<PathBuf>,
@@ -151,6 +153,7 @@ impl<'ctx> CompilerContext<'ctx> {
             llvm_builder,
             dispatch,
             query,
+            trace,
             function_templates: HashMap::new(),
         }
     }
@@ -163,8 +166,13 @@ impl<'ctx> CompilerContext<'ctx> {
             llvm_builder: builder,
             dispatch: self.dispatch,
             query: self.query,
+            trace: self.trace,
             function_templates: HashMap::new(),
         }
+    }
+
+    pub fn trace(&self, message: String) {
+        (self.trace)(message)
     }
 
     pub fn dispatch(&self, message: Message) {
@@ -241,8 +249,6 @@ impl<'ctx> CompilerUnit<'ctx> {
     }
 
     fn enter_anonymous_scope(&self) {
-        print!("{}", "│   ".repeat(*self.ident.borrow()));
-        println!("├── Enter Scope");
         self.scope_stack.borrow_mut().push(Scope::new());
     }
 
@@ -316,7 +322,11 @@ impl<'ctx> CompilerUnit<'ctx> {
                 *self.ident.borrow_mut() += 1;
                 self.restore_module_scope(name.clone())
             }
-            Message::EnterAnonymousScope => self.enter_anonymous_scope(),
+            Message::EnterAnonymousScope => {
+                println!("├── {:?}", message);
+                *self.ident.borrow_mut() += 1;
+                self.enter_anonymous_scope()
+            }
             Message::ExitScope => {
                 println!("└── {:?}", message);
                 *self.ident.borrow_mut() -= 1;
@@ -338,6 +348,11 @@ impl<'ctx> CompilerUnit<'ctx> {
         response
     }
 
+    fn trace(&self, message: String) {
+        print!("{}", "│   ".repeat(*self.ident.borrow()));
+        println!("├── {}", message);
+    }
+
     pub fn push(
         &mut self,
         name: &String,
@@ -354,6 +369,7 @@ impl<'ctx> CompilerUnit<'ctx> {
         let ast = self.ast.clone();
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
+        let trace = &|message: String| self.trace(message);
 
         decl::decl(
             &*ast,
@@ -364,6 +380,7 @@ impl<'ctx> CompilerUnit<'ctx> {
                 root_builder,
                 dispatch,
                 query,
+                trace,
             ),
         );
     }
@@ -372,6 +389,7 @@ impl<'ctx> CompilerUnit<'ctx> {
         let ast = self.ast.clone();
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
+        let trace = &|message: String| self.trace(message);
 
         cg::cg(
             &*ast,
@@ -382,6 +400,7 @@ impl<'ctx> CompilerUnit<'ctx> {
                 root_builder,
                 dispatch,
                 query,
+                trace,
             ),
         )
     }
@@ -428,6 +447,17 @@ macro_rules! prefix {
         {
             prefix.pop();
             prefix.push($name);
+            prefix
+        } else {
+            panic!("PREFIX ICE")
+        }
+    }};
+    (call module $ctx: expr, $name: expr) => {{
+        if let crate::codegen::unit::compiler::QueryResponse::Prefix(mut prefix) =
+            $ctx.query(crate::codegen::unit::compiler::Query::Prefix)
+        {
+            prefix.pop();
+            prefix.extend($name);
             prefix
         } else {
             panic!("PREFIX ICE")

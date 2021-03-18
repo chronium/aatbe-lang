@@ -1,7 +1,8 @@
-module test {
-    fn t () -> () = ()
+module libc {
+    public extern fn printf str, ... -> i32
 }
 
 @entry
 fn main () = {
+    libc::printf "Hello World!\n"
 }

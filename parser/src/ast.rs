@@ -66,7 +66,7 @@ pub enum Expression {
         body: Option<Box<Expression>>,
         attributes: Vec<String>,
         type_names: Vec<String>,
-        export: bool,
+        public: bool,
     },
     If {
         cond_expr: Box<Expression>,

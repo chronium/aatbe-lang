@@ -115,7 +115,7 @@ pub enum Keyword {
     Until,
     Type,
     Is,
-    Exp,
+    Public,
     Module,
 }
 
@@ -254,7 +254,7 @@ impl FromStr for Keyword {
             "until" => Ok(Self::Until),
             "type" => Ok(Self::Type),
             "is" => Ok(Self::Is),
-            "exp" => Ok(Self::Exp),
+            "public" => Ok(Self::Public),
             "module" => Ok(Self::Module),
             _ => Err(()),
         }

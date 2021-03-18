@@ -1,16 +1,18 @@
 use parser::ast::{
-    AtomKind, Boolean, Expression, FloatSize, FunctionType, Ident, IntSize, LValue, PrimitiveType,
+    AtomKind, Boolean, Expression, FloatSize, FunctionType, IdentPath, IntSize, LValue,
+    PrimitiveType,
 };
 
 pub trait AatbeFmt {
     fn fmt(self) -> String;
 }
 
-impl AatbeFmt for &Ident {
+impl AatbeFmt for &IdentPath {
     fn fmt(self) -> String {
         match self {
-            Ident::Local(path) => path.clone(),
-            Ident::Module(path) => todo!("{:?}", path),
+            IdentPath::Local(path) => path.clone(),
+            IdentPath::Module(path) => path.join("::"),
+            IdentPath::Root(path) => format!("::{}", path.join("::")),
         }
     }
 }
@@ -103,7 +105,7 @@ impl AatbeFmt for &PrimitiveType {
 impl AatbeFmt for &AtomKind {
     fn fmt(self) -> String {
         match self {
-            AtomKind::StringLiteral(lit) => format!("\"{}\"", lit),
+            AtomKind::StringLiteral(lit) => format!("{:?}", lit),
             AtomKind::CharLiteral(lit) => format!("{}", lit),
             AtomKind::Integer(val, ty) => format!("{}{}", val, ty.fmt()),
             AtomKind::Floating(val, ty) => format!("{}{}", val, ty.fmt()),
@@ -184,12 +186,12 @@ impl AatbeFmt for &Expression {
             ),
             Expression::Function {
                 name,
-                export,
+                public,
                 ty: ty @ FunctionType { ext, .. },
                 ..
             } => format!(
                 "{}{}fn {}{}",
-                if *export { "exp " } else { "" },
+                if *public { "public " } else { "" },
                 if *ext { "ext " } else { "" },
                 name,
                 ty.fmt(),

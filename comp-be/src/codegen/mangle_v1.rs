@@ -16,7 +16,7 @@ impl NameMangler for Expression {
                 body: _,
                 attributes,
                 type_names,
-                export: _,
+                public: _,
             } => match ty {
                 FunctionType {
                     ext: false,
@@ -26,7 +26,19 @@ impl NameMangler for Expression {
                     if !attributes.contains(&String::from("entry")) {
                         format!(
                             "{}{}{}",
-                            prefix!(ctx, name.clone()).join("__"),
+                            {
+                                let n = prefix!(ctx, name.clone());
+                                if n.len() == 1 {
+                                    n[0].clone()
+                                } else {
+                                    format!(
+                                        "_{}",
+                                        n.iter().fold(String::default(), |prev, curr| {
+                                            format!("{}{}{}", prev, curr.len(), curr)
+                                        })
+                                    )
+                                }
+                            },
                             if type_names.len() > 0 {
                                 format!("G{}", type_names.len())
                             } else {

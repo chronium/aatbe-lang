@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use parser::ast::{AtomKind, Expression, Ident, PrimitiveType};
+use parser::ast::{AtomKind, Expression, IdentPath, PrimitiveType};
 
 use crate::{
     codegen::{
@@ -21,7 +21,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         args,
     } = expr
     {
-        trace!("Call {}", AatbeFmt::fmt(expr));
+        ctx.trace(format!("Call {}", AatbeFmt::fmt(expr)));
         let mut call_types = vec![];
 
         let mut error = false;
@@ -65,25 +65,23 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
             return None;
         }
 
-        if let Ident::Local(name) = name {
-            if let QueryResponse::FunctionGroup(Some(group)) =
-                ctx.query(Query::FunctionGroup(prefix!(call ctx, name.clone())))
-            {
-                if let Some(func) = find_function(group, &call_types) {
-                    Some(core::call(
-                        ctx,
-                        func.upgrade().expect("ICE").borrow(),
-                        &mut call_args,
-                    ))
-                } else {
-                    todo!();
-                }
-            } else {
-                todo!();
+        let prefix = |path: &IdentPath| -> Vec<String> {
+            match path {
+                IdentPath::Local(name) => prefix!(call ctx, name.clone()),
+                IdentPath::Module(name) => prefix!(call module ctx, name.clone()),
+                _ => todo!(),
             }
-        } else {
-            todo!();
-        }
+        };
+
+        find_function(
+            match ctx.query(Query::FunctionGroup(prefix(name))) {
+                QueryResponse::FunctionGroup(Some(group)) => group,
+                QueryResponse::FunctionGroup(None) => todo!("no function found"),
+                _ => panic!("ICE"),
+            },
+            &call_types,
+        )
+        .map(|func| core::call(ctx, func.upgrade().expect("ICE").borrow(), &mut call_args))
     } else {
         unreachable!()
     }

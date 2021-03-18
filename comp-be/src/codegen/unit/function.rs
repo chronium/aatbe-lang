@@ -15,7 +15,6 @@ use crate::{
 };
 use llvm_sys_wrapper::Function;
 use std::{
-    borrow::Borrow,
     cell::RefCell,
     collections::HashMap,
     ops::Deref,
@@ -137,7 +136,7 @@ pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             ty,
-            export,
+            public,
             type_names,
             name,
             ..
@@ -148,7 +147,7 @@ pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
 
             let name = prefix!(ctx, name.clone());
             let func = Func::new(ty.clone(), name.clone(), func);
-            if !export {
+            if !public {
                 ctx.dispatch(Message::DeclareFunction(
                     name,
                     func,

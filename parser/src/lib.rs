@@ -222,7 +222,7 @@ impl Parser {
     }
 
     fn parse_const_global(&mut self) -> ParseResult<AST> {
-        let export = kw!(bool Exp, self);
+        let export = kw!(bool Public, self);
         let cons = kw!(bool Const, self);
         let glob = kw!(bool Global, self);
 
@@ -312,7 +312,7 @@ impl Parser {
             }
         }
 
-        let export = kw!(bool Exp, self);
+        let public = kw!(bool Public, self);
         let ext = kw!(bool Extern, self);
         kw!(Fn, self);
         let name = ident!(required self);
@@ -345,7 +345,7 @@ impl Parser {
             attributes,
             body,
             type_names,
-            export,
+            public,
             ty: FunctionType {
                 ext,
                 ret_ty,

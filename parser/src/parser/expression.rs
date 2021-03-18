@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AtomKind, BindType, Expression, IdentPath, LValue},
+    ast::{AtomKind, BindType, Expression, LValue},
     parser::{ParseError, ParseResult, Parser},
     token::{Keyword, Symbol, Token},
 };
@@ -50,7 +50,7 @@ impl Parser {
     }
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
-        let name = ident!(required self);
+        let name = path!(required self);
 
         let types = if sym!(bool LBracket, self) {
             let types = self.parse_type_list()?;
@@ -86,11 +86,7 @@ impl Parser {
         if args.len() < 1 {
             Err(ParseError::ExpectedExpression)
         } else {
-            Ok(Expression::Call {
-                name: IdentPath::Local(name),
-                types,
-                args,
-            })
+            Ok(Expression::Call { name, types, args })
         }
     }
 
