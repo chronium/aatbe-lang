@@ -2,7 +2,7 @@ use parser::ast::{Expression, FunctionType};
 
 use crate::codegen::{
     unit::{
-        cg::{atom, binary, call},
+        cg::{atom, binary, call, conditional},
         declare_and_compile_function, CompilerContext, Message,
     },
     ValueTypePair,
@@ -10,6 +10,7 @@ use crate::codegen::{
 
 pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     match expr {
+        Expression::If { .. } => conditional::ifelse::cg(expr, ctx),
         Expression::Binary(..) => Some(binary::cg(expr, ctx).ok().expect("todo")),
         Expression::Call { .. } => call::cg(expr, ctx),
         Expression::Atom(atom) => atom::cg(atom, ctx),

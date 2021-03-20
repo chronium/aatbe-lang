@@ -1,12 +1,6 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    path::PathBuf,
-    rc::Weak,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Weak};
 
-use llvm_sys_wrapper::{Builder, Context, LLVMValueRef, Module};
+use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlock, LLVMBasicBlockRef, LLVMValueRef, Module};
 use parser::ast::{Expression, FunctionType, AST};
 
 use crate::{
@@ -18,17 +12,19 @@ use crate::{
     ty::TypeContext,
 };
 
-use super::function::{Func, FuncTyMap};
-
-use log::*;
+use super::{
+    function::{Func, FuncTyMap},
+    Slot,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FunctionVisibility {
     Local,
-    Export,
+    Public,
 }
 
 pub enum Message {
+    PushInScope(String, Slot),
     DeclareFunction(Vec<String>, Func, FunctionVisibility),
     EnterFunctionScope((String, FunctionType)),
     EnterModuleScope(String),
@@ -40,7 +36,12 @@ pub enum Message {
 
 impl std::fmt::Debug for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
+        match &self {
+            Message::PushInScope(name, slot) => f
+                .debug_tuple("PushInScope")
+                .field(name)
+                .field(slot)
+                .finish(),
             Message::DeclareFunction(name, ty, vis) => f
                 .debug_tuple("DeclareFunction")
                 .field(name)
@@ -68,6 +69,7 @@ impl std::fmt::Debug for Message {
 }
 
 pub enum Query<'cmd> {
+    Slot(&'cmd String),
     Function((Vec<String>, &'cmd FunctionType)),
     FunctionGroup(Vec<String>),
     Prefix,
@@ -76,6 +78,7 @@ pub enum Query<'cmd> {
 impl std::fmt::Debug for Query<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Query::Slot(name) => f.debug_tuple("Slot").field(name).finish(),
             Query::Function(func) => f
                 .debug_tuple("Function")
                 .field(&func.0.join("::"))
@@ -88,6 +91,7 @@ impl std::fmt::Debug for Query<'_> {
 }
 
 pub enum QueryResponse {
+    Slot(Option<Slot>),
     Function(Option<Weak<Func>>),
     FunctionGroup(Option<RefCell<FuncTyMap>>),
     Prefix(Vec<String>),
@@ -96,6 +100,7 @@ pub enum QueryResponse {
 impl std::fmt::Debug for QueryResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            QueryResponse::Slot(slot) => f.debug_tuple("Slot").field(slot).finish(),
             QueryResponse::Function(ref func) => f
                 .debug_tuple("Function")
                 .field(
@@ -131,6 +136,7 @@ pub struct CompilerContext<'ctx> {
     dispatch: &'ctx dyn Fn(Message) -> (),
     query: &'ctx dyn Fn(Query) -> QueryResponse,
     trace: &'ctx dyn Fn(String) -> (),
+    basic_block: &'ctx dyn Fn(&str) -> LLVMBasicBlockRef,
 }
 
 impl<'ctx> CompilerContext<'ctx> {
@@ -142,6 +148,7 @@ impl<'ctx> CompilerContext<'ctx> {
         dispatch: &'ctx dyn Fn(Message) -> (),
         query: &'ctx dyn Fn(Query) -> QueryResponse,
         trace: &'ctx dyn Fn(String) -> (),
+        basic_block: &'ctx dyn Fn(&str) -> LLVMBasicBlockRef,
     ) -> Self
     where
         P: Into<PathBuf>,
@@ -154,6 +161,7 @@ impl<'ctx> CompilerContext<'ctx> {
             dispatch,
             query,
             trace,
+            basic_block,
             function_templates: HashMap::new(),
         }
     }
@@ -167,8 +175,13 @@ impl<'ctx> CompilerContext<'ctx> {
             dispatch: self.dispatch,
             query: self.query,
             trace: self.trace,
+            basic_block: self.basic_block,
             function_templates: HashMap::new(),
         }
+    }
+
+    pub fn basic_block(&self, name: &str) -> LLVMBasicBlockRef {
+        (self.basic_block)(name)
     }
 
     pub fn trace(&self, message: String) {
@@ -199,7 +212,7 @@ impl<'ctx> CompilerContext<'ctx> {
 pub struct CompilerUnit<'ctx> {
     modules: HashMap<String, CompilerUnit<'ctx>>,
     ast: Box<AST>,
-    typectx: TypeContext,
+    _typectx: TypeContext,
     llvm_context: &'ctx Context,
     llvm_module: &'ctx Module,
     scope_stack: RefCell<Vec<Scope>>,
@@ -224,7 +237,7 @@ impl<'ctx> CompilerUnit<'ctx> {
             llvm_context,
             llvm_module,
             modules: HashMap::new(),
-            typectx: TypeContext::new(),
+            _typectx: TypeContext::new(),
             scope_stack: RefCell::new(vec![]),
             module_scopes: RefCell::new(HashMap::new()),
             ident: RefCell::new(0),
@@ -253,9 +266,12 @@ impl<'ctx> CompilerUnit<'ctx> {
     }
 
     fn enter_function_scope(&self, func: (String, FunctionType), builder: Builder) {
+        let mut prefix = self.get_prefix();
+        prefix.push(func.0);
+
         self.scope_stack
             .borrow_mut()
-            .push(Scope::with_function(func, builder));
+            .push(Scope::with_function((prefix, func.1), builder));
     }
 
     fn enter_module_scope(&self, name: String) {
@@ -280,6 +296,34 @@ impl<'ctx> CompilerUnit<'ctx> {
         self.scope_stack.borrow_mut().push(scope);
     }
 
+    pub fn push_in_scope(&self, name: &String, unit: Slot) {
+        self.scope_stack
+            .borrow_mut()
+            .last_mut()
+            .expect("Compiler broke. Scope stack is corrupted.")
+            .add_symbol(name, unit);
+    }
+
+    pub fn get_from_scope(&self, name: &String) -> Option<Slot> {
+        for scope in self.scope_stack.borrow().iter().rev() {
+            if let Some(sym) = scope.find_symbol(name) {
+                return Some(sym.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn get_slot(&self, name: &String) -> Option<Slot> {
+        if let Some(slot @ (Slot::Variable { .. } | Slot::FunctionArgument(..))) =
+            self.get_from_scope(name)
+        {
+            Some(slot)
+        } else {
+            None
+        }
+    }
+
     fn exit_scope(&self) {
         self.scope_stack
             .borrow_mut()
@@ -290,6 +334,10 @@ impl<'ctx> CompilerUnit<'ctx> {
     fn dispatch(&self, message: Message) {
         print!("{}", "│   ".repeat(*self.ident.borrow()));
         match message {
+            Message::PushInScope(ref name, ref unit) => {
+                println!("├── {:?}", message);
+                self.push_in_scope(name, unit.clone());
+            }
             Message::DeclareFunction(ref name, ref func, ty) => {
                 println!("├── {:?}", message);
                 let mut scope_stack = self.scope_stack.borrow_mut();
@@ -340,8 +388,9 @@ impl<'ctx> CompilerUnit<'ctx> {
         println!("├── Query {:?}", query);
         let response = match query {
             Query::Function(func) => QueryResponse::Function(self.get_func(func)),
-            Query::FunctionGroup(name) => QueryResponse::FunctionGroup(self.get_func_group(name)),
+            Query::FunctionGroup(name) => QueryResponse::FunctionGroup(self.get_func_group(&name)),
             Query::Prefix => QueryResponse::Prefix(self.get_prefix()),
+            Query::Slot(name) => QueryResponse::Slot(self.get_slot(name)),
         };
         print!("{}", "│   ".repeat(*self.ident.borrow()));
         println!("├── Response {:?}", response);
@@ -370,6 +419,7 @@ impl<'ctx> CompilerUnit<'ctx> {
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
         let trace = &|message: String| self.trace(message);
+        let basic_block = &|name: &str| self.basic_block(name);
 
         decl::decl(
             &*ast,
@@ -381,6 +431,7 @@ impl<'ctx> CompilerUnit<'ctx> {
                 dispatch,
                 query,
                 trace,
+                basic_block,
             ),
         );
     }
@@ -390,6 +441,7 @@ impl<'ctx> CompilerUnit<'ctx> {
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
         let trace = &|message: String| self.trace(message);
+        let basic_block = &|name: &str| self.basic_block(name);
 
         cg::cg(
             &*ast,
@@ -401,11 +453,12 @@ impl<'ctx> CompilerUnit<'ctx> {
                 dispatch,
                 query,
                 trace,
+                basic_block,
             ),
         )
     }
 
-    pub fn get_func_group(&self, name: Vec<String>) -> Option<RefCell<FuncTyMap>> {
+    pub fn get_func_group(&self, name: &Vec<String>) -> Option<RefCell<FuncTyMap>> {
         for scope in self.scope_stack.borrow().iter().rev() {
             if let Some(func) = scope.func_by_name(&name) {
                 return Some(func);
@@ -436,6 +489,16 @@ impl<'ctx> CompilerUnit<'ctx> {
             .map(|s| s.name())
             .filter(|n| n != &String::default())
             .collect::<Vec<_>>()
+    }
+
+    pub fn basic_block(&self, name: &str) -> LLVMBasicBlockRef {
+        for scope in self.scope_stack.borrow().iter().rev() {
+            let bb = scope.bb(self, &name);
+            if let Some(bb) = bb {
+                return bb;
+            }
+        }
+        panic!("Compiler broke. Scope stack is corrupted.");
     }
 }
 

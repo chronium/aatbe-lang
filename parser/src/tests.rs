@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod parser_tests {
+    use crate::ast::AST::Expr;
     use crate::{
         ast::{AtomKind, BindType, Boolean, FunctionType, IdentPath, IntSize, LValue, TypeKind},
         lexer::{token::Token, Lexer},
@@ -435,6 +436,56 @@ fn main () -> () = {
     }
 
     #[test]
+    fn if_else_if() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () = {
+    if true then false
+    else if false then true
+    else if !false then false
+    else false
+}
+",
+            "If Else If chain"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                type_names: vec![],
+                public: false,
+                body: Some(box Expression::Block(vec![Expression::If {
+                    is_expr: false,
+                    cond_expr: box Expression::Atom(AtomKind::Bool(Boolean::True)),
+                    then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
+                    elseif_exprs: vec![
+                        (
+                            Expression::Atom(AtomKind::Bool(Boolean::False)),
+                            Expression::Atom(AtomKind::Bool(Boolean::True))
+                        ),
+                        (
+                            Expression::Atom(AtomKind::Unary(
+                                "!".to_string(),
+                                box AtomKind::Bool(Boolean::False)
+                            ),),
+                            Expression::Atom(AtomKind::Bool(Boolean::False))
+                        )
+                    ],
+                    else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::False))),
+                }])),
+                ty: FunctionType {
+                    ext: false,
+                    ret_ty: box PrimitiveType::Unit,
+                    params: vec![PrimitiveType::Unit],
+                }
+            }),])
+        );
+    }
+
+    #[test]
     fn if_else() {
         let pt = parse_test!(
             "
@@ -480,6 +531,7 @@ fn main () -> () = {
                                 "bar".to_string()
                             ))]
                         }]),
+                        elseif_exprs: vec![],
                         else_expr: Some(box Expression::Block(vec![Expression::Call {
                             name: IdentPath::Local("bar".to_string()),
                             types: vec![],
@@ -503,6 +555,7 @@ fn main () -> () = {
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::Bool(Boolean::True))]
                         },
+                        elseif_exprs: vec![],
                         else_expr: None,
                         is_expr: false,
                     },
@@ -512,6 +565,7 @@ fn main () -> () = {
                             box AtomKind::Bool(Boolean::True)
                         )),
                         then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
+                        elseif_exprs: vec![],
                         else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::True))),
                         is_expr: false,
                     },

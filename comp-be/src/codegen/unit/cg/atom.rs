@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Boolean};
+use parser::ast::{AtomKind, Boolean, PrimitiveType};
 
 use crate::{
     codegen::{
@@ -6,7 +6,7 @@ use crate::{
         expr::const_atom,
         unit::{
             cg::{consts, expr},
-            CompilerContext,
+            CompilerContext, Query, QueryResponse,
         },
         ValueTypePair,
     },
@@ -26,6 +26,20 @@ pub fn cg(atom: &AtomKind, ctx: &CompilerContext) -> Option<ValueTypePair> {
         | AtomKind::Floating(..)
         | AtomKind::Unary(_, box AtomKind::Integer(..))) => consts::numeric::cg(atom, ctx),
         atom @ (AtomKind::StringLiteral(..) | AtomKind::CharLiteral(..)) => const_atom(ctx, atom),
+        AtomKind::Ident(name) => {
+            if let QueryResponse::Slot(slot) = ctx.query(Query::Slot(name)) {
+                let slot = slot?;
+                match slot.var_ty().clone() {
+                    ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
+                        let val: ValueTypePair = slot.into();
+                        Some((*val, ty).into())
+                    }
+                    ty => Some((slot.load_var(ctx.llvm_builder), ty).into()),
+                }
+            } else {
+                panic!("ICE")
+            }
+        }
         _ => todo!("{:?}", atom),
     }
 }

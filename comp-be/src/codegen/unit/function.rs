@@ -7,7 +7,7 @@ use crate::{
             cg::expr, CompilerContext, FunctionVisibility, Message, Mutability, Query,
             QueryResponse, Slot,
         },
-        AatbeModule, CompileError, ValueTypePair,
+        CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     prefix,
@@ -157,7 +157,7 @@ pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
                 ctx.dispatch(Message::DeclareFunction(
                     name,
                     func,
-                    FunctionVisibility::Export,
+                    FunctionVisibility::Public,
                 ));
             }
         }
@@ -178,6 +178,8 @@ pub fn declare_and_compile_function<'ctx>(
             } => None,
             _ => {
                 ctx.in_function_scope((name.clone(), ty.clone()), |ctx| {
+                    inject_function_in_scope(&ctx, func);
+
                     codegen_function(&ctx, func);
 
                     let ret_val = expr::cg(
@@ -196,49 +198,18 @@ pub fn declare_and_compile_function<'ctx>(
                                 _ => core::ret(&ctx, val),
                             };
                         } else {
+                            // TODO: Error
+                            /*
+                                module.add_error(CompileError::ExpectedReturn {
+                                function: func.clone().fmt(),
+                                ty: ty.fmt(),
+                            }) */
                             todo!()
                         }
                     }
 
                     None
                 })
-                /*
-                inject_function_in_scope(module, func);
-                let ret_val = module.codegen_expr(
-                    &body
-                        .as_ref()
-                        .expect("ICE Function with no body but not external"),
-                );
-
-                // TODO: Typechecks
-                if has_return_type(ty) {
-                    if let Some(val) = ret_val {
-                        match val.prim() {
-                            PrimitiveType::VariantType(variant) => {
-                                let parent_ty = module
-                                    .typectx_ref()
-                                    .get_parent_for_variant(variant)
-                                    .expect("ICE: Variant without parent");
-                                let ret_ty = *ty.ret_ty.clone();
-                                core::ret(
-                                    module,
-                                    (cast::child_to_parent(module, val, parent_ty), ret_ty)
-                                        .into(),
-                                )
-                            }
-                            _ => core::ret(module, val),
-                        };
-                    } else {
-                        module.add_error(CompileError::ExpectedReturn {
-                            function: func.clone().fmt(),
-                            ty: ty.fmt(),
-                        })
-                    }
-                } else {
-                    core::ret_void(module);
-                }
-
-                module.exit_scope();*/
             }
         },
         _ => unreachable!(),
@@ -274,9 +245,8 @@ pub fn codegen_function(ctx: &CompilerContext, function: &Expression) {
     }
 }
 
-pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
-    todo!()
-    /*match function {
+pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
+    match function {
         Expression::Function {
             name: fname, ty, ..
         } => {
@@ -305,7 +275,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                         | box PrimitiveType::Array { .. },
                                     ),
                             } => {
-                                let arg = module
+                                /*let arg = module
                                     .get_func((fname.clone(), fty.clone()))
                                     .expect("Compiler borked. Functions borked")
                                     .get_param(pos as u32);
@@ -326,22 +296,25 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                         ty: ty.clone(),
                                         value: ptr,
                                     },
-                                );
+                                );*/
+                                todo!()
                             }
                             PrimitiveType::NamedType {
                                 name,
                                 ty: Some(box PrimitiveType::Ref(ty) | ty),
                             } => {
-                                module.push_in_scope(
-                                    name,
-                                    Slot::FunctionArgument(
-                                        module
-                                            .get_func((fname.clone(), fty.clone()))
-                                            .expect("Compiler borked. Functions borked")
-                                            .get_param(pos as u32),
-                                        *ty.clone(),
-                                    ),
-                                );
+                                if let QueryResponse::Function(Some(func)) =
+                                    ctx.query(Query::Function((prefix!(ctx), fty)))
+                                {
+                                    let func = func.upgrade().expect("ICE");
+                                    ctx.dispatch(Message::PushInScope(
+                                        name.clone(),
+                                        Slot::FunctionArgument(
+                                            func.get_param(pos as u32),
+                                            *ty.clone(),
+                                        ),
+                                    ))
+                                }
                             }
                             PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
                             _ => unimplemented!("{:?}", ty),
@@ -352,7 +325,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
             };
         }
         _ => unreachable!(),
-    }*/
+    }
 }
 
 fn has_return_type(func: &FunctionType) -> bool {

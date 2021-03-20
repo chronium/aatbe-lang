@@ -65,6 +65,20 @@ impl Into<ValueTypePair> for &Slot {
     }
 }
 
+impl Into<ValueTypePair> for Slot {
+    fn into(self) -> ValueTypePair {
+        match self {
+            Slot::FunctionArgument(arg, ty) => (arg, ty).into(),
+            Slot::Variable {
+                mutable: _,
+                name: _,
+                ty,
+                value,
+            } => (value, ty).into(),
+        }
+    }
+}
+
 impl Into<LLVMValueRef> for &Slot {
     fn into(self) -> LLVMValueRef {
         match self {

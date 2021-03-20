@@ -165,17 +165,6 @@ impl AatbeModule {
                         .into(),
                 )
             }
-            AtomKind::Ident(name) => {
-                let var_ref = self.get_var(name)?;
-
-                match var_ref.var_ty() {
-                    ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
-                        let val: ValueTypePair = var_ref.into();
-                        Some((*val, ty).into())
-                    }
-                    ty => Some((var_ref.load_var(self.llvm_builder_ref()), ty).into()),
-                }
-            }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
                 let var_ref = self.get_var(name)?;
 

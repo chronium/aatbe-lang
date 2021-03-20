@@ -96,11 +96,16 @@ fn resolve_expr(variants: &Vec<String>, ast: &Expression) -> Expression {
         Expression::If {
             is_expr,
             cond_expr: box cond_expr,
+            elseif_exprs,
             else_expr,
             then_expr: box then_expr,
         } => Expression::If {
             is_expr: *is_expr,
             cond_expr: box resolve_expr(variants, cond_expr),
+            elseif_exprs: elseif_exprs
+                .iter()
+                .map(|(cond, block)| (resolve_expr(variants, cond), resolve_expr(variants, block)))
+                .collect(),
             else_expr: else_expr
                 .as_ref()
                 .map(|box ex| box resolve_expr(variants, &ex)),

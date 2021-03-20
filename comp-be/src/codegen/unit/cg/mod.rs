@@ -6,6 +6,7 @@ use super::{CompilerContext, Message};
 pub mod atom;
 pub mod binary;
 pub mod call;
+pub mod conditional;
 pub mod consts;
 pub mod expr;
 

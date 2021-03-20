@@ -71,6 +71,7 @@ pub enum Expression {
     If {
         cond_expr: Box<Expression>,
         then_expr: Box<Expression>,
+        elseif_exprs: Vec<(Expression, Expression)>,
         else_expr: Option<Box<Expression>>,
         is_expr: bool,
     },

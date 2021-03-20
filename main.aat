@@ -4,5 +4,7 @@ module libc {
 
 @entry
 fn main () = {
-    libc::printf "%d\n", '8' - '0'
+    if false then libc::printf "true\n"
+    else if true then libc::printf "false\n"
+    else libc::printf "wtf\n"
 }

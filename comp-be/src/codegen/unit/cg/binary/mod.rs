@@ -76,12 +76,11 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> GenRes {
                     }),
                 }
             }
-            _ => todo!("{:?} {} {:?}", lh, op, rh),
-            /*_ => Err(CompileError::BinaryMismatch {
+            _ => Err(CompileError::BinaryMismatch {
                 op: op.clone(),
                 types: (lhs.prim().fmt(), rhs.prim().fmt()),
-                values: (lhs_expr.fmt(), rhs_expr.fmt()),
-            }),*/
+                values: (lh.fmt(), rh.fmt()),
+            }),
         }
     } else {
         panic!("ICE")

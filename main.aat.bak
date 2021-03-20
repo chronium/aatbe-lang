@@ -1,3 +1,7 @@
+module libc {
+    public extern fn printf str, ... -> i32
+}
+
 fn test() -> () = ()
 
 @entry

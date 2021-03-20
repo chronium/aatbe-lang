@@ -1,9 +1,6 @@
-use crate::codegen::{
-    unit::{
-        function::{find_func, Func, FuncTyMap, FunctionMap},
-        Slot,
-    },
-    AatbeModule,
+use crate::codegen::unit::{
+    function::{find_func, Func, FuncTyMap, FunctionMap},
+    CompilerUnit, Slot,
 };
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
@@ -15,7 +12,7 @@ pub struct Scope {
     refs: HashMap<String, Slot>,
     functions: FunctionMap,
     name: String,
-    function: Option<(String, FunctionType)>,
+    function: Option<(Vec<String>, FunctionType)>,
     fdir: Option<PathBuf>,
 }
 
@@ -59,11 +56,11 @@ impl Scope {
             fdir: Some(fdir.into()),
         }
     }
-    pub fn with_function(func: (String, FunctionType), builder: Builder) -> Self {
+    pub fn with_function(func: (Vec<String>, FunctionType), builder: Builder) -> Self {
         Self {
             refs: HashMap::new(),
             functions: HashMap::new(),
-            name: func.0.clone(),
+            name: func.0.join("::"),
             function: Some(func),
             fdir: None,
         }
@@ -91,7 +88,7 @@ impl Scope {
     pub fn add_symbol(&mut self, name: &String, unit: Slot) {
         self.refs.insert(name.clone(), unit);
     }
-    pub fn function(&self) -> Option<(String, FunctionType)> {
+    pub fn function(&self) -> Option<(Vec<String>, FunctionType)> {
         self.function.clone()
     }
     pub fn fdir(&self) -> Option<PathBuf> {
@@ -102,15 +99,17 @@ impl Scope {
         self.name.clone()
     }
 
-    /*pub fn bb(&self, module: &AatbeModule, name: &String) -> Option<LLVMBasicBlockRef> {
+    pub fn bb(&self, module: &CompilerUnit, name: &str) -> Option<LLVMBasicBlockRef> {
         let func = self.function.as_ref()?;
 
         Some(
             find_func(module.get_func_group(&func.0)?, &func.1)
                 .unwrap()
-                .append_basic_block(name.as_ref()),
+                .upgrade()
+                .expect("ICE")
+                .append_basic_block(name),
         )
-    }*/
+    }
 }
 
 /* TODO: Implement local dropping
