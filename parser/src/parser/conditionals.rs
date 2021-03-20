@@ -8,7 +8,6 @@ impl Parser {
     pub fn parse_if_else(&mut self) -> ParseResult<Expression> {
         kw!(If, self);
 
-        let is_expr = kw!(bool Ret, self);
         let cond_expr =
             box capture!(self, parse_expression).ok_or(ParseError::ExpectedCondition)?;
         kw!(bool Then, self);
@@ -42,7 +41,6 @@ impl Parser {
             then_expr,
             elseif_exprs: chain,
             else_expr,
-            is_expr,
         })
     }
 

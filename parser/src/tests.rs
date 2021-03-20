@@ -458,7 +458,6 @@ fn main () = {
                 type_names: vec![],
                 public: false,
                 body: Some(box Expression::Block(vec![Expression::If {
-                    is_expr: false,
                     cond_expr: box Expression::Atom(AtomKind::Bool(Boolean::True)),
                     then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
                     elseif_exprs: vec![
@@ -539,7 +538,6 @@ fn main () -> () = {
                                 "foo".to_string()
                             ))]
                         }])),
-                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -557,7 +555,6 @@ fn main () -> () = {
                         },
                         elseif_exprs: vec![],
                         else_expr: None,
-                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -567,7 +564,6 @@ fn main () -> () = {
                         then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
                         elseif_exprs: vec![],
                         else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::True))),
-                        is_expr: false,
                     },
                 ])),
                 ty: FunctionType {

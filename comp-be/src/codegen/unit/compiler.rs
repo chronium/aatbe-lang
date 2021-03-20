@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Weak};
 
-use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlock, LLVMBasicBlockRef, LLVMValueRef, Module};
+use llvm_sys_wrapper::{Builder, Context, LLVMBasicBlockRef, LLVMValueRef, Module};
 use parser::ast::{Expression, FunctionType, AST};
 
 use crate::{
@@ -30,6 +30,9 @@ pub enum Message {
     EnterModuleScope(String),
     ExitModuleScope(String),
     RestoreModuleScope(String),
+    EnterIfScope(String),
+    EnterElseIfScope(String),
+    EnterElseScope,
     EnterAnonymousScope,
     ExitScope,
 }
@@ -62,6 +65,11 @@ impl std::fmt::Debug for Message {
             Message::RestoreModuleScope(name) => {
                 f.debug_tuple("RestoreModuleScope").field(&name).finish()
             }
+            Message::EnterIfScope(cond) => f.debug_tuple("EnterIfScope").field(cond).finish(),
+            Message::EnterElseIfScope(cond) => {
+                f.debug_tuple("EnterElseIfScope").field(cond).finish()
+            }
+            Message::EnterElseScope => write!(f, "EnterElseScope"),
             Message::EnterAnonymousScope => write!(f, "EnterAnonymousScope"),
             Message::ExitScope => write!(f, "ExitScope"),
         }
@@ -369,6 +377,21 @@ impl<'ctx> CompilerUnit<'ctx> {
                 println!("├── {:?}", message);
                 *self.ident.borrow_mut() += 1;
                 self.restore_module_scope(name.clone())
+            }
+            Message::EnterIfScope(_) => {
+                println!("├── {:?}", message);
+                *self.ident.borrow_mut() += 1;
+                self.enter_anonymous_scope()
+            }
+            Message::EnterElseIfScope(_) => {
+                println!("├── {:?}", message);
+                *self.ident.borrow_mut() += 1;
+                self.enter_anonymous_scope()
+            }
+            Message::EnterElseScope => {
+                println!("├── {:?}", message);
+                *self.ident.borrow_mut() += 1;
+                self.enter_anonymous_scope()
             }
             Message::EnterAnonymousScope => {
                 println!("├── {:?}", message);

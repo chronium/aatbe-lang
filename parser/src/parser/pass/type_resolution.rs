@@ -94,13 +94,11 @@ fn resolve_expr(variants: &Vec<String>, ast: &Expression) -> Expression {
             value: box resolve_expr(variants, value),
         },
         Expression::If {
-            is_expr,
             cond_expr: box cond_expr,
             elseif_exprs,
             else_expr,
             then_expr: box then_expr,
         } => Expression::If {
-            is_expr: *is_expr,
             cond_expr: box resolve_expr(variants, cond_expr),
             elseif_exprs: elseif_exprs
                 .iter()

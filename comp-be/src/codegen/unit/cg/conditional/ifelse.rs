@@ -1,9 +1,13 @@
-use crate::codegen::{
-    builder::{branch, core},
-    unit::{cg::expr, CompilerContext, Message},
-    ValueTypePair,
+use crate::{
+    codegen::{
+        builder::{branch, core},
+        unit::{cg::expr, CompilerContext, Message},
+        ValueTypePair,
+    },
+    fmt::AatbeFmt,
+    ty::LLVMTyInCtx,
 };
-use llvm_sys_wrapper::LLVMBasicBlockRef;
+use llvm_sys_wrapper::{LLVMBasicBlockRef, Phi};
 use parser::ast::{Expression, PrimitiveType};
 
 pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
@@ -12,13 +16,8 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         then_expr,
         elseif_exprs,
         else_expr,
-        is_expr,
     } = expr
     {
-        if *is_expr {
-            todo!("If ret");
-        }
-
         let then_bb = ctx.basic_block("then");
         let elseif_bbs = elseif_exprs
             .iter()
@@ -35,11 +34,16 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         let else_bb = else_expr.as_ref().map(|_| ctx.basic_block("else"));
         let end_bb = ctx.basic_block("end");
 
-        ctx.dispatch(Message::EnterAnonymousScope);
-        ctx.trace(format!("If {:?}", cond_expr));
+        ctx.dispatch(Message::EnterIfScope(cond_expr.fmt()));
         let cond = expr::cg(cond_expr, ctx)?;
 
         if *cond.prim().inner() != PrimitiveType::Bool {
+            /*
+            self.add_error(CompileError::ExpectedType {
+                expected_ty: PrimitiveType::Bool.fmt(),
+                found_ty: cond.prim().fmt(),
+                value: cond_expr.fmt(),
+            }); */
             todo!("NOT A BOOL");
         }
 
@@ -52,43 +56,113 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
 
         branch::cond_branch(ctx, *cond, then_bb, next_bb(0));
 
+        core::pos_at_end(ctx, then_bb);
+        let then_val = expr::cg(then_expr, ctx)?;
+
+        ctx.dispatch(Message::ExitScope);
+
         let elseif_vals = elseif_bbs
             .iter()
             .enumerate()
             .map(|(i, ((bb_cond, bb_body), (cond, expr)))| {
-                ctx.trace(format!("Else If {:?}", cond));
+                ctx.dispatch(Message::EnterElseIfScope(cond.fmt()));
                 core::pos_at_end(ctx, *bb_cond);
 
                 let cond = expr::cg(cond, ctx)?;
+
+                if *cond.prim().inner() != PrimitiveType::Bool {
+                    /*
+                    self.add_error(CompileError::ExpectedType {
+                        expected_ty: PrimitiveType::Bool.fmt(),
+                        found_ty: cond.prim().fmt(),
+                        value: cond_expr.fmt(),
+                    }); */
+                    todo!("NOT A BOOL");
+                }
+
                 branch::cond_branch(ctx, *cond, *bb_body, next_bb(i + 1));
 
                 core::pos_at_end(ctx, *bb_body);
                 let val = expr::cg(expr, ctx);
                 branch::branch(ctx, end_bb);
+                ctx.dispatch(Message::ExitScope);
 
                 val
             })
             .collect::<Vec<_>>();
 
         core::pos_at_end(ctx, then_bb);
-        let then_val = expr::cg(then_expr, ctx);
 
         let else_val = else_bb
             .map(|bb| {
-                ctx.trace("Else".to_string());
+                ctx.dispatch(Message::EnterElseScope);
                 branch::branch(ctx, end_bb);
                 core::pos_at_end(ctx, bb);
 
-                else_expr.as_ref().and_then(|expr| expr::cg(&expr, ctx))
+                let res = else_expr.as_ref().and_then(|expr| expr::cg(&expr, ctx));
+                ctx.dispatch(Message::ExitScope);
+                res
             })
             .flatten();
-
-        ctx.dispatch(Message::ExitScope);
 
         branch::branch(ctx, end_bb);
 
         core::pos_at_end(ctx, end_bb);
-        None
+
+        let ty = then_val.prim().inner().clone();
+        let mut values = vec![*then_val];
+        let mut blocks = vec![then_bb];
+
+        // Else If type failed to compile
+        if elseif_vals.len() != 0 && elseif_vals.iter().any(|v| v.is_none()) {
+            // TODO: Error
+            return None;
+        } else {
+            let velseif = elseif_vals
+                .iter()
+                .map(|e| e.as_ref().unwrap())
+                .collect::<Vec<_>>();
+
+            // Else If types do not match if type
+            if !velseif
+                .iter()
+                .fold(true, |a, b| a && b.prim().inner() == &ty)
+            {
+                // TODO: Error
+                return None;
+            } else {
+                for (i, val) in velseif.iter().enumerate() {
+                    values.push(***val);
+                    blocks.push(elseif_bbs[i].0 .1);
+                }
+            }
+        }
+
+        // Else type does not match if type
+        if else_val
+            .as_ref()
+            .map(|v| v.prim().inner().clone())
+            .unwrap_or(ty.clone())
+            != ty
+        {
+            // TODO: Error
+            return None;
+        } else if let Some(velse) = else_val {
+            values.push(*velse);
+            blocks.push(else_bb.unwrap());
+        }
+
+        match values.len() {
+            0 => None,
+            1 => Some(then_val),
+            _ => {
+                let phi = Phi::new(ctx.llvm_builder.as_ref(), ty.llvm_ty_in_ctx(ctx), "");
+
+                phi.add_incomings(&mut values, &mut blocks);
+
+                Some((phi.as_ref(), ty).into())
+            }
+        }
     } else {
         panic!("ICE")
     }
