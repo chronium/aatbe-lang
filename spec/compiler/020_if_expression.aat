@@ -1,9 +1,9 @@
-// spector:name If/Else expressions using `if ret`
+// spector:name If/Else expressions
 
 extern fn puts str -> i32
 
 fn should_return b: bool -> str =
-    if ret b then "true"
+    if b then "true"
     else "false"
 
 @entry

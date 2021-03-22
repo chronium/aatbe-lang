@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{builder::core, unit::CompilerContext, ValueTypePair},
+    codegen::{builder::base, unit::CompilerContext, ValueTypePair},
     ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 
@@ -64,7 +64,7 @@ impl Aggregate for Variant {
                 Err(TypeError::VariantOOB(self.name.clone(), index))
             }
             Some(types) => Ok((
-                core::struct_gep(ctx, aggregate_ref, index + 1),
+                base::struct_gep(ctx, aggregate_ref, index + 1),
                 types[index as usize].clone(),
             )
                 .into()),

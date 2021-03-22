@@ -3,11 +3,13 @@ use parser::ast::AST;
 
 use super::{CompilerContext, Message};
 
+pub mod assign;
 pub mod atom;
 pub mod binary;
 pub mod call;
 pub mod conditional;
 pub mod consts;
+pub mod decl;
 pub mod expr;
 
 pub fn cg(ast: &AST, ctx: &CompilerContext) -> Option<LLVMValueRef> {

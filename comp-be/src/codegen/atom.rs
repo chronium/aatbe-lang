@@ -1,6 +1,6 @@
 use crate::{
     codegen::{
-        builder::{cast, core, op, ty},
+        builder::{base, cast, op, ty},
         unit::Slot,
         AatbeModule, CompileError, ValueTypePair,
     },

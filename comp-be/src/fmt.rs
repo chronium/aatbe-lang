@@ -196,6 +196,10 @@ impl AatbeFmt for &Expression {
                 name,
                 ty.fmt(),
             ),
+            Expression::Assign {
+                lval,
+                value: box value,
+            } => format!("{} = {}", lval.fmt(), value.fmt()),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

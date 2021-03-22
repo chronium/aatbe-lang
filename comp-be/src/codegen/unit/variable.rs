@@ -1,13 +1,15 @@
 use crate::ty::infer::infer_type;
 use crate::{
     codegen::{
-        unit::{Mutability, Slot},
+        builder::{base, value},
+        unit::{cg::expr, CompilerContext, Message, Mutability, Query, QueryResponse, Slot},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::{record::store_named_field, LLVMTyInCtx, TypeKind},
 };
 
+use guard::guard;
 use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
 
 macro_rules! rec_name {
@@ -31,25 +33,26 @@ macro_rules! rec_name {
     }};
 }
 
-pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option<PrimitiveType> {
+pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<PrimitiveType> {
     match variable {
         Expression::Decl {
             ty: PrimitiveType::NamedType { name, ty },
             value,
             exterior_bind,
         } => {
-            /*let mut vtp = None;
+            let mut vtp = None;
             let ty = match ty {
                 Some(ty) => match ty {
                     box PrimitiveType::GenericTypeRef(name, types) => {
-                        let rec = rec_name!(name.clone(), types);
+                        /*let rec = rec_name!(name.clone(), types);
                         if !module.typectx_ref().get_record(&rec).is_ok() {
                             module.propagate_types_in_record(name, types.clone());
                         }
-                        PrimitiveType::TypeRef(rec.clone())
+                        PrimitiveType::TypeRef(rec.clone())*/
+                        todo!()
                     }
                     box PrimitiveType::VariantType(_) => {
-                        if let Some(e) = value {
+                        /*if let Some(e) = value {
                             let pair = module.codegen_expr(e)?;
 
                             let ty = pair.prim().clone();
@@ -57,7 +60,8 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                             ty
                         } else {
                             unreachable!();
-                        }
+                        }*/
+                        todo!()
                     }
                     _ => *ty.clone(),
                 },
@@ -69,7 +73,7 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                             values: _,
                         } = e
                         {
-                            let rec = rec_name!(record.clone(), types);
+                            /*let rec = rec_name!(record.clone(), types);
                             if types.len() == 0 {
                                 PrimitiveType::TypeRef(rec.clone())
                             } else {
@@ -78,9 +82,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                                 }
 
                                 PrimitiveType::TypeRef(rec.clone())
-                            }
+                            }*/
+                            todo!()
                         } else {
-                            let pair = module.codegen_expr(e)?;
+                            let pair = expr::cg(e, ctx)?;
 
                             let ty = pair.prim().clone();
                             vtp = Some(pair);
@@ -90,10 +95,10 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         unreachable!();
                     }
                 }
-            };*/
+            };
 
-            /*if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
-                module.push_in_scope(
+            if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
+                /*module.push_in_scope(
                     name,
                     Slot::Variable {
                         mutable: Mutability::from(exterior_bind),
@@ -102,68 +107,54 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                         value: *vtp.unwrap(),
                     },
                 );
-                return Some(ty.clone());
-            }*/
+                return Some(ty.clone());*/
+                todo!()
+            }
 
-            todo!();
+            if value.is_none() {
+                let val_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), name.as_ref());
 
-            /*if value.is_none() {
-                let ty = ty.as_ref().expect("ICE: Ty none for none value");
-                let val_ref = module.llvm_builder_ref().build_alloca_with_name(
-                    todo!(), /*ty.llvm_ty_in_ctx(module)*/
-                    name.as_ref(),
-                );
-
-                module.push_in_scope(
-                    name,
+                ctx.dispatch(Message::PushInScope(
+                    name.clone(),
                     Slot::Variable {
                         mutable: Mutability::from(exterior_bind),
                         name: name.clone(),
-                        ty: *ty.clone(),
+                        ty: ty.clone(),
                         value: val_ref,
                     },
-                );
+                ));
 
-                return Some(*ty.clone());
-            }*/
+                return Some(ty);
+            }
 
             // TODO: Variants, generic records
-            let ty = infer_type(
-                module,
-                &*(value.as_ref().expect("ICE: Value cannot be none")),
-            );
+            let ty = infer_type(ctx, &*(value.as_ref().expect("ICE: Value cannot be none")));
 
             if ty.is_none() {
                 panic!("ICE: ty is none {:?} value", value);
             }
             let (ty, constant) = ty.unwrap();
-            /*
-            let var_ref = module
-                .llvm_builder_ref()
-                .build_alloca_with_name(todo!() /*ty.llvm_ty_in_ctx(module)*/, name.as_ref());*/
 
-            todo!();
-            /*
-            module.push_in_scope(
-                name,
+            let var_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), name.as_ref());
+
+            ctx.dispatch(Message::PushInScope(
+                name.clone(),
                 Slot::Variable {
                     mutable: Mutability::from(exterior_bind),
                     name: name.clone(),
                     ty: ty.clone(),
                     value: var_ref,
                 },
-            );
-            */
+            ));
 
-            todo!()
-            /*if let Some(e) = value {
+            if let Some(e) = value {
                 if let box Expression::RecordInit {
                     record,
                     types,
                     values,
                 } = e
                 {
-                    if ty.inner() != &PrimitiveType::TypeRef(rec_name!(record.clone(), types)) {
+                    /*if ty.inner() != &PrimitiveType::TypeRef(rec_name!(record.clone(), types)) {
                         module.add_error(CompileError::ExpectedType {
                             expected_ty: ty.inner().fmt(),
                             found_ty: record.clone(),
@@ -178,11 +169,12 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                             types: types.clone(),
                             values: values.to_vec(),
                         },
-                    );
+                    );*/
+                    todo!()
                 } else {
                     match ty.clone() {
                         PrimitiveType::Array { ref ty, len } if !constant => {
-                            if let box Expression::Atom(AtomKind::Array(exprs)) = e {
+                            /*if let box Expression::Atom(AtomKind::Array(exprs)) = e {
                                 let vals = exprs
                                     .iter()
                                     .filter_map(|e| module.codegen_expr(e))
@@ -214,25 +206,27 @@ pub fn alloc_variable(module: &mut AatbeModule, variable: &Expression) -> Option
                                 });
                             } else {
                                 panic!("ICE: arr ty not arr val");
-                            }
+                            }*/
+                            todo!()
                         }
                         _ => {
-                            let val = module.codegen_expr(e)?;
+                            let val = expr::cg(e, ctx)?;
 
                             if val.prim() != ty.inner() {
-                                module.add_error(CompileError::ExpectedType {
+                                /*module.add_error(CompileError::ExpectedType {
                                     expected_ty: ty.inner().fmt(),
                                     found_ty: val.prim().fmt(),
                                     value: value.as_ref().unwrap().fmt(),
-                                });
+                                });*/
+                                todo!("Error")
                             };
 
-                            module.llvm_builder_ref().build_store(*val, var_ref);
+                            base::store(ctx, *val, var_ref);
                         }
                     };
                 }
-            }*/
-            //Some(ty.clone())
+            }
+            Some(ty.clone())
         }
         _ => unreachable!(),
     }
@@ -337,61 +331,65 @@ pub fn init_record(
 }
 
 pub fn store_value(
-    module: &mut AatbeModule,
+    ctx: &CompilerContext,
     lval: &LValue,
     value: &Expression,
 ) -> Option<ValueTypePair> {
-    fn get_lval(module: &mut AatbeModule, lvalue: &LValue) -> Option<ValueTypePair> {
-        todo!()
-        /*match lvalue {
-            LValue::Ident(name) => match module.get_var(name) {
-                None => panic!("Cannot find variable {}", name),
-                Some(var) => {
-                    match var.get_mutability() {
-                        Mutability::Mutable | Mutability::Global => {}
-                        _ => panic!("Cannot reassign to immutable/constant {}", name),
-                    };
-                    Some(var.into())
-                }
-            },
-            LValue::Accessor(parts) => Some(module.get_interior_pointer(parts.clone())?),
+    fn get_lval(ctx: &CompilerContext, lvalue: &LValue) -> Option<ValueTypePair> {
+        match lvalue {
+            LValue::Ident(name) => {
+                guard!(let QueryResponse::Slot(Some(slot)) = ctx.query(Query::Slot(name)) else { panic!("Cannot find variable {}", name) });
+                match slot.get_mutability() {
+                    Mutability::Mutable | Mutability::Global => {}
+                    _ => panic!("Cannot reassign to immutable/constant {}", name),
+                };
+                Some(slot.into())
+            }
+            LValue::Accessor(parts) => todo!(), //Some(module.get_interior_pointer(parts.clone())?),
             LValue::Deref(_) => unimplemented!("{:?}", lvalue),
             LValue::Index(lval, index) => {
-                let val = get_lval(module, lval);
-                let index = module.codegen_expr(index).expect("ICE store_value index");
+                let val = get_lval(ctx, lval);
+                let index = expr::cg(index, ctx)?;
 
                 if let Some(val) = val {
                     match val.ty() {
-                        TypeKind::Primitive(PrimitiveType::Str) => {
-                            let load = module.llvm_builder_ref().build_load(*val);
-                            let gep = module
-                                .llvm_builder_ref()
-                                .build_inbounds_gep(load, &mut [*index]);
-
-                            Some((gep, PrimitiveType::Char).into())
-                        }
-                        TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
-                            let gep = module.llvm_builder_ref().build_inbounds_gep(
-                                *val,
-                                &mut [module.llvm_context_ref().SInt32(0), *index],
-                            );
-
-                            Some((gep, ty).into())
-                        }
-                        TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => {
-                            let arr = module.llvm_builder_ref().build_struct_gep(*val, 0);
-                            let gep = module.llvm_builder_ref().build_inbounds_gep(
-                                module.llvm_builder_ref().build_load(arr),
-                                &mut [module.llvm_context_ref().SInt32(0), *index],
-                            );
-
-                            Some((gep, ty).into())
-                        }
+                        TypeKind::Primitive(PrimitiveType::Str) => Some(
+                            (
+                                base::inbounds_gep(ctx, base::load(ctx, *val), &mut vec![*index]),
+                                PrimitiveType::Char,
+                            )
+                                .into(),
+                        ),
+                        TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => Some(
+                            (
+                                base::inbounds_gep(
+                                    ctx,
+                                    *val,
+                                    &mut vec![*value::s32(ctx, 0), *index],
+                                ),
+                                ty,
+                            )
+                                .into(),
+                        ),
+                        TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => Some(
+                            (
+                                base::inbounds_gep(
+                                    ctx,
+                                    base::load(ctx, base::struct_gep(ctx, *val, 0)),
+                                    &mut vec![*value::s32(ctx, 0), *index],
+                                ),
+                                ty,
+                            )
+                                .into(),
+                        ),
                         _ => {
+                            // TODO: Error
+                            /*
                             module.add_error(CompileError::NotIndexable {
                                 ty: val.prim().fmt(),
                                 lval: lvalue.fmt(),
-                            });
+                            });*/
+                            todo!();
                             None
                         }
                     }
@@ -399,23 +397,24 @@ pub fn store_value(
                     None
                 }
             }
-        }*/
+        }
     }
 
-    todo!()
-    /*get_lval(module, lval).and_then(|var| {
-        let val = module.codegen_expr(value)?;
+    get_lval(ctx, lval).and_then(|var| {
+        let val = expr::cg(value, ctx)?;
         if var.prim() != val.prim().inner() {
-            module.add_error(CompileError::AssignMismatch {
+            // TODO: Error
+            todo!("ERROR");
+            /*module.add_error(CompileError::AssignMismatch {
                 expected_ty: var.prim().fmt(),
                 found_ty: val.prim().fmt(),
                 value: value.fmt(),
                 var: lval.fmt(),
-            });
+            });*/
 
             None
         } else {
-            Some((module.llvm_builder_ref().build_store(*val, *var), var.ty()).into())
+            Some((base::store(ctx, *val, *var), var.ty()).into())
         }
-    })*/
+    })
 }

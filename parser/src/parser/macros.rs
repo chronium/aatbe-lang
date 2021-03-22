@@ -113,13 +113,24 @@ macro_rules! kw {
 #[macro_export]
 macro_rules! path {
     (required $self:ident) => {{
-        use crate::{ast::IdentPath, lexer::token::TokenKind};
+        use crate::{
+            ast::IdentPath,
+            lexer::token::{Token, TokenKind},
+        };
         let prev_ind = $self.index;
         let token = $self.next();
         if let Some(tok) = token {
             match tok.kind {
                 TokenKind::Identifier(id) => {
                     let mut res = vec![id.clone()];
+                    if let Some(Token {
+                        kind: TokenKind::EOL,
+                        ..
+                    }) = $self.peek_rel(0)
+                    {
+                        $self.index = prev_ind;
+                        return Err(ParseError::ExpectedIdent);
+                    }
 
                     while matches!($self.peek_symbol(Symbol::Doubly), Some(true)) {
                         $self.next();

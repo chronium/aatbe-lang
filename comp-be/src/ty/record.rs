@@ -1,5 +1,5 @@
 use crate::{
-    codegen::{builder::core, unit::CompilerContext, AatbeModule, ValueTypePair},
+    codegen::{builder::base, unit::CompilerContext, AatbeModule, ValueTypePair},
     ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 use parser::ast::PrimitiveType;
@@ -62,7 +62,7 @@ impl Aggregate for Record {
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
         Ok((
-            core::struct_gep(ctx, aggregate_ref, index),
+            base::struct_gep(ctx, aggregate_ref, index),
             self.types
                 .get(&index)
                 .ok_or(TypeError::RecordIndexOOB(self.name.clone(), index))?
@@ -84,7 +84,7 @@ impl Aggregate for Record {
             )),
             Some(index) => {
                 let ty = self.types.get(index).cloned().unwrap();
-                let gep = core::struct_gep(ctx, aggregate_ref, *index);
+                let gep = base::struct_gep(ctx, aggregate_ref, *index);
                 Ok((gep, ty).into())
             }
         }
@@ -103,7 +103,7 @@ pub fn store_named_field(
         .get_field_index_ty(name)
         .expect(format!("Cannot find field {:?} in {:?}\0", name, rec.name).as_str());
 
-    let gep = core::struct_gep_with_name(
+    let gep = base::struct_gep_with_name(
         ctx,
         struct_ref,
         index.0,
@@ -113,7 +113,7 @@ pub fn store_named_field(
     if value.prim() != &index.1 {
         Err(index.1)
     } else {
-        core::store(ctx, *value, gep);
+        base::store(ctx, *value, gep);
         Ok(())
     }
 }

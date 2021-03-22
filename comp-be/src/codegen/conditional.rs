@@ -1,6 +1,6 @@
 use crate::{
     codegen::{
-        builder::{branch, core},
+        builder::{base, branch},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,

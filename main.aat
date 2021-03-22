@@ -4,7 +4,10 @@ module libc {
 
 @entry
 fn main () = {
-    if false then libc::printf "true\n"
-    else if true then libc::printf "false\n"
-    else libc::printf "wtf\n"
+    var i = 128
+
+    libc::printf "%d\n", i
+    i = 256
+
+    libc::printf "%d\n", i
 }

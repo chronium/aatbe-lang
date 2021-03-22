@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::{
-    builder::{cast, core},
+    builder::{base, cast},
     unit::function::{find_func, FuncTyMap},
 };
 use parser::{
@@ -512,43 +512,7 @@ impl AatbeModule {
                 ),
                 _ => store_value(self, lval, value),
             },
-            Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: Some(ty) },
-                value: _,
-                exterior_bind: _,
-            } => {
-                alloc_variable(self, expr);
-
-                Some(
-                    (
-                        self.get_var(name).expect("Compiler crapped out.").into(),
-                        *ty.clone(),
-                    )
-                        .into(),
-                )
-            }
-            Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: None },
-                value,
-                exterior_bind: _,
-            } => {
-                if value.is_none() {
-                    self.add_error(CompileError::ExpectedValue { name: name.clone() });
-                    return None;
-                }
-
-                alloc_variable(self, expr).and_then(|ty| {
-                    Some(
-                        (
-                            self.get_var(name).expect("Compiler crapped out.").into(),
-                            ty,
-                        )
-                            .into(),
-                    )
-                })
-            }
             Expression::Loop { .. } => self.codegen_basic_loop(expr),
-            Expression::If { .. } => self.codegen_if(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
                 Err(_) => {
@@ -559,14 +523,6 @@ impl AatbeModule {
                     });
                     None
                 }
-            },
-            Expression::Function { ty, type_names, .. } if type_names.len() == 0 => match ty {
-                FunctionType {
-                    ret_ty: _,
-                    params: _,
-                    ext: true,
-                } => None,
-                _ => declare_and_compile_function(self, expr),
             },
             Expression::Function { .. } => None,
             Expression::Block(nodes) if nodes.len() == 0 => None,

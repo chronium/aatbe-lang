@@ -14,3 +14,4 @@ llvm-sys-wrapper = { path = "../llvm-sys-wrapper" }
 tuple-combinator = "0.2.1"
 parser = { path = "../parser" }
 log = "0.4.14"
+guard = "0.5"

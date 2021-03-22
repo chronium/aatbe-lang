@@ -1,7 +1,7 @@
 use crate::{
     codegen::builder::cast,
     codegen::{
-        builder::core,
+        builder::base,
         mangle_v1::NameMangler,
         unit::{
             cg::expr, CompilerContext, FunctionVisibility, Message, Mutability, Query,
@@ -20,6 +20,8 @@ use std::{
     ops::Deref,
     rc::{Rc, Weak},
 };
+
+use guard::guard;
 
 use parser::ast::{Expression, FunctionType, PrimitiveType};
 
@@ -190,12 +192,12 @@ pub fn declare_and_compile_function<'ctx>(
                     );
 
                     if !has_return_type(ty) {
-                        core::ret_void(&ctx);
+                        base::ret_void(&ctx);
                     } else {
                         if let Some(val) = ret_val {
                             match val.prim() {
                                 PrimitiveType::VariantType(_variant) => todo!(),
-                                _ => core::ret(&ctx, val),
+                                _ => base::ret(&ctx, val),
                             };
                         } else {
                             // TODO: Error
@@ -226,19 +228,18 @@ pub fn codegen_function(ctx: &CompilerContext, function: &Expression) {
         } => {
             let func = ctx.query(Query::Function((prefix!(ctx), ty)));
 
-            if let QueryResponse::Function(Some(func)) = func {
-                let func = func.upgrade().expect("ICE");
+            guard!(let QueryResponse::Function(Some(func)) = func else { unreachable!(); });
+            let func = func.upgrade().expect("ICE");
 
-                if !attributes.is_empty() {
-                    for attr in attributes {
-                        match attr.to_lowercase().as_ref() {
-                            "entry" => core::pos_at_end(ctx, func.bb("entry".to_string())),
-                            _ => panic!("Cannot decorate function with {}", name),
-                        };
-                    }
-                } else {
-                    core::pos_at_end(ctx, func.bb(String::default()));
+            if !attributes.is_empty() {
+                for attr in attributes {
+                    match attr.to_lowercase().as_ref() {
+                        "entry" => base::pos_at_end(ctx, func.bb("entry".to_string())),
+                        _ => panic!("Cannot decorate function with {}", name),
+                    };
                 }
+            } else {
+                base::pos_at_end(ctx, func.bb(String::default()));
             }
         }
         _ => unreachable!(),
@@ -303,18 +304,15 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                                 name,
                                 ty: Some(box PrimitiveType::Ref(ty) | ty),
                             } => {
-                                if let QueryResponse::Function(Some(func)) =
+                                guard!(let QueryResponse::Function(Some(func)) =
                                     ctx.query(Query::Function((prefix!(ctx), fty)))
-                                {
-                                    let func = func.upgrade().expect("ICE");
-                                    ctx.dispatch(Message::PushInScope(
-                                        name.clone(),
-                                        Slot::FunctionArgument(
-                                            func.get_param(pos as u32),
-                                            *ty.clone(),
-                                        ),
-                                    ))
-                                }
+                                else { unreachable!() });
+
+                                let func = func.upgrade().expect("ICE");
+                                ctx.dispatch(Message::PushInScope(
+                                    name.clone(),
+                                    Slot::FunctionArgument(func.get_param(pos as u32), *ty.clone()),
+                                ))
                             }
                             PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
                             _ => unimplemented!("{:?}", ty),
