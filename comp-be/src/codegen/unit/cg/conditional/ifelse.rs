@@ -17,7 +17,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         cond_expr,
         then_expr,
         elseif_exprs,
-        else_expr,
+        else_expr
     } = expr else { unreachable!() });
 
     let then_bb = ctx.basic_block("then");

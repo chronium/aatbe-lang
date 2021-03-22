@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod parser_tests {
-    use crate::ast::AST::Expr;
     use crate::{
         ast::{AtomKind, BindType, Boolean, FunctionType, IdentPath, IntSize, LValue, TypeKind},
         lexer::{token::Token, Lexer},

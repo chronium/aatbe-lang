@@ -109,6 +109,15 @@ fn resolve_expr(variants: &Vec<String>, ast: &Expression) -> Expression {
                 .map(|box ex| box resolve_expr(variants, &ex)),
             then_expr: box resolve_expr(variants, then_expr),
         },
+        Expression::Loop {
+            loop_type,
+            cond_expr: box cond_expr,
+            body: box body,
+        } => Expression::Loop {
+            cond_expr: box resolve_expr(variants, cond_expr),
+            body: box resolve_expr(variants, body),
+            loop_type: *loop_type,
+        },
         Expression::RecordInit {
             record,
             types,
