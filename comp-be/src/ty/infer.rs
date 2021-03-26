@@ -34,7 +34,7 @@ pub fn infer_type(ctx: &CompilerContext, expr: &Expression) -> Option<(Primitive
             };
 
             find_function(
-                match ctx.query(Query::FunctionGroup(prefix(name))) {
+                match ctx.query(Query::FunctionGroup(prefix(name).join("::"))) {
                     QueryResponse::FunctionGroup(Some(group)) => group,
                     QueryResponse::FunctionGroup(None) => todo!("no function found"),
                     _ => unreachable!(),

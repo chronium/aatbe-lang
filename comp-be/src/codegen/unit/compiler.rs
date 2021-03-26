@@ -5,7 +5,7 @@ use parser::ast::{Expression, FunctionType, AST};
 
 use crate::{
     codegen::{
-        unit::{cg, decl, function::find_func},
+        unit::{cg, decl, function::find_func, generic},
         Scope, ValueTypePair,
     },
     fmt::AatbeFmt,
@@ -24,8 +24,9 @@ pub enum FunctionVisibility {
 }
 
 pub enum Message {
+    PushFunctionTemplate(String, Expression),
     PushInScope(String, Slot),
-    DeclareFunction(Vec<String>, Func, FunctionVisibility),
+    DeclareFunction(String, Func, FunctionVisibility),
     EnterFunctionScope((String, FunctionType)),
     EnterModuleScope(String),
     ExitModuleScope(String),
@@ -40,6 +41,9 @@ pub enum Message {
 impl std::fmt::Debug for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self {
+            Message::PushFunctionTemplate(name, expr) => {
+                f.debug_tuple("PushFunctionTemplate").field(name).finish()
+            }
             Message::PushInScope(name, slot) => f
                 .debug_tuple("PushInScope")
                 .field(name)
@@ -78,8 +82,8 @@ impl std::fmt::Debug for Message {
 
 pub enum Query<'cmd> {
     Slot(&'cmd String),
-    Function((Vec<String>, &'cmd FunctionType)),
-    FunctionGroup(Vec<String>),
+    Function((String, &'cmd FunctionType)),
+    FunctionGroup(String),
     Prefix,
 }
 
@@ -89,7 +93,7 @@ impl std::fmt::Debug for Query<'_> {
             Query::Slot(name) => f.debug_tuple("Slot").field(name).finish(),
             Query::Function(func) => f
                 .debug_tuple("Function")
-                .field(&func.0.join("::"))
+                .field(&func.0)
                 .field(&AatbeFmt::fmt(func.1))
                 .finish(),
             Query::FunctionGroup(name) => f.debug_tuple("FunctionGroup").field(name).finish(),
@@ -140,7 +144,6 @@ pub struct CompilerContext<'ctx> {
     pub llvm_context: &'ctx Context,
     pub llvm_module: &'ctx Module,
     pub llvm_builder: &'ctx Builder,
-    pub function_templates: HashMap<String, Expression>,
     dispatch: &'ctx dyn Fn(Message) -> (),
     query: &'ctx dyn Fn(Query) -> QueryResponse,
     trace: &'ctx dyn Fn(String) -> (),
@@ -170,7 +173,6 @@ impl<'ctx> CompilerContext<'ctx> {
             query,
             trace,
             basic_block,
-            function_templates: HashMap::new(),
         }
     }
 
@@ -184,7 +186,6 @@ impl<'ctx> CompilerContext<'ctx> {
             query: self.query,
             trace: self.trace,
             basic_block: self.basic_block,
-            function_templates: HashMap::new(),
         }
     }
 
@@ -219,7 +220,6 @@ impl<'ctx> CompilerContext<'ctx> {
 
 pub struct CompilerUnit<'ctx> {
     modules: HashMap<String, CompilerUnit<'ctx>>,
-    ast: Box<AST>,
     _typectx: TypeContext,
     llvm_context: &'ctx Context,
     llvm_module: &'ctx Module,
@@ -227,21 +227,16 @@ pub struct CompilerUnit<'ctx> {
     module_scopes: RefCell<HashMap<String, Scope>>,
     path: PathBuf,
     ident: RefCell<usize>,
+    generic_processor: RefCell<generic::Processor>,
 }
 
 impl<'ctx> CompilerUnit<'ctx> {
-    pub fn new<P>(
-        path: P,
-        ast: Box<AST>,
-        llvm_context: &'ctx Context,
-        llvm_module: &'ctx Module,
-    ) -> Self
+    pub fn new<P>(path: P, llvm_context: &'ctx Context, llvm_module: &'ctx Module) -> Self
     where
         P: Into<PathBuf>,
     {
         Self {
             path: path.into(),
-            ast,
             llvm_context,
             llvm_module,
             modules: HashMap::new(),
@@ -249,6 +244,7 @@ impl<'ctx> CompilerUnit<'ctx> {
             scope_stack: RefCell::new(vec![]),
             module_scopes: RefCell::new(HashMap::new()),
             ident: RefCell::new(0),
+            generic_processor: RefCell::new(generic::Processor::new()),
         }
     }
 
@@ -273,13 +269,13 @@ impl<'ctx> CompilerUnit<'ctx> {
         self.scope_stack.borrow_mut().push(Scope::new());
     }
 
-    fn enter_function_scope(&self, func: (String, FunctionType), builder: Builder) {
+    fn enter_function_scope(&self, func: (String, FunctionType)) {
         let mut prefix = self.get_prefix();
         prefix.push(func.0);
 
         self.scope_stack
             .borrow_mut()
-            .push(Scope::with_function((prefix, func.1), builder));
+            .push(Scope::with_function((prefix.join("::"), func.1)));
     }
 
     fn enter_module_scope(&self, name: String) {
@@ -312,6 +308,14 @@ impl<'ctx> CompilerUnit<'ctx> {
             .add_symbol(name, unit);
     }
 
+    pub fn push_function_template(&self, name: String, func: Expression) {
+        self.scope_stack
+            .borrow_mut()
+            .last_mut()
+            .expect("Compiler broke. Scope stack is corrupted.")
+            .add_template(name, func);
+    }
+
     pub fn get_from_scope(&self, name: &String) -> Option<Slot> {
         for scope in self.scope_stack.borrow().iter().rev() {
             if let Some(sym) = scope.find_symbol(name) {
@@ -341,13 +345,15 @@ impl<'ctx> CompilerUnit<'ctx> {
 
     fn dispatch(&self, message: Message) {
         print!("{}", "│   ".repeat(*self.ident.borrow()));
+        println!("├── {:?}", message);
         match message {
-            Message::PushInScope(ref name, ref unit) => {
-                println!("├── {:?}", message);
+            Message::PushFunctionTemplate(name, func) => {
+                self.push_function_template(name, func);
+            }
+            Message::PushInScope(ref name, unit) => {
                 self.push_in_scope(name, unit.clone());
             }
-            Message::DeclareFunction(ref name, ref func, ty) => {
-                println!("├── {:?}", message);
+            Message::DeclareFunction(name, func, ty) => {
                 let mut scope_stack = self.scope_stack.borrow_mut();
                 if ty == FunctionVisibility::Local {
                     scope_stack.last_mut()
@@ -357,49 +363,39 @@ impl<'ctx> CompilerUnit<'ctx> {
                 .expect("ICE: Scope stack is corrupted.")
                 .add_function(&name, func.clone());
             }
-            Message::EnterFunctionScope(ref func) => {
-                println!("├── {:?}", message);
+            Message::EnterFunctionScope(func) => {
                 *self.ident.borrow_mut() += 1;
-                let builder = Builder::new_in_context(self.llvm_context.as_ref());
-                self.enter_function_scope(func.clone(), builder);
+                self.enter_function_scope(func.clone());
             }
-            Message::EnterModuleScope(ref name) => {
-                println!("├── {:?}", message);
+            Message::EnterModuleScope(name) => {
                 *self.ident.borrow_mut() += 1;
                 self.enter_module_scope(name.clone())
             }
-            Message::ExitModuleScope(ref name) => {
-                println!("└── {:?}", message);
+            Message::ExitModuleScope(name) => {
                 *self.ident.borrow_mut() -= 1;
                 self.exit_module_scope(name.clone())
             }
-            Message::RestoreModuleScope(ref name) => {
-                println!("├── {:?}", message);
+            Message::RestoreModuleScope(name) => {
                 *self.ident.borrow_mut() += 1;
                 self.restore_module_scope(name.clone())
             }
             Message::EnterIfScope(_) => {
-                println!("├── {:?}", message);
                 *self.ident.borrow_mut() += 1;
                 self.enter_anonymous_scope()
             }
             Message::EnterElseIfScope(_) => {
-                println!("├── {:?}", message);
                 *self.ident.borrow_mut() += 1;
                 self.enter_anonymous_scope()
             }
             Message::EnterElseScope => {
-                println!("├── {:?}", message);
                 *self.ident.borrow_mut() += 1;
                 self.enter_anonymous_scope()
             }
             Message::EnterAnonymousScope => {
-                println!("├── {:?}", message);
                 *self.ident.borrow_mut() += 1;
                 self.enter_anonymous_scope()
             }
             Message::ExitScope => {
-                println!("└── {:?}", message);
                 *self.ident.borrow_mut() -= 1;
                 self.exit_scope()
             }
@@ -437,15 +433,14 @@ impl<'ctx> CompilerUnit<'ctx> {
         self.modules.get_mut(name)
     }
 
-    pub fn decl(&'ctx self, root_builder: &Builder) {
-        let ast = self.ast.clone();
+    pub fn decl(&'ctx self, root_builder: &Builder, ast: &AST) {
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
         let trace = &|message: String| self.trace(message);
         let basic_block = &|name: &str| self.basic_block(name);
 
         decl::decl(
-            &*ast,
+            ast,
             &mut CompilerContext::new(
                 self.path.clone(),
                 self.llvm_context,
@@ -459,15 +454,28 @@ impl<'ctx> CompilerUnit<'ctx> {
         );
     }
 
-    pub fn codegen(&'ctx self, root_builder: &Builder) -> Option<LLVMValueRef> {
-        let ast = self.ast.clone();
+    pub fn generics(&'ctx self, root_builder: &Builder, ast: &AST) {
+        let mut proc = self.generic_processor.borrow_mut();
+        let ast = proc
+            .extract_function_calls(ast)
+            .extract_tree(ast)
+            .generate_tree()
+            .generated_tree
+            .as_ref()
+            .unwrap();
+
+        self.decl(root_builder, ast);
+        self.codegen(root_builder, ast);
+    }
+
+    pub fn codegen(&'ctx self, root_builder: &Builder, ast: &AST) -> Option<LLVMValueRef> {
         let dispatch = &|command: Message| self.dispatch(command);
         let query = &|query: Query| self.query(query);
         let trace = &|message: String| self.trace(message);
         let basic_block = &|name: &str| self.basic_block(name);
 
         cg::cg(
-            &*ast,
+            ast,
             &CompilerContext::new(
                 self.path.clone(),
                 self.llvm_context,
@@ -481,17 +489,23 @@ impl<'ctx> CompilerUnit<'ctx> {
         )
     }
 
-    pub fn get_func_group(&self, name: &Vec<String>) -> Option<RefCell<FuncTyMap>> {
+    pub fn get_func_group(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
         for scope in self.scope_stack.borrow().iter().rev() {
             if let Some(func) = scope.func_by_name(&name) {
                 return Some(func);
             }
         }
 
+        for scope in self.scope_stack.borrow().iter().rev() {
+            if let Some(func) = scope.get_template(&name) {
+                println!("Found template!");
+            }
+        }
+
         None
     }
 
-    pub fn get_func(&self, func: (Vec<String>, &FunctionType)) -> Option<Weak<Func>> {
+    pub fn get_func(&self, func: (String, &FunctionType)) -> Option<Weak<Func>> {
         for scope in self.scope_stack.borrow().iter().rev() {
             if let Some(group) = scope.func_by_name(&func.0) {
                 return find_func(group, func.1);

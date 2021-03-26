@@ -34,7 +34,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         })
         .collect::<Vec<_>>();
     let else_bb = else_expr.as_ref().map(|_| ctx.basic_block("else"));
-    let end_bb = ctx.basic_block("end");
+    let end_bb = ctx.basic_block("if_end");
 
     ctx.dispatch(Message::EnterIfScope(cond_expr.fmt()));
     let cond = expr::cg(cond_expr, ctx)?;

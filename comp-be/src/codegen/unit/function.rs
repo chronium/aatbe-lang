@@ -30,7 +30,7 @@ use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 #[derive(Clone)]
 pub struct Func {
     ty: FunctionType,
-    ident: Vec<String>,
+    ident: String,
     inner: Function,
 }
 
@@ -49,14 +49,14 @@ impl AatbeFmt for &Func {
             } else {
                 String::default()
             },
-            self.ident.join("::"),
+            self.ident,
             (&self.ty).fmt()
         )
     }
 }
 
 pub type FuncTyMap = Vec<Rc<Func>>;
-pub type FunctionMap = HashMap<Vec<String>, RefCell<FuncTyMap>>;
+pub type FunctionMap = HashMap<String, RefCell<FuncTyMap>>;
 
 pub fn find_func<'a>(map: RefCell<FuncTyMap>, ty: &FunctionType) -> Option<Weak<Func>> {
     for func in map.borrow().iter() {
@@ -84,7 +84,7 @@ impl Deref for Func {
 }
 
 impl Func {
-    pub fn new(ty: FunctionType, ident: Vec<String>, inner: Function) -> Self {
+    pub fn new(ty: FunctionType, ident: String, inner: Function) -> Self {
         Self { ty, ident, inner }
     }
 
@@ -147,7 +147,7 @@ pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
                 .llvm_module
                 .get_or_add_function(&function.mangle(&ctx), ty.llvm_ty_in_ctx(&ctx));
 
-            let name = prefix!(ctx, name.clone());
+            let name = prefix!(ctx, name.clone()).join("::");
             let func = Func::new(ty.clone(), name.clone(), func);
             if !public {
                 ctx.dispatch(Message::DeclareFunction(
@@ -226,7 +226,7 @@ pub fn codegen_function(ctx: &CompilerContext, function: &Expression) {
             ty,
             ..
         } => {
-            let func = ctx.query(Query::Function((prefix!(ctx), ty)));
+            let func = ctx.query(Query::Function((prefix!(ctx).join("::"), ty)));
 
             guard!(let QueryResponse::Function(Some(func)) = func else { unreachable!(); });
             let func = func.upgrade().expect("ICE");
@@ -305,7 +305,7 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                                 ty: Some(box PrimitiveType::Ref(ty) | ty),
                             } => {
                                 guard!(let QueryResponse::Function(Some(func)) =
-                                    ctx.query(Query::Function((prefix!(ctx), fty)))
+                                    ctx.query(Query::Function((prefix!(ctx).join("::"), fty)))
                                 else { unreachable!() });
 
                                 let func = func.upgrade().expect("ICE");

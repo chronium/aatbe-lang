@@ -15,9 +15,8 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         body
     } = expr else { unreachable!() });
 
-    let cond_bb = ctx.basic_block("");
-    let body_bb = ctx.basic_block("");
-    let end_bb = ctx.basic_block("");
+    let cond_bb = ctx.basic_block("while_cond");
+    let body_bb = ctx.basic_block("while_body");
 
     branch::branch(ctx, cond_bb);
     base::pos_at_end(ctx, cond_bb);
@@ -32,15 +31,17 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         });*/
     };
 
+    base::pos_at_end(ctx, body_bb);
+    expr::cg(body, ctx);
+    branch::branch(ctx, cond_bb);
+
+    base::pos_at_end(ctx, cond_bb);
+    let end_bb = ctx.basic_block("while_end");
     match loop_type {
         LoopType::While => branch::cond_branch(ctx, *cond, body_bb, end_bb),
         LoopType::Until => branch::cond_branch(ctx, *cond, end_bb, body_bb),
     };
 
-    base::pos_at_end(ctx, body_bb);
-    expr::cg(body, ctx);
-
-    branch::branch(ctx, cond_bb);
     base::pos_at_end(ctx, end_bb);
 
     None

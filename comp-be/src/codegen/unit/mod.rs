@@ -22,6 +22,8 @@ pub use decl::decl;
 pub mod cg;
 pub use cg::cg;
 
+pub mod generic;
+
 #[derive(Debug, Clone)]
 pub enum Mutability {
     Immutable,

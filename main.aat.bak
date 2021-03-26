@@ -2,9 +2,9 @@ module libc {
     public extern fn printf str, ... -> i32
 }
 
-fn test() -> () = ()
+fn add[I] a: I, b: I -> I = a + b
 
 @entry
 fn main () = {
-    test()
+    libc::printf "%d\n", add[i32] 10, 8
 }

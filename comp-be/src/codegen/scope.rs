@@ -5,15 +5,16 @@ use crate::codegen::unit::{
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
-use parser::ast::FunctionType;
+use parser::ast::{Expression, FunctionType};
 
 #[derive(Debug)]
 pub struct Scope {
     refs: HashMap<String, Slot>,
     functions: FunctionMap,
     name: String,
-    function: Option<(Vec<String>, FunctionType)>,
+    function: Option<(String, FunctionType)>,
     fdir: Option<PathBuf>,
+    function_templates: HashMap<String, Expression>,
 }
 
 impl Scope {
@@ -24,6 +25,7 @@ impl Scope {
             name: String::default(),
             function: None,
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
     pub fn with_name(name: &String) -> Self {
@@ -33,6 +35,7 @@ impl Scope {
             name: name.clone(),
             function: None,
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
     pub fn with_builder(builder: Builder) -> Self {
@@ -42,6 +45,7 @@ impl Scope {
             name: String::default(),
             function: None,
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
     pub fn with_fdir<P>(fdir: P) -> Self
@@ -54,23 +58,36 @@ impl Scope {
             name: String::default(),
             function: None,
             fdir: Some(fdir.into()),
+            function_templates: HashMap::new(),
         }
     }
-    pub fn with_function(func: (Vec<String>, FunctionType), builder: Builder) -> Self {
+    pub fn with_function(func: (String, FunctionType)) -> Self {
         Self {
             refs: HashMap::new(),
             functions: HashMap::new(),
-            name: func.0.join("::"),
+            name: func.0.clone(),
             function: Some(func),
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
 
-    pub fn func_by_name(&self, name: &Vec<String>) -> Option<RefCell<FuncTyMap>> {
+    pub fn func_by_name(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
         self.functions.get(name).cloned()
     }
 
-    pub fn add_function(&mut self, name: &Vec<String>, func: Func) {
+    pub fn get_template(&self, name: &String) -> Option<Expression> {
+        self.function_templates.get(name).map(|expr| expr.clone())
+    }
+
+    pub fn add_template(&mut self, name: String, func: Expression) {
+        if self.function_templates.insert(name, func).is_some() {
+            // TODO: Error
+            panic!("ERROR");
+        }
+    }
+
+    pub fn add_function(&mut self, name: &String, func: Func) {
         if !self.functions.contains_key(name) {
             self.functions.insert(name.clone(), RefCell::new(vec![]));
         }
@@ -88,7 +105,7 @@ impl Scope {
     pub fn add_symbol(&mut self, name: &String, unit: Slot) {
         self.refs.insert(name.clone(), unit);
     }
-    pub fn function(&self) -> Option<(Vec<String>, FunctionType)> {
+    pub fn function(&self) -> Option<(String, FunctionType)> {
         self.function.clone()
     }
     pub fn fdir(&self) -> Option<PathBuf> {

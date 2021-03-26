@@ -2,7 +2,7 @@ use std::fmt;
 
 type ModPath = Vec<String>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum IdentPath {
     Local(String),
     Module(ModPath),

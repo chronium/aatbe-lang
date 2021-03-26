@@ -90,13 +90,15 @@ impl AatbeModule {
 
         CompilerUnit::new(
             base_cu.path().clone(),
-            box main_ast,
             &self.llvm_context,
             &self.llvm_module,
         )
         .in_root_scope(|root_module| {
-            root_module.decl(&root_builder);
-            root_module.codegen(&root_builder);
+            //root_module.decl(&root_builder, &main_ast);
+            root_module.generics(&root_builder, &main_ast);
+            root_module.decl(&root_builder, &main_ast);
+            root_module.codegen(&root_builder, &main_ast);
+            //root_module.codegen(&root_builder, &main_ast);
         });
     }
 

@@ -2,6 +2,8 @@ use std::borrow::Borrow;
 
 use parser::ast::{AtomKind, Expression, IdentPath, PrimitiveType};
 
+use llvm_sys_wrapper::LLVMValueRef;
+
 use crate::{
     codegen::{
         builder::base,
@@ -23,10 +25,39 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     } = expr else { unreachable!() });
 
     ctx.trace(format!("Call {}", AatbeFmt::fmt(expr)));
-    let mut call_types = vec![];
 
+    guard!(let Some((call_types, mut call_args)) = compute_arguments(args, ctx) else {
+        trace!("Got error");
+        return None
+    });
+
+    let prefix = |path: &IdentPath| -> Vec<String> {
+        match path {
+            IdentPath::Local(name) => prefix!(call ctx, name.clone()),
+            IdentPath::Module(name) => prefix!(call module ctx, name.clone()),
+            _ => todo!(),
+        }
+    };
+
+    find_function(
+        match ctx.query(Query::FunctionGroup(prefix(name).join("::"))) {
+            QueryResponse::FunctionGroup(Some(group)) => group,
+            QueryResponse::FunctionGroup(None) => todo!("no function found"),
+            _ => unreachable!(),
+        },
+        &call_types,
+    )
+    .map(|func| base::call(ctx, func.upgrade().expect("ICE").borrow(), &mut call_args))
+}
+
+fn compute_arguments(
+    args: &Vec<Expression>,
+    ctx: &CompilerContext,
+) -> Option<(Vec<PrimitiveType>, Vec<LLVMValueRef>)> {
+    let mut call_types = vec![];
     let mut error = false;
-    let mut call_args = args
+
+    let call_args = args
         .iter()
         .filter_map(|arg| match arg {
             Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
@@ -62,25 +93,8 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         .collect::<Vec<_>>();
 
     if error {
-        trace!("Got error");
-        return None;
+        None
+    } else {
+        Some((call_types, call_args))
     }
-
-    let prefix = |path: &IdentPath| -> Vec<String> {
-        match path {
-            IdentPath::Local(name) => prefix!(call ctx, name.clone()),
-            IdentPath::Module(name) => prefix!(call module ctx, name.clone()),
-            _ => todo!(),
-        }
-    };
-
-    find_function(
-        match ctx.query(Query::FunctionGroup(prefix(name))) {
-            QueryResponse::FunctionGroup(Some(group)) => group,
-            QueryResponse::FunctionGroup(None) => todo!("no function found"),
-            _ => unreachable!(),
-        },
-        &call_types,
-    )
-    .map(|func| base::call(ctx, func.upgrade().expect("ICE").borrow(), &mut call_args))
 }

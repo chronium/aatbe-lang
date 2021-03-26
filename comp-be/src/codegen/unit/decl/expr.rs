@@ -1,6 +1,6 @@
 use parser::ast::Expression;
 
-use crate::codegen::unit::{declare_function, CompilerContext};
+use crate::codegen::unit::{declare_function, CompilerContext, Message};
 
 pub fn decl(expr: &Expression, ctx: &mut CompilerContext) {
     match expr {
@@ -8,9 +8,7 @@ pub fn decl(expr: &Expression, ctx: &mut CompilerContext) {
             declare_function(ctx, expr)
         }
         Expression::Function { name, .. } => {
-            if !ctx.function_templates.contains_key(name) {
-                ctx.function_templates.insert(name.clone(), expr.clone());
-            }
+            ctx.dispatch(Message::PushFunctionTemplate(name.clone(), expr.clone()));
         }
         _ => panic!("Top level {:?} unsupported", expr),
     }

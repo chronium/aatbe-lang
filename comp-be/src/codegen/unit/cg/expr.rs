@@ -25,6 +25,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
             } => None,
             _ => declare_and_compile_function(ctx, expr),
         },
+        Expression::Function { .. } => None,
         Expression::Block(body) if body.len() == 0 => None,
         Expression::Block(body) => {
             ctx.dispatch(Message::EnterAnonymousScope);
