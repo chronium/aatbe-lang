@@ -35,7 +35,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         match path {
             IdentPath::Local(name) => prefix!(call ctx, name.clone()),
             IdentPath::Module(name) => prefix!(call module ctx, name.clone()),
-            _ => todo!(),
+            IdentPath::Root(name) => name.clone(),
         }
     };
 

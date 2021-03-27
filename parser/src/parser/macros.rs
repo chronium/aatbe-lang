@@ -160,6 +160,10 @@ macro_rules! path {
                         }
                     }
 
+                    if !matches!($self.peek_symbol(Symbol::LBracket), Some(true)) {
+                        $self.index -= 1;
+                    }
+
                     IdentPath::Root(res)
                 }
                 _ => {

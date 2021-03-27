@@ -117,10 +117,10 @@ impl Scope {
     }
 
     pub fn bb(&self, module: &CompilerUnit, name: &str) -> Option<LLVMBasicBlockRef> {
-        let func = self.function.as_ref()?;
+        let (_, ty) = self.function.as_ref()?;
 
         Some(
-            find_func(module.get_func_group(&func.0)?, &func.1)
+            find_func(module.get_func_group(&module.get_prefix().join("::"))?, &ty)
                 .unwrap()
                 .upgrade()
                 .expect("ICE")

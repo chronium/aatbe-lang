@@ -270,12 +270,9 @@ impl<'ctx> CompilerUnit<'ctx> {
     }
 
     fn enter_function_scope(&self, func: (String, FunctionType)) {
-        let mut prefix = self.get_prefix();
-        prefix.push(func.0);
-
         self.scope_stack
             .borrow_mut()
-            .push(Scope::with_function((prefix.join("::"), func.1)));
+            .push(Scope::with_function((func.0, func.1)));
     }
 
     fn enter_module_scope(&self, name: String) {

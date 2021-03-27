@@ -154,6 +154,10 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         blocks.push(else_bb.unwrap());
     }
 
+    if ty == PrimitiveType::Unit {
+        return None;
+    }
+
     match values.len() {
         0 => None,
         1 => Some(then_val),

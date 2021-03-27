@@ -135,3 +135,11 @@ pub fn str(ctx: &CompilerContext, string: &str) -> ValueTypePair {
     )
         .into()
 }
+
+pub fn unit(ctx: &CompilerContext) -> ValueTypePair {
+    (
+        ctx.llvm_context.Null(ctx.llvm_context.VoidType()),
+        PrimitiveType::Unit,
+    )
+        .into()
+}

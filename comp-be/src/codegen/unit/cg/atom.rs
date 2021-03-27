@@ -19,7 +19,7 @@ pub fn cg(atom: &AtomKind, ctx: &CompilerContext) -> Option<ValueTypePair> {
     ctx.trace(format!("Atom {}", atom.fmt()));
     match atom {
         AtomKind::Parenthesized(expr) => expr::cg(expr, ctx),
-        AtomKind::Unit => None,
+        AtomKind::Unit => Some(value::unit(ctx)),
         AtomKind::Bool(Boolean::True) => Some(value::t(ctx)),
         AtomKind::Bool(Boolean::False) => Some(value::f(ctx)),
         atom
