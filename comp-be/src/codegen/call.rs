@@ -7,7 +7,7 @@ use crate::{
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
-use parser::ast::{AtomKind, Expression, PrimitiveType};
+use parser::ast::{AtomKind, Expression, Type};
 
 impl AatbeModule {
     pub fn codegen_call(&mut self, call_expr: &Expression) -> Option<ValueTypePair> {
@@ -31,11 +31,11 @@ impl AatbeModule {
                     .iter()
                     .filter_map(|arg| match arg {
                         Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
-                            call_types.push(PrimitiveType::Symbol(sym.clone()));
+                            call_types.push(Type::Symbol(sym.clone()));
                             None
                         }
                         Expression::Atom(AtomKind::Unit) => {
-                            call_types.push(PrimitiveType::Unit);
+                            call_types.push(Type::Unit);
                             None
                         }
                         _ => {
@@ -47,8 +47,8 @@ impl AatbeModule {
                                 None
                             } else {
                                 expr.map_or(None, |arg| match arg.prim().clone() {
-                                    PrimitiveType::VariantType(name) => {
-                                        call_types.push(PrimitiveType::VariantType(name.clone()));
+                                    Type::VariantType(name) => {
+                                        call_types.push(Type::VariantType(name.clone()));
                                         let ty =
                                             self.typectx_ref().get_parent_for_variant(&name)?;
                                         Some(core::load(
@@ -56,15 +56,15 @@ impl AatbeModule {
                                             cast::bitcast_to(self, *arg, ty::pointer(self, ty)),
                                         ))
                                     }
-                                    PrimitiveType::Array { ty: box ty, len } => {
+                                    Type::Array { ty: box ty, len } => {
                                         let arr =
                                             cast::bitcast_to(self, *arg, ty::slice_ptr(self, &ty));
                                         let slice = value::slice(self, arr, ty.clone(), len);
 
-                                        call_types.push(PrimitiveType::Slice { ty: box ty });
+                                        call_types.push(Type::Slice { ty: box ty });
                                         Some(*slice)
                                     }
-                                    PrimitiveType::Ref(box PrimitiveType::Array {
+                                    Type::Ref(box Type::Array {
                                         ty: box ty,
                                         len,
                                     }) => {
@@ -77,8 +77,8 @@ impl AatbeModule {
                                         core::store(self, arr, arr_ptr);
                                         core::store(self, *value::u32(self, len), len_ptr);
 
-                                        call_types.push(PrimitiveType::Ref(
-                                            box PrimitiveType::Slice { ty: box ty },
+                                        call_types.push(Type::Ref(
+                                            box Type::Slice { ty: box ty },
                                         ));
                                         Some(slice)
                                     }
@@ -149,8 +149,8 @@ impl AatbeModule {
         }
         let arr = module.codegen_expr(&values[0])?;
         match arr.prim() {
-            PrimitiveType::Array { len, .. } => Some(value::u32(module, *len)),
-            PrimitiveType::Slice { .. } => Some(core::extract_u32(module, *arr, 1)),
+            Type::Array { len, .. } => Some(value::u32(module, *len)),
+            Type::Slice { .. } => Some(core::extract_u32(module, *arr, 1)),
             _ => {
                 module.add_error(CompileError::MismatchedArguments {
                     function: String::from("len"),
@@ -178,7 +178,7 @@ impl AatbeModule {
             .llvm_builder_ref()
             .build_malloc(val_ty.clone().llvm_ty_in_ctx(module));
 
-        if let PrimitiveType::VariantType(_) = val_ty.inner() {
+        if let Type::VariantType(_) = val_ty.inner() {
             unimplemented!();
         }
 
@@ -187,6 +187,6 @@ impl AatbeModule {
             core::inbounds_gep(module, ptr, &mut vec![*value::s64(module, 0)]),
         );
 
-        Some((ptr, PrimitiveType::Box(box val_ty.clone())).into())*/
+        Some((ptr, Type::Box(box val_ty.clone())).into())*/
     }
 }

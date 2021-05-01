@@ -1,6 +1,4 @@
-module libc {
-    public extern fn printf str, ... -> i32
-}
+use libc
 
 module std {
     public fn println s: str = ::libc::printf "%s\n", s

@@ -1,4 +1,4 @@
-use parser::ast::{Expression, LoopType, PrimitiveType};
+use parser::ast::{Expression, LoopType, Type};
 
 use guard::guard;
 
@@ -22,10 +22,10 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     base::pos_at_end(ctx, cond_bb);
     let cond = expr::cg(cond_expr, ctx)?;
 
-    if *cond.prim().inner() != PrimitiveType::Bool {
+    if *cond.prim().inner() != Type::Bool {
         // TODO: Error
         /*self.add_error(CompileError::ExpectedType {
-            expected_ty: PrimitiveType::Bool.fmt(),
+            expected_ty: Type::Bool.fmt(),
             found_ty: cond.prim().fmt(),
             value: cond_expr.fmt(),
         });*/

@@ -1,4 +1,4 @@
-use crate::ast::{AtomKind, Expression, FunctionType, LValue, PrimitiveType, TypeKind, AST};
+use crate::ast::{AtomKind, Expression, FunctionType, LValue, Type, TypeKind, AST};
 
 pub fn type_resolution(variants: &Vec<String>, ast: &AST) -> AST {
     match ast {
@@ -192,16 +192,16 @@ fn resolve_function_ty(variants: &Vec<String>, ty: &FunctionType) -> FunctionTyp
     }
 }
 
-fn resolve_prim(variants: &Vec<String>, ty: &PrimitiveType) -> PrimitiveType {
+fn resolve_prim(variants: &Vec<String>, ty: &Type) -> Type {
     match ty {
-        PrimitiveType::TypeRef(ty) => {
+        Type::TypeRef(ty) => {
             if variants.contains(ty) {
-                PrimitiveType::VariantType(ty.clone())
+                Type::VariantType(ty.clone())
             } else {
-                PrimitiveType::TypeRef(ty.clone())
+                Type::TypeRef(ty.clone())
             }
         }
-        PrimitiveType::NamedType { name, ty } => PrimitiveType::NamedType {
+        Type::NamedType { name, ty } => Type::NamedType {
             name: name.clone(),
             ty: ty.as_ref().map(|ty| box resolve_prim(variants, &ty)),
         },

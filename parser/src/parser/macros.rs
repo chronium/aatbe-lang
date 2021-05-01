@@ -112,6 +112,51 @@ macro_rules! kw {
 
 #[macro_export]
 macro_rules! path {
+    (module $self:ident) => {{
+        use crate::{ast::IdentPath, lexer::token::TokenKind};
+        let prev_ind = $self.index;
+        let token = $self.next();
+        if let Some(tok) = token {
+            match tok.kind {
+                TokenKind::Identifier(id) => {
+                    let mut res = vec![id.clone()];
+
+                    while matches!($self.peek_symbol(Symbol::Doubly), Some(true)) {
+                        $self.next();
+                        if $self.peek_ident().is_some() {
+                            $self.next().unwrap().ident().map(|id| res.push(id.clone()));
+                        }
+                    }
+
+                    if res.len() == 1 {
+                        IdentPath::Local(id)
+                    } else {
+                        IdentPath::Module(res)
+                    }
+                }
+                TokenKind::Symbol(Symbol::Doubly) => {
+                    $self.index = prev_ind;
+                    let mut res = vec![];
+
+                    while matches!($self.peek_symbol(Symbol::Doubly), Some(true)) {
+                        $self.next();
+                        if $self.peek_ident().is_some() {
+                            $self.next().unwrap().ident().map(|id| res.push(id.clone()));
+                        }
+                    }
+
+                    IdentPath::Root(res)
+                }
+                _ => {
+                    $self.index = prev_ind;
+                    return Err(ParseError::ExpectedIdent);
+                }
+            }
+        } else {
+            $self.index = prev_ind;
+            return Err(ParseError::ExpectedIdent);
+        }
+    }};
     (required $self:ident) => {{
         use crate::{
             ast::IdentPath,

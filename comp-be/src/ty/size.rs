@@ -1,26 +1,26 @@
-use parser::ast::{IntSize, PrimitiveType, TypeKind};
+use parser::ast::{IntSize, Type, TypeKind};
 
 pub trait AatbeSizeOf {
     fn size_of(&self) -> usize;
     fn smallest(&self) -> usize;
 }
 
-impl AatbeSizeOf for PrimitiveType {
+impl AatbeSizeOf for Type {
     fn size_of(&self) -> usize {
         match self {
-            PrimitiveType::UInt(IntSize::Bits8) => 1,
-            PrimitiveType::UInt(IntSize::Bits16) => 2,
-            PrimitiveType::UInt(IntSize::Bits32) => 4,
-            PrimitiveType::UInt(IntSize::Bits64) => 8,
-            PrimitiveType::Int(IntSize::Bits8) => 1,
-            PrimitiveType::Int(IntSize::Bits16) => 2,
-            PrimitiveType::Int(IntSize::Bits32) => 4,
-            PrimitiveType::Int(IntSize::Bits64) => 8,
-            PrimitiveType::Str => 8, // TODO: Platform specific pointer size
-            PrimitiveType::Pointer(_) => 8, // FIXME: Platform specific pointer size
-            PrimitiveType::Box(_) => 8, // FIXME: Platform specific pointer size
-            PrimitiveType::Bool => 1,
-            PrimitiveType::Char => 1,
+            Type::UInt(IntSize::Bits8) => 1,
+            Type::UInt(IntSize::Bits16) => 2,
+            Type::UInt(IntSize::Bits32) => 4,
+            Type::UInt(IntSize::Bits64) => 8,
+            Type::Int(IntSize::Bits8) => 1,
+            Type::Int(IntSize::Bits16) => 2,
+            Type::Int(IntSize::Bits32) => 4,
+            Type::Int(IntSize::Bits64) => 8,
+            Type::Str => 8, // TODO: Platform specific pointer size
+            Type::Pointer(_) => 8, // FIXME: Platform specific pointer size
+            Type::Box(_) => 8, // FIXME: Platform specific pointer size
+            Type::Bool => 1,
+            Type::Char => 1,
             _ => unimplemented!("{:?}", self),
         }
     }

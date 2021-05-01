@@ -1,6 +1,6 @@
 use crate::{codegen::unit::CompilerContext, codegen::ValueTypePair};
 use llvm_sys_wrapper::LLVMValueRef;
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 
 pub fn cg(
     lhs: LLVMValueRef,
@@ -16,7 +16,7 @@ pub fn cg(
             ">=" => ctx.llvm_builder.build_icmp_uge(lhs, rhs),
             _ => panic!("ICE codegen_compare_unsigned unhandled op {}", op),
         },
-        PrimitiveType::Bool,
+        Type::Bool,
     )
         .into()
 }

@@ -6,7 +6,7 @@ use crate::{
     ty::{LLVMTyInCtx, TypeKind},
 };
 use llvm_sys_wrapper::{LLVMBasicBlockRef, LLVMTypeRef, LLVMValueRef};
-use parser::ast::{IntSize, PrimitiveType};
+use parser::ast::{IntSize, Type};
 
 pub fn load(ctx: &CompilerContext, pointer: LLVMValueRef) -> LLVMValueRef {
     ctx.llvm_builder.build_load(pointer)
@@ -16,7 +16,7 @@ pub fn load_ty(ctx: &CompilerContext, pointer: LLVMValueRef, ty: TypeKind) -> Va
     (ctx.llvm_builder.build_load(pointer), ty).into()
 }
 
-pub fn load_prim(ctx: &CompilerContext, pointer: LLVMValueRef, ty: PrimitiveType) -> ValueTypePair {
+pub fn load_prim(ctx: &CompilerContext, pointer: LLVMValueRef, ty: Type) -> ValueTypePair {
     (ctx.llvm_builder.build_load(pointer), ty).into()
 }
 
@@ -55,11 +55,11 @@ pub fn alloca_with_name(ctx: &CompilerContext, ty: LLVMTypeRef, name: &str) -> L
     ctx.llvm_builder.build_alloca_with_name(ty, name)
 }
 
-pub fn alloca_ty(ctx: &CompilerContext, ty: &PrimitiveType) -> LLVMValueRef {
+pub fn alloca_ty(ctx: &CompilerContext, ty: &Type) -> LLVMValueRef {
     ctx.llvm_builder.build_alloca(ty.llvm_ty_in_ctx(ctx))
 }
 
-pub fn alloca_with_name_ty(ctx: &CompilerContext, ty: &PrimitiveType, name: &str) -> LLVMValueRef {
+pub fn alloca_with_name_ty(ctx: &CompilerContext, ty: &Type, name: &str) -> LLVMValueRef {
     ctx.llvm_builder
         .build_alloca_with_name(ty.llvm_ty_in_ctx(ctx), name)
 }
@@ -80,7 +80,7 @@ pub fn call(
 pub fn extract_i8(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::Int(IntSize::Bits8),
+        Type::Int(IntSize::Bits8),
     )
         .into()
 }
@@ -88,7 +88,7 @@ pub fn extract_i8(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> V
 pub fn extract_i16(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::Int(IntSize::Bits16),
+        Type::Int(IntSize::Bits16),
     )
         .into()
 }
@@ -96,7 +96,7 @@ pub fn extract_i16(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> 
 pub fn extract_i32(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::Int(IntSize::Bits32),
+        Type::Int(IntSize::Bits32),
     )
         .into()
 }
@@ -104,7 +104,7 @@ pub fn extract_i32(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> 
 pub fn extract_i64(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::Int(IntSize::Bits64),
+        Type::Int(IntSize::Bits64),
     )
         .into()
 }
@@ -112,7 +112,7 @@ pub fn extract_i64(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> 
 pub fn extract_u8(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::UInt(IntSize::Bits8),
+        Type::UInt(IntSize::Bits8),
     )
         .into()
 }
@@ -120,7 +120,7 @@ pub fn extract_u8(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> V
 pub fn extract_u16(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::UInt(IntSize::Bits16),
+        Type::UInt(IntSize::Bits16),
     )
         .into()
 }
@@ -128,7 +128,7 @@ pub fn extract_u16(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> 
 pub fn extract_u32(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::UInt(IntSize::Bits32),
+        Type::UInt(IntSize::Bits32),
     )
         .into()
 }
@@ -136,7 +136,7 @@ pub fn extract_u32(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> 
 pub fn extract_u64(ctx: &CompilerContext, agg_val: LLVMValueRef, index: u32) -> ValueTypePair {
     (
         ctx.llvm_builder.build_extract_value(agg_val, index),
-        PrimitiveType::UInt(IntSize::Bits64),
+        Type::UInt(IntSize::Bits64),
     )
         .into()
 }

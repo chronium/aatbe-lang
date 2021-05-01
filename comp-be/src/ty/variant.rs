@@ -4,13 +4,13 @@ use crate::{
 };
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 use std::{collections::HashMap, fmt};
 
 pub struct VariantType {
     pub type_name: String,
     pub variants: HashMap<String, Variant>,
-    pub discriminant_type: PrimitiveType,
+    pub discriminant_type: Type,
     pub ty: LLVMTypeRef,
 }
 
@@ -30,7 +30,7 @@ impl LLVMTyInCtx for VariantType {
 pub struct Variant {
     pub parent_name: String,
     pub name: String,
-    pub types: Option<Vec<PrimitiveType>>,
+    pub types: Option<Vec<Type>>,
     pub ty: LLVMTypeRef,
     pub discriminant: u32,
 }

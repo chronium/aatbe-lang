@@ -1,7 +1,7 @@
 use llvm_sys_wrapper::{Builder, LLVMValueRef};
 
 use crate::codegen::{AatbeModule, ValueTypePair};
-use parser::ast::{BindType, PrimitiveType};
+use parser::ast::{BindType, Type};
 
 pub mod function;
 pub use function::{
@@ -44,11 +44,11 @@ impl From<&BindType> for Mutability {
 
 #[derive(Debug, Clone)]
 pub enum Slot {
-    FunctionArgument(LLVMValueRef, PrimitiveType),
+    FunctionArgument(LLVMValueRef, Type),
     Variable {
         mutable: Mutability,
         name: String,
-        ty: PrimitiveType,
+        ty: Type,
         value: LLVMValueRef,
     },
 }
@@ -104,24 +104,24 @@ impl Slot {
         match self {
             Slot::Variable {
                 ty:
-                    PrimitiveType::TypeRef(rec)
-                    | PrimitiveType::NamedType {
+                    Type::TypeRef(rec)
+                    | Type::NamedType {
                         name: _,
-                        ty: Some(box PrimitiveType::TypeRef(rec)),
+                        ty: Some(box Type::TypeRef(rec)),
                     },
                 ..
             } => Some(rec.clone()),
             Slot::FunctionArgument(
                 _arg,
-                PrimitiveType::TypeRef(rec)
-                | PrimitiveType::Pointer(box PrimitiveType::TypeRef(rec)),
+                Type::TypeRef(rec)
+                | Type::Pointer(box Type::TypeRef(rec)),
             ) => Some(rec.clone()),
             Slot::Variable {
                 ty:
-                    PrimitiveType::VariantType(name)
-                    | PrimitiveType::NamedType {
+                    Type::VariantType(name)
+                    | Type::NamedType {
                         name: _,
-                        ty: Some(box PrimitiveType::VariantType(name)),
+                        ty: Some(box Type::VariantType(name)),
                     },
                 ..
             } => Some(name.clone()),
@@ -129,13 +129,13 @@ impl Slot {
         }
     }
 
-    pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<(u32, PrimitiveType)> {
+    pub fn get_index(&self, module: &AatbeModule, name: &String) -> Option<(u32, Type)> {
         match self {
             Slot::Variable {
                 ty:
-                    PrimitiveType::NamedType {
+                    Type::NamedType {
                         name: _,
-                        ty: Some(box PrimitiveType::TypeRef(record)),
+                        ty: Some(box Type::TypeRef(record)),
                     },
                 ..
             } => match module.typectx_ref().get_record(record) {
@@ -149,25 +149,25 @@ impl Slot {
     pub fn load_var(&self, builder: &Builder) -> LLVMValueRef {
         match self {
             Slot::Variable {
-                ty: PrimitiveType::Array { .. },
+                ty: Type::Array { .. },
                 ..
             }
             | Slot::Variable {
                 ty:
-                    PrimitiveType::NamedType {
-                        ty: Some(box PrimitiveType::Array { .. }),
+                    Type::NamedType {
+                        ty: Some(box Type::Array { .. }),
                         ..
                     },
                 ..
             } => self.into(),
             Slot::Variable {
-                ty: PrimitiveType::Slice { .. },
+                ty: Type::Slice { .. },
                 ..
             }
             | Slot::Variable {
                 ty:
-                    PrimitiveType::NamedType {
-                        ty: Some(box PrimitiveType::Slice { .. }),
+                    Type::NamedType {
+                        ty: Some(box Type::Slice { .. }),
                         ..
                     },
                 ..
@@ -179,17 +179,17 @@ impl Slot {
                 Mutability::Constant => self.into(),
                 _ => builder.build_load(self.into()),
             },
-            Slot::FunctionArgument(_, PrimitiveType::Slice { .. }) => {
+            Slot::FunctionArgument(_, Type::Slice { .. }) => {
                 builder.build_load(self.into())
             }
             Slot::FunctionArgument(_, _) => self.into(),
         }
     }
 
-    pub fn var_ty(&self) -> &PrimitiveType {
+    pub fn var_ty(&self) -> &Type {
         match self {
             Slot::Variable { ty, .. } => match ty {
-                PrimitiveType::NamedType {
+                Type::NamedType {
                     name: _,
                     ty: Some(ty),
                 } => ty,
@@ -202,8 +202,8 @@ impl Slot {
     pub fn get_mutability(&self) -> &Mutability {
         match self {
             Slot::Variable { mutable, .. } => mutable,
-            Slot::FunctionArgument(_, PrimitiveType::Array { .. }) => &Mutability::Mutable,
-            Slot::FunctionArgument(_, PrimitiveType::Slice { .. }) => &Mutability::Mutable,
+            Slot::FunctionArgument(_, Type::Array { .. }) => &Mutability::Mutable,
+            Slot::FunctionArgument(_, Type::Slice { .. }) => &Mutability::Mutable,
             _ => panic!("ICE get_mutability: Not a variable {:?}", self),
         }
     }

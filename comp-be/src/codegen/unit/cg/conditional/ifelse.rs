@@ -8,7 +8,7 @@ use crate::{
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::{LLVMBasicBlockRef, Phi};
-use parser::ast::{Expression, PrimitiveType};
+use parser::ast::{Expression, Type};
 
 use guard::guard;
 
@@ -39,10 +39,10 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     ctx.dispatch(Message::EnterIfScope(cond_expr.fmt()));
     let cond = expr::cg(cond_expr, ctx)?;
 
-    if *cond.prim().inner() != PrimitiveType::Bool {
+    if *cond.prim().inner() != Type::Bool {
         /*
         self.add_error(CompileError::ExpectedType {
-            expected_ty: PrimitiveType::Bool.fmt(),
+            expected_ty: Type::Bool.fmt(),
             found_ty: cond.prim().fmt(),
             value: cond_expr.fmt(),
         }); */
@@ -72,10 +72,10 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
 
             let cond = expr::cg(cond, ctx)?;
 
-            if *cond.prim().inner() != PrimitiveType::Bool {
+            if *cond.prim().inner() != Type::Bool {
                 /*
                 self.add_error(CompileError::ExpectedType {
-                    expected_ty: PrimitiveType::Bool.fmt(),
+                    expected_ty: Type::Bool.fmt(),
                     found_ty: cond.prim().fmt(),
                     value: cond_expr.fmt(),
                 }); */
@@ -154,7 +154,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
         blocks.push(else_bb.unwrap());
     }
 
-    if ty == PrimitiveType::Unit {
+    if ty == Type::Unit {
         return None;
     }
 

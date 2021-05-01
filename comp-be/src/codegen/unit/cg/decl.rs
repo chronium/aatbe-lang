@@ -1,4 +1,4 @@
-use parser::ast::{Expression, PrimitiveType};
+use parser::ast::{Expression, Type};
 
 use guard::guard;
 
@@ -10,7 +10,7 @@ use crate::codegen::{
 pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
     match expr {
         Expression::Decl {
-            ty: PrimitiveType::NamedType { name, ty: Some(ty) },
+            ty: Type::NamedType { name, ty: Some(ty) },
             value: _,
             exterior_bind: _,
         } => {
@@ -21,7 +21,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
             Some((slot.into(), *ty.clone()).into())
         }
         Expression::Decl {
-            ty: PrimitiveType::NamedType { name, ty: None },
+            ty: Type::NamedType { name, ty: None },
             value,
             exterior_bind: _,
         } => {

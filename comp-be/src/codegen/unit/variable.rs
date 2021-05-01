@@ -10,7 +10,7 @@ use crate::{
 };
 
 use guard::guard;
-use parser::ast::{AtomKind, Expression, LValue, PrimitiveType};
+use parser::ast::{AtomKind, Expression, LValue, Type};
 
 macro_rules! rec_name {
     ($name:expr, $types:expr) => {{
@@ -33,25 +33,25 @@ macro_rules! rec_name {
     }};
 }
 
-pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<PrimitiveType> {
+pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Type> {
     match variable {
         Expression::Decl {
-            ty: PrimitiveType::NamedType { name, ty },
+            ty: Type::NamedType { name, ty },
             value,
             exterior_bind,
         } => {
             let mut vtp = None;
             let ty = match ty {
                 Some(ty) => match ty {
-                    box PrimitiveType::GenericTypeRef(name, types) => {
+                    box Type::GenericTypeRef(name, types) => {
                         /*let rec = rec_name!(name.clone(), types);
                         if !module.typectx_ref().get_record(&rec).is_ok() {
                             module.propagate_types_in_record(name, types.clone());
                         }
-                        PrimitiveType::TypeRef(rec.clone())*/
+                        Type::TypeRef(rec.clone())*/
                         todo!()
                     }
-                    box PrimitiveType::VariantType(_) => {
+                    box Type::VariantType(_) => {
                         /*if let Some(e) = value {
                             let pair = module.codegen_expr(e)?;
 
@@ -75,13 +75,13 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
                         {
                             /*let rec = rec_name!(record.clone(), types);
                             if types.len() == 0 {
-                                PrimitiveType::TypeRef(rec.clone())
+                                Type::TypeRef(rec.clone())
                             } else {
                                 if !module.typectx_ref().get_record(&rec).is_ok() {
                                     module.propagate_types_in_record(record, types.clone());
                                 }
 
-                                PrimitiveType::TypeRef(rec.clone())
+                                Type::TypeRef(rec.clone())
                             }*/
                             todo!()
                         } else {
@@ -97,7 +97,7 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
                 }
             };
 
-            if let PrimitiveType::Newtype(..) | PrimitiveType::VariantType(..) = ty {
+            if let Type::Newtype(..) | Type::VariantType(..) = ty {
                 /*module.push_in_scope(
                     name,
                     Slot::Variable {
@@ -112,7 +112,7 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
             }
 
             if value.is_none() {
-                let val_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), name.as_ref());
+                let val_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), &name);
 
                 ctx.dispatch(Message::PushInScope(
                     name.clone(),
@@ -135,7 +135,7 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
             }
             let (ty, constant) = ty.unwrap();
 
-            let var_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), name.as_ref());
+            let var_ref = base::alloca_with_name(ctx, ty.llvm_ty_in_ctx(ctx), &name);
 
             ctx.dispatch(Message::PushInScope(
                 name.clone(),
@@ -154,7 +154,7 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
                     values,
                 } = e
                 {
-                    /*if ty.inner() != &PrimitiveType::TypeRef(rec_name!(record.clone(), types)) {
+                    /*if ty.inner() != &Type::TypeRef(rec_name!(record.clone(), types)) {
                         module.add_error(CompileError::ExpectedType {
                             expected_ty: ty.inner().fmt(),
                             found_ty: record.clone(),
@@ -173,7 +173,7 @@ pub fn alloc_variable(variable: &Expression, ctx: &CompilerContext) -> Option<Pr
                     todo!()
                 } else {
                     match ty.clone() {
-                        PrimitiveType::Array { ref ty, len } if !constant => {
+                        Type::Array { ref ty, len } if !constant => {
                             /*if let box Expression::Atom(AtomKind::Array(exprs)) = e {
                                 let vals = exprs
                                     .iter()
@@ -252,7 +252,7 @@ pub fn init_record(
 
                 if let Some(val) = val {
                     match val.ty() {
-                        TypeKind::Primitive(PrimitiveType::Str) => {
+                        TypeKind::Primitive(Type::Str) => {
                             let gep = module
                                 .llvm_builder_ref()
                                 .build_inbounds_gep(*val, &mut [*index]);
@@ -260,7 +260,7 @@ pub fn init_record(
                             Some(
                                 (
                                     module.llvm_builder_ref().build_load(gep),
-                                    PrimitiveType::Char,
+                                    Type::Char,
                                 )
                                     .into(),
                             )
@@ -353,14 +353,14 @@ pub fn store_value(
 
                 if let Some(val) = val {
                     match val.ty() {
-                        TypeKind::Primitive(PrimitiveType::Str) => Some(
+                        TypeKind::Primitive(Type::Str) => Some(
                             (
                                 base::inbounds_gep(ctx, base::load(ctx, *val), &mut vec![*index]),
-                                PrimitiveType::Char,
+                                Type::Char,
                             )
                                 .into(),
                         ),
-                        TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => Some(
+                        TypeKind::Primitive(Type::Array { ty: box ty, .. }) => Some(
                             (
                                 base::inbounds_gep(
                                     ctx,
@@ -371,7 +371,7 @@ pub fn store_value(
                             )
                                 .into(),
                         ),
-                        TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => Some(
+                        TypeKind::Primitive(Type::Slice { ty: box ty }) => Some(
                             (
                                 base::inbounds_gep(
                                     ctx,

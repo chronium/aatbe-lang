@@ -14,20 +14,20 @@ pub enum AST {
     File(Vec<AST>),
     Error,
     Expr(Expression),
-    Import(String),
-    Record(String, Option<Vec<String>>, Vec<PrimitiveType>),
+    Import(IdentPath),
+    Record(String, Option<Vec<String>>, Vec<Type>),
     Typedef {
         name: String,
         type_names: Option<Vec<String>>,
         variants: Option<Vec<TypeKind>>,
     },
     Constant {
-        ty: PrimitiveType,
+        ty: Type,
         export: bool,
         value: Box<Expression>,
     },
     Global {
-        ty: PrimitiveType,
+        ty: Type,
         export: bool,
         value: Box<Expression>,
     },
@@ -36,8 +36,8 @@ pub enum AST {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypeKind {
-    Newtype(PrimitiveType),
-    Variant(String, Option<Vec<PrimitiveType>>),
+    Newtype(Type),
+    Variant(String, Option<Vec<Type>>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -47,7 +47,7 @@ pub enum Expression {
     Block(Vec<Expression>),
     Ret(Box<Expression>),
     Decl {
-        ty: PrimitiveType,
+        ty: Type,
         value: Option<Box<Expression>>,
         exterior_bind: BindType,
     },
@@ -57,7 +57,7 @@ pub enum Expression {
     },
     Call {
         name: IdentPath,
-        types: Vec<PrimitiveType>,
+        types: Vec<Type>,
         args: Vec<Expression>,
     },
     Function {
@@ -76,7 +76,7 @@ pub enum Expression {
     },
     RecordInit {
         record: String,
-        types: Vec<PrimitiveType>,
+        types: Vec<Type>,
         values: Vec<AtomKind>,
     },
     Loop {
@@ -110,18 +110,18 @@ pub enum LoopType {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct FunctionType {
     pub ext: bool,
-    pub ret_ty: Box<PrimitiveType>,
-    pub params: Vec<PrimitiveType>,
+    pub ret_ty: Box<Type>,
+    pub params: Vec<Type>,
 }
 
-impl From<FunctionType> for PrimitiveType {
+impl From<FunctionType> for Type {
     fn from(func: FunctionType) -> Self {
-        PrimitiveType::Function(func)
+        Type::Function(func)
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub enum PrimitiveType {
+pub enum Type {
     Unit,
     Str,
     Varargs,
@@ -131,52 +131,41 @@ pub enum PrimitiveType {
     UInt(IntSize),
     Float(FloatSize),
     TypeRef(String),
-    GenericTypeRef(String, Vec<PrimitiveType>),
+    GenericTypeRef(String, Vec<Type>),
     Newtype(String),
     VariantType(String),
-    Variant {
-        parent: String,
-        variant: String,
-    },
+    Variant { parent: String, variant: String },
     Function(FunctionType),
-    NamedType {
-        name: String,
-        ty: Option<Box<PrimitiveType>>,
-    },
-    Ref(Box<PrimitiveType>),
-    Pointer(Box<PrimitiveType>),
-    Array {
-        ty: Box<PrimitiveType>,
-        len: u32,
-    },
-    Slice {
-        ty: Box<PrimitiveType>,
-    },
+    NamedType { name: String, ty: Option<Box<Type>> },
+    Ref(Box<Type>),
+    Pointer(Box<Type>),
+    Array { ty: Box<Type>, len: u32 },
+    Slice { ty: Box<Type> },
     Symbol(String),
-    Box(Box<PrimitiveType>),
+    Box(Box<Type>),
     Path(ModPath),
 }
 
-impl PrimitiveType {
-    pub fn inner(&self) -> &PrimitiveType {
+impl Type {
+    pub fn inner(&self) -> &Type {
         match self {
-            PrimitiveType::NamedType {
+            Type::NamedType {
                 name: _,
                 ty: Some(box ty),
             } => ty,
-            PrimitiveType::Function(..) => panic!("ICE primty inner {:?}", self),
+            Type::Function(..) => panic!("ICE primty inner {:?}", self),
             other => other,
         }
     }
 
     pub fn ext(&self) -> bool {
         match self {
-            PrimitiveType::Function(FunctionType {
+            Type::Function(FunctionType {
                 ext,
                 ret_ty: _,
                 params: _,
             }) => ext.clone(),
-            _ => panic!("ICE PrimitiveType ext {:?}", self),
+            _ => panic!("ICE Type ext {:?}", self),
         }
     }
 }
@@ -186,8 +175,8 @@ pub enum AtomKind {
     Unit,
     SymbolLiteral(String),
     Bool(Boolean),
-    Integer(u64, PrimitiveType),
-    Floating(f64, PrimitiveType),
+    Integer(u64, Type),
+    Floating(f64, Type),
     StringLiteral(String),
     CharLiteral(char),
     Expr(Box<Expression>),
@@ -198,7 +187,7 @@ pub enum AtomKind {
     Deref(Box<AtomKind>),
     Ref(Box<AtomKind>),
     Index(Box<AtomKind>, Box<Expression>),
-    Cast(Box<AtomKind>, PrimitiveType),
+    Cast(Box<AtomKind>, Type),
     Array(Vec<Expression>),
     Is(Box<AtomKind>, String),
     NamedValue { name: String, val: Box<Expression> },

@@ -1,6 +1,6 @@
 use crate::{codegen::unit::CompilerContext, codegen::ValueTypePair};
 use llvm_sys_wrapper::LLVMValueRef;
-use parser::ast::{FloatSize, PrimitiveType};
+use parser::ast::{FloatSize, Type};
 
 pub fn cg(
     lhs: LLVMValueRef,
@@ -18,7 +18,7 @@ pub fn cg(
             "%" => ctx.llvm_builder.build_frem(lhs, rhs),
             _ => panic!("ICE codegen_float_ops unhandled op {}", op),
         },
-        PrimitiveType::Float(float_size),
+        Type::Float(float_size),
     )
         .into()
 }

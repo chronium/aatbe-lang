@@ -320,9 +320,9 @@ impl<'c> Lexer<'c> {
 
                     token!(
                         tokens,
-                        Token::keyword(buf.as_ref()).unwrap_or(
-                            Token::boolean(buf.as_ref()).unwrap_or(
-                                Token::r#type(buf.as_ref()).unwrap_or(TokenKind::Identifier(buf)),
+                        Token::keyword(&buf).unwrap_or(
+                            Token::boolean(&buf).unwrap_or(
+                                Token::r#type(&buf).unwrap_or(TokenKind::Identifier(buf)),
                             ),
                         ),
                         pos
@@ -355,9 +355,10 @@ impl<'c> Lexer<'c> {
                             };
                         }
                         if buf.contains(".") {
-                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
-                                format!("{} is not a floating point literal", buf).as_ref(),
-                            ))
+                            TokenKind::FloatLiteral(
+                                f64::from_str(&buf)
+                                    .expect(&format!("{} is not a floating point literal", buf)),
+                            )
                         } else {
                             TokenKind::IntLiteral(
                                 u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),
@@ -381,9 +382,10 @@ impl<'c> Lexer<'c> {
                     token!(
                         tokens,
                         if buf.contains(".") {
-                            TokenKind::FloatLiteral(f64::from_str(&buf).expect(
-                                format!("{} is not a floating point literal", buf).as_ref(),
-                            ))
+                            TokenKind::FloatLiteral(
+                                f64::from_str(&buf)
+                                    .expect(&format!("{} is not a floating point literal", buf)),
+                            )
                         } else {
                             TokenKind::IntLiteral(
                                 u64::from_str_radix(&buf, 10).expect("Lexer died @digits -> u64"),

@@ -1,6 +1,6 @@
 use parser::ast::{
     AtomKind, Boolean, Expression, FloatSize, FunctionType, IdentPath, IntSize, LValue,
-    PrimitiveType,
+    Type,
 };
 
 pub trait AatbeFmt {
@@ -17,7 +17,7 @@ impl AatbeFmt for &IdentPath {
     }
 }
 
-impl AatbeFmt for PrimitiveType {
+impl AatbeFmt for Type {
     fn fmt(self) -> String {
         (&self).fmt()
     }
@@ -31,7 +31,7 @@ impl AatbeFmt for FunctionType {
 
 impl AatbeFmt for &FunctionType {
     fn fmt(self) -> String {
-        let params = if self.params.len() == 1 && self.params[0] == PrimitiveType::Unit {
+        let params = if self.params.len() == 1 && self.params[0] == Type::Unit {
             String::from("()")
         } else {
             format!(
@@ -50,43 +50,43 @@ impl AatbeFmt for &FunctionType {
     }
 }
 
-impl AatbeFmt for &PrimitiveType {
+impl AatbeFmt for &Type {
     fn fmt(self) -> String {
         match self {
-            PrimitiveType::Str => String::from("str"),
-            PrimitiveType::Bool => String::from("bool"),
-            PrimitiveType::Int(bits) => match bits {
+            Type::Str => String::from("str"),
+            Type::Bool => String::from("bool"),
+            Type::Int(bits) => match bits {
                 IntSize::Bits8 => String::from("i8"),
                 IntSize::Bits16 => String::from("i16"),
                 IntSize::Bits32 => String::from("i32"),
                 IntSize::Bits64 => String::from("i64"),
             },
-            PrimitiveType::UInt(bits) => match bits {
+            Type::UInt(bits) => match bits {
                 IntSize::Bits8 => String::from("u8"),
                 IntSize::Bits16 => String::from("u16"),
                 IntSize::Bits32 => String::from("u32"),
                 IntSize::Bits64 => String::from("u64"),
             },
-            PrimitiveType::Float(bits) => match bits {
+            Type::Float(bits) => match bits {
                 FloatSize::Bits32 => String::from("f32"),
                 FloatSize::Bits64 => String::from("f64"),
             },
-            PrimitiveType::Varargs => String::from("..."),
-            PrimitiveType::NamedType {
+            Type::Varargs => String::from("..."),
+            Type::NamedType {
                 name: _,
                 ty: Some(ty),
             } => ty.clone().fmt(),
-            PrimitiveType::Pointer(ty) => format!("{}*", ty.clone().fmt()),
-            PrimitiveType::Char => String::from("char"),
-            PrimitiveType::TypeRef(ty) => ty.clone(),
-            PrimitiveType::Array { ty, len } => {
+            Type::Pointer(ty) => format!("{}*", ty.clone().fmt()),
+            Type::Char => String::from("char"),
+            Type::TypeRef(ty) => ty.clone(),
+            Type::Array { ty, len } => {
                 format!("{}[{}]", ty.clone().fmt(), len.to_string())
             }
-            PrimitiveType::Unit => String::from("()"),
-            PrimitiveType::Ref(ty) => format!("&{}", ty.clone().fmt()),
-            PrimitiveType::Function(func) => func.fmt(),
-            PrimitiveType::Slice { ty } => format!("{}[]", ty.clone().fmt()),
-            PrimitiveType::GenericTypeRef(name, types) => format!(
+            Type::Unit => String::from("()"),
+            Type::Ref(ty) => format!("&{}", ty.clone().fmt()),
+            Type::Function(func) => func.fmt(),
+            Type::Slice { ty } => format!("{}[]", ty.clone().fmt()),
+            Type::GenericTypeRef(name, types) => format!(
                 "{}[{}]",
                 name,
                 types
@@ -95,8 +95,8 @@ impl AatbeFmt for &PrimitiveType {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            PrimitiveType::Newtype(name) => name.clone(),
-            PrimitiveType::VariantType(name) => name.clone(),
+            Type::Newtype(name) => name.clone(),
+            Type::VariantType(name) => name.clone(),
             _ => panic!("ICE fmt {:?}", self),
         }
     }

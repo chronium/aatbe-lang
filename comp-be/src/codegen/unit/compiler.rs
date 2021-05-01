@@ -5,6 +5,7 @@ use parser::ast::{Expression, FunctionType, AST};
 
 use crate::{
     codegen::{
+        comp_unit::CompilationUnit,
         unit::{cg, decl, function::find_func, generic},
         Scope, ValueTypePair,
     },
@@ -125,7 +126,7 @@ impl std::fmt::Debug for QueryResponse {
                 .debug_tuple("FunctionGroup")
                 .field(&format_args!(
                     "{}",
-                    match group.as_ref() {
+                    match &group {
                         None => String::from("[]"),
                         Some(gr) => format!("{:?}", gr.borrow().iter().collect::<Vec<_>>()),
                     }

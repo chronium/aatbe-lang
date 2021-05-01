@@ -93,7 +93,7 @@ pub enum CompileError {
 
 use crate::ty::TypeKind;
 use llvm_sys_wrapper::LLVMValueRef;
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 
 pub struct ValueTypePair(LLVMValueRef, TypeKind);
 
@@ -103,14 +103,14 @@ impl From<(LLVMValueRef, TypeKind)> for ValueTypePair {
     }
 }
 
-impl From<(LLVMValueRef, PrimitiveType)> for ValueTypePair {
-    fn from((val, ty): (LLVMValueRef, PrimitiveType)) -> ValueTypePair {
+impl From<(LLVMValueRef, Type)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, Type)) -> ValueTypePair {
         ValueTypePair(val, TypeKind::Primitive(ty))
     }
 }
 
-impl From<(LLVMValueRef, &PrimitiveType)> for ValueTypePair {
-    fn from((val, ty): (LLVMValueRef, &PrimitiveType)) -> ValueTypePair {
+impl From<(LLVMValueRef, &Type)> for ValueTypePair {
+    fn from((val, ty): (LLVMValueRef, &Type)) -> ValueTypePair {
         ValueTypePair(val, TypeKind::Primitive(ty.clone()))
     }
 }
@@ -122,11 +122,11 @@ impl From<ValueTypePair> for (LLVMValueRef, TypeKind) {
 }
 
 impl ValueTypePair {
-    pub fn prim(&self) -> &PrimitiveType {
+    pub fn prim(&self) -> &Type {
         match self {
             ValueTypePair(
                 _,
-                TypeKind::Primitive(PrimitiveType::NamedType {
+                TypeKind::Primitive(Type::NamedType {
                     name: _,
                     ty: Some(ty),
                 }),
@@ -144,13 +144,13 @@ impl ValueTypePair {
         todo!()
         /*match &self {
             ValueTypePair(val, TypeKind::Primitive(prim)) => match prim {
-                prim @ (PrimitiveType::Str | PrimitiveType::Array { .. }) => {
+                prim @ (Type::Str | Type::Array { .. }) => {
                     Some((*val, prim).into())
                 }
-                PrimitiveType::Slice { .. } => {
+                Type::Slice { .. } => {
                     Some((module.llvm_builder_ref().build_extract_value(*val, 0), prim).into())
                 }
-                PrimitiveType::Pointer(box ty) => Some((*val, ty).into()),
+                Type::Pointer(box ty) => Some((*val, ty).into()),
                 _ => None,
             },
             _ => None,

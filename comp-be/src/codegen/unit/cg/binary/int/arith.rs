@@ -1,6 +1,6 @@
 use crate::{codegen::unit::CompilerContext, codegen::ValueTypePair};
 use llvm_sys_wrapper::LLVMValueRef;
-use parser::ast::{IntSize, PrimitiveType};
+use parser::ast::{IntSize, Type};
 
 pub fn cg(
     lhs: LLVMValueRef,
@@ -18,7 +18,7 @@ pub fn cg(
             "%" => ctx.llvm_builder.build_srem(lhs, rhs),
             _ => panic!("ICE codegen_unsigned_ops unhandled op {}", op),
         },
-        PrimitiveType::Int(int_size),
+        Type::Int(int_size),
     )
         .into()
 }

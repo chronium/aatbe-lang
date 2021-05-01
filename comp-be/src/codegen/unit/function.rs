@@ -23,7 +23,7 @@ use std::{
 
 use guard::guard;
 
-use parser::ast::{Expression, FunctionType, PrimitiveType};
+use parser::ast::{Expression, FunctionType, Type};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 
@@ -67,7 +67,7 @@ pub fn find_func<'a>(map: RefCell<FuncTyMap>, ty: &FunctionType) -> Option<Weak<
     return None;
 }
 
-pub fn find_function<'a>(map: RefCell<FuncTyMap>, args: &Vec<PrimitiveType>) -> Option<Weak<Func>> {
+pub fn find_function<'a>(map: RefCell<FuncTyMap>, args: &Vec<Type>) -> Option<Weak<Func>> {
     for func in map.borrow().iter() {
         if func.accepts(args) {
             return Some(Rc::downgrade(func));
@@ -92,7 +92,7 @@ impl Func {
         &self.ty
     }
 
-    pub fn ret_ty(&self) -> &PrimitiveType {
+    pub fn ret_ty(&self) -> &Type {
         &self.ty.ret_ty
     }
 
@@ -101,28 +101,28 @@ impl Func {
     }
 
     pub fn bb(&self, name: String) -> LLVMBasicBlockRef {
-        self.inner.append_basic_block(name.as_ref())
+        self.inner.append_basic_block(&name)
     }
 
-    fn accepts(&self, args: &Vec<PrimitiveType>) -> bool {
+    fn accepts(&self, args: &Vec<Type>) -> bool {
         let params = &self.ty.params;
 
-        if params.len() != args.len() && !(params.contains(&PrimitiveType::Varargs)) {
+        if params.len() != args.len() && !(params.contains(&Type::Varargs)) {
             return false;
         };
 
         for (i, param) in params.iter().enumerate() {
-            if matches!(param, PrimitiveType::Varargs) {
+            if matches!(param, Type::Varargs) {
                 continue;
             }
             let arg = &args[i];
 
             match param {
-                PrimitiveType::Varargs => continue,
-                PrimitiveType::NamedType {
+                Type::Varargs => continue,
+                Type::NamedType {
                     ty: Some(box t), ..
                 } if t != arg => return false,
-                PrimitiveType::NamedType {
+                Type::NamedType {
                     ty: Some(box t), ..
                 } if t == arg => return true,
                 t if t != arg => return false,
@@ -196,7 +196,7 @@ pub fn declare_and_compile_function<'ctx>(
                     } else {
                         if let Some(val) = ret_val {
                             match val.prim() {
-                                PrimitiveType::VariantType(_variant) => todo!(),
+                                Type::VariantType(_variant) => todo!(),
                                 _ => base::ret(&ctx, val),
                             };
                         } else {
@@ -262,19 +262,15 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                     for (pos, ty) in params
                         .into_iter()
                         .filter(|ty| match ty {
-                            PrimitiveType::Symbol(_) => false,
+                            Type::Symbol(_) => false,
                             _ => true,
                         })
                         .enumerate()
                     {
                         match ty {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name,
-                                ty:
-                                    Some(
-                                        box PrimitiveType::TypeRef(_)
-                                        | box PrimitiveType::Array { .. },
-                                    ),
+                                ty: Some(box Type::TypeRef(_) | box Type::Array { .. }),
                             } => {
                                 /*let arg = module
                                     .get_func((fname.clone(), fty.clone()))
@@ -286,9 +282,9 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                                     name,
                                     Slot::Variable {
                                         mutable: match ty {
-                                            PrimitiveType::Array { .. }
-                                            | PrimitiveType::NamedType {
-                                                ty: Some(box PrimitiveType::Array { .. }),
+                                            Type::Array { .. }
+                                            | Type::NamedType {
+                                                ty: Some(box Type::Array { .. }),
                                                 ..
                                             } => Mutability::Mutable,
                                             _ => Mutability::Immutable,
@@ -300,9 +296,9 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                                 );*/
                                 todo!()
                             }
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name,
-                                ty: Some(box PrimitiveType::Ref(ty) | ty),
+                                ty: Some(box Type::Ref(ty) | ty),
                             } => {
                                 guard!(let QueryResponse::Function(Some(func)) =
                                     ctx.query(Query::Function((prefix!(ctx).join("::"), fty)))
@@ -314,7 +310,7 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
                                     Slot::FunctionArgument(func.get_param(pos as u32), *ty.clone()),
                                 ))
                             }
-                            PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
+                            Type::Unit | Type::Symbol(_) => {}
                             _ => unimplemented!("{:?}", ty),
                         }
                     }
@@ -328,7 +324,7 @@ pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
 
 fn has_return_type(func: &FunctionType) -> bool {
     match func.ret_ty {
-        box PrimitiveType::Unit => false,
+        box Type::Unit => false,
         _ => true,
     }
 }

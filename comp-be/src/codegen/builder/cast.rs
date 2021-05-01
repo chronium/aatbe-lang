@@ -4,9 +4,9 @@ use crate::{
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 
-pub fn zext(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn zext(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder.build_zext(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
@@ -14,7 +14,7 @@ pub fn zext(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn trunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn trunc(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder.build_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
@@ -22,7 +22,7 @@ pub fn trunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> V
         .into()
 }
 
-pub fn ftrunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftrunc(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -31,7 +31,7 @@ pub fn ftrunc(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> 
         .into()
 }
 
-pub fn itop(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn itop(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_int_to_ptr(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -40,7 +40,7 @@ pub fn itop(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn ptoi(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ptoi(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_ptr_to_int(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -49,7 +49,7 @@ pub fn ptoi(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn stof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn stof(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_si_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -58,7 +58,7 @@ pub fn stof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn utof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn utof(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_ui_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -67,7 +67,7 @@ pub fn utof(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn ftos(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftos(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_to_si(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -76,7 +76,7 @@ pub fn ftos(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> Va
         .into()
 }
 
-pub fn ftou(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftou(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder
             .build_fp_to_ui(*val, ty.llvm_ty_in_ctx(ctx)),
@@ -89,7 +89,7 @@ pub fn bitcast(ctx: &CompilerContext, val: ValueTypePair, ty: &dyn LLVMTyInCtx) 
     ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx))
 }
 
-pub fn bitcast_ty(ctx: &CompilerContext, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn bitcast_ty(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
         ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,

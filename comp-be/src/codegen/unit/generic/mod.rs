@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use parser::ast::{Expression, IdentPath, PrimitiveType, AST};
+use parser::ast::{Expression, IdentPath, Type, AST};
 
 mod gen;
 
 #[derive(Debug)]
 pub struct Processor {
-    pub(super) function_calls: HashMap<IdentPath, HashSet<Vec<PrimitiveType>>>,
+    pub(super) function_calls: HashMap<IdentPath, HashSet<Vec<Type>>>,
     extracted_tree: Option<AST>,
     pub generated_tree: Option<AST>,
 }
@@ -63,7 +63,7 @@ impl Processor {
         self
     }
 
-    fn insert_function_call(&mut self, name: &IdentPath, types: Vec<PrimitiveType>) {
+    fn insert_function_call(&mut self, name: &IdentPath, types: Vec<Type>) {
         if !self.function_calls.contains_key(name) {
             self.function_calls.insert(name.clone(), HashSet::new());
         }

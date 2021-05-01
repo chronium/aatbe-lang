@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use parser::ast::{AtomKind, Expression, IdentPath, PrimitiveType};
+use parser::ast::{AtomKind, Expression, IdentPath, Type};
 
 use llvm_sys_wrapper::LLVMValueRef;
 
@@ -53,7 +53,7 @@ pub fn cg(expr: &Expression, ctx: &CompilerContext) -> Option<ValueTypePair> {
 fn compute_arguments(
     args: &Vec<Expression>,
     ctx: &CompilerContext,
-) -> Option<(Vec<PrimitiveType>, Vec<LLVMValueRef>)> {
+) -> Option<(Vec<Type>, Vec<LLVMValueRef>)> {
     let mut call_types = vec![];
     let mut error = false;
 
@@ -61,11 +61,11 @@ fn compute_arguments(
         .iter()
         .filter_map(|arg| match arg {
             Expression::Atom(AtomKind::SymbolLiteral(sym)) => {
-                call_types.push(PrimitiveType::Symbol(sym.clone()));
+                call_types.push(Type::Symbol(sym.clone()));
                 None
             }
             Expression::Atom(AtomKind::Unit) => {
-                call_types.push(PrimitiveType::Unit);
+                call_types.push(Type::Unit);
                 None
             }
             _ => {
@@ -77,9 +77,9 @@ fn compute_arguments(
                     None
                 } else {
                     expr.map_or(None, |arg| match arg.prim().clone() {
-                        ref ty @ PrimitiveType::VariantType(ref _name) => todo!("{:?}", ty),
-                        ref ty @ PrimitiveType::Array { .. } => todo!("{:?}", ty),
-                        ref ty @ PrimitiveType::Ref(box PrimitiveType::Array { .. }) => {
+                        ref ty @ Type::VariantType(ref _name) => todo!("{:?}", ty),
+                        ref ty @ Type::Array { .. } => todo!("{:?}", ty),
+                        ref ty @ Type::Ref(box Type::Array { .. }) => {
                             todo!("{:?}", ty)
                         }
                         ref ty @ _ => {

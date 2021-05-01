@@ -7,13 +7,13 @@ use crate::{
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
-use parser::ast::{AtomKind, Expression, PrimitiveType, AST};
+use parser::ast::{AtomKind, Expression, Type, AST};
 
 pub fn const_atom(ctx: &CompilerContext, atom: &AtomKind) -> Option<ValueTypePair> {
     match atom {
-        AtomKind::StringLiteral(string) => Some(value::str(ctx, string.as_ref())),
+        AtomKind::StringLiteral(string) => Some(value::str(ctx, &string)),
         AtomKind::CharLiteral(ch) => Some(value::char(ctx, *ch)),
-        AtomKind::Cast(box AtomKind::Integer(val, _), PrimitiveType::Char) => {
+        AtomKind::Cast(box AtomKind::Integer(val, _), Type::Char) => {
             Some(value::char(ctx, *val as u8 as char))
         }
         AtomKind::Parenthesized(box atom) => fold_expression(ctx, atom),
@@ -32,7 +32,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
     /*match ast {
         AST::Global {
             ty:
-                PrimitiveType::NamedType {
+                Type::NamedType {
                     name,
                     ty: Some(box ty),
                 },
@@ -67,7 +67,7 @@ pub fn fold_constant(module: &mut AatbeModule, ast: &AST) -> Option<Slot> {
             }),
         AST::Constant {
             ty:
-                PrimitiveType::NamedType {
+                Type::NamedType {
                     name,
                     ty: Some(box ty),
                 },

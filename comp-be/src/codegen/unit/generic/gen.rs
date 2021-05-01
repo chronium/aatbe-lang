@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parser::ast::{Expression, FunctionType, IdentPath, PrimitiveType, AST};
+use parser::ast::{Expression, FunctionType, IdentPath, Type, AST};
 
 use super::Processor;
 
@@ -88,16 +88,16 @@ fn gen_expr(expr: &Expression, proc: &Processor) -> Option<Vec<Expression>> {
     }
 }
 
-fn resolve_type(ty: &PrimitiveType, map: &HashMap<&String, &PrimitiveType>) -> PrimitiveType {
+fn resolve_type(ty: &Type, map: &HashMap<&String, &Type>) -> Type {
     match ty {
-        PrimitiveType::NamedType {
+        Type::NamedType {
             name,
             ty: Some(box ty),
-        } => PrimitiveType::NamedType {
+        } => Type::NamedType {
             name: name.clone(),
             ty: Some(box resolve_type(ty, map)),
         },
-        PrimitiveType::TypeRef(name) => map.get(name).cloned().unwrap().clone(),
+        Type::TypeRef(name) => map.get(name).cloned().unwrap().clone(),
         _ => ty.clone(),
     }
 }

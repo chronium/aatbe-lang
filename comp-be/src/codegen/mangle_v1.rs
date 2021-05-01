@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, PrimitiveType};
+use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, Type};
 
 use super::unit::CompilerContext;
 use crate::prefix;
@@ -94,29 +94,29 @@ impl NameMangler for FunctionType {
     }
 }
 
-impl NameMangler for PrimitiveType {
+impl NameMangler for Type {
     fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
-            PrimitiveType::TypeRef(ty) => ty.clone(),
-            PrimitiveType::Function(ty) => ty.mangle(ctx),
+            Type::TypeRef(ty) => ty.clone(),
+            Type::Function(ty) => ty.mangle(ctx),
             // TODO: Handle Unit
-            PrimitiveType::Unit => String::new(),
-            PrimitiveType::NamedType {
+            Type::Unit => String::new(),
+            Type::NamedType {
                 name: _,
                 ty: Some(ty),
             } => ty.mangle(ctx),
-            PrimitiveType::Str => String::from("s"),
-            PrimitiveType::Int(size) => format!("i{}", size.mangle(ctx)),
-            PrimitiveType::UInt(size) => format!("u{}", size.mangle(ctx)),
-            PrimitiveType::Float(size) => format!("f{}", size.mangle(ctx)),
-            PrimitiveType::Bool => String::from("b"),
-            PrimitiveType::Char => String::from("c"),
-            PrimitiveType::Ref(r) => format!("R{}", r.mangle(ctx)),
-            PrimitiveType::Pointer(p) => format!("P{}", p.mangle(ctx)),
-            PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle(ctx)),
-            PrimitiveType::Slice { ty } => format!("S{}", ty.mangle(ctx)),
-            PrimitiveType::Symbol(name) => format!("N{}", name),
-            /*PrimitiveType::VariantType(name) => format!(
+            Type::Str => String::from("s"),
+            Type::Int(size) => format!("i{}", size.mangle(ctx)),
+            Type::UInt(size) => format!("u{}", size.mangle(ctx)),
+            Type::Float(size) => format!("f{}", size.mangle(ctx)),
+            Type::Bool => String::from("b"),
+            Type::Char => String::from("c"),
+            Type::Ref(r) => format!("R{}", r.mangle(ctx)),
+            Type::Pointer(p) => format!("P{}", p.mangle(ctx)),
+            Type::Array { ty, len: _ } => format!("A{}", ty.mangle(ctx)),
+            Type::Slice { ty } => format!("S{}", ty.mangle(ctx)),
+            Type::Symbol(name) => format!("N{}", name),
+            /*Type::VariantType(name) => format!(
                 "{}",
                 module
                     .typectx_ref()
@@ -124,7 +124,7 @@ impl NameMangler for PrimitiveType {
                     .expect(format!("Cannot find variant {}", name).as_str())
                     .parent_name
             ),*/
-            PrimitiveType::Variant { parent, .. } => parent.clone(),
+            Type::Variant { parent, .. } => parent.clone(),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }

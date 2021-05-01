@@ -7,7 +7,7 @@ use crate::{
     ty::LLVMTyInCtx,
 };
 
-use parser::ast::{Expression, LoopType, PrimitiveType};
+use parser::ast::{Expression, LoopType, Type};
 
 use llvm_sys_wrapper::Phi;
 
@@ -32,9 +32,9 @@ impl AatbeModule {
                 self.start_scope();
                 let cond = self.codegen_expr(cond_expr)?;
 
-                if *cond.prim().inner() != PrimitiveType::Bool {
+                if *cond.prim().inner() != Type::Bool {
                     self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
+                        expected_ty: Type::Bool.fmt(),
                         found_ty: cond.prim().fmt(),
                         value: cond_expr.fmt(),
                     });
@@ -69,7 +69,7 @@ impl AatbeModule {
 
                 if let Some(then_val) = then_val {
                     let ty = then_val.prim().clone();
-                    if ty != PrimitiveType::Unit {
+                    if ty != Type::Unit {
                         if else_val.is_some() {
                             let phi = Phi::new(
                                 self.llvm_builder_ref().as_ref(),
@@ -121,9 +121,9 @@ impl AatbeModule {
                 core::pos_at_end(self, cond_bb);
                 let cond = self.codegen_expr(cond_expr)?;
 
-                if *cond.prim().inner() != PrimitiveType::Bool {
+                if *cond.prim().inner() != Type::Bool {
                     self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
+                        expected_ty: Type::Bool.fmt(),
                         found_ty: cond.prim().fmt(),
                         value: cond_expr.fmt(),
                     });

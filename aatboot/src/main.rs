@@ -67,7 +67,7 @@ fn main() -> io::Result<()> {
 
     if let Some(libs) = matches.values_of("LIB") {
         for lib in libs {
-            let globs = glob(format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib).as_ref())
+            let globs = glob(&format!("/usr/lib/x86_64-linux-gnu/lib{}.so", lib))
                 .unwrap()
                 .filter_map(Result::ok)
                 .collect::<Vec<_>>();

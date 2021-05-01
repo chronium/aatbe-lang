@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Boolean, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, Type};
 
 use guard::guard;
 
@@ -32,7 +32,7 @@ pub fn cg(atom: &AtomKind, ctx: &CompilerContext) -> Option<ValueTypePair> {
             guard!(let QueryResponse::Slot(slot) = ctx.query(Query::Slot(name)) else { unreachable!(); });
             let slot = slot?;
             match slot.var_ty().clone() {
-                ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
+                ty @ Type::Newtype(_) | ty @ Type::VariantType(_) => {
                     let val: ValueTypePair = slot.into();
                     Some((*val, ty).into())
                 }

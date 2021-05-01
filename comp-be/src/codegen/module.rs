@@ -32,7 +32,7 @@ use super::{
 };
 use parser::{
     ast,
-    ast::{AtomKind, Expression, FunctionType, PrimitiveType, AST},
+    ast::{AtomKind, Expression, FunctionType, Type, AST},
 };
 
 pub type InternalFunc = dyn Fn(&mut AatbeModule, &Vec<Expression>, String) -> Option<ValueTypePair>;
@@ -55,7 +55,7 @@ impl AatbeModule {
         LLVM::initialize();
 
         let llvm_context = Context::new();
-        let llvm_module = llvm_context.create_module(name.as_ref());
+        let llvm_module = llvm_context.create_module(&name);
 
         let mut internal_functions: HashMap<String, Rc<InternalFunc>> = HashMap::new();
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
@@ -191,7 +191,7 @@ impl AatbeModule {
                 let smallest = variants.iter().map(|vari| vari.smallest()).min().unwrap();
                 let size = max_size / smallest;
 
-                let smallest_ty = PrimitiveType::UInt(smallest.into());
+                let smallest_ty = Type::UInt(smallest.into());
 
                 let td_struct = self.llvm_context_ref().StructTypeNamed(name.as_ref());
                 td_struct.set_body(
@@ -307,7 +307,7 @@ impl AatbeModule {
                                             });
                                         }
                                         Some(
-                                            (variant, PrimitiveType::VariantType(name.clone()))
+                                            (variant, Type::VariantType(name.clone()))
                                                 .into(),
                                         )
                                     } else {
@@ -355,7 +355,7 @@ impl AatbeModule {
                                         val,
                                         module.llvm_builder_ref().build_struct_gep(res, 0),
                                     );
-                                    Some((res, PrimitiveType::Newtype(name.clone())).into())
+                                    Some((res, Type::Newtype(name.clone())).into())
                                 }),
                             );
                             self.typectx.push_type(
@@ -416,12 +416,12 @@ impl AatbeModule {
                     .ret_ty()
                     .clone();
 
-                if let PrimitiveType::VariantType(ty) = val.prim() {
+                if let Type::VariantType(ty) = val.prim() {
                     let parent_ty = self
                         .typectx_ref()
                         .get_parent_for_variant(ty)
                         .expect("ICE: Variant without parent");
-                    if let PrimitiveType::TypeRef(name) = &func_ret {
+                    if let Type::TypeRef(name) = &func_ret {
                         if &parent_ty.type_name == name {
                             Some(core::ret(
                                 self,
@@ -493,7 +493,7 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_load(rec),
-                        PrimitiveType::TypeRef(record.clone()),
+                        Type::TypeRef(record.clone()),
                     )
                         .into(),
                 )
@@ -548,12 +548,12 @@ impl AatbeModule {
         todo!()
         /*match ast {
             AST::Constant {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: Type::NamedType { name, ty: _ },
                 export,
                 value: _,
             }
             | AST::Global {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: Type::NamedType { name, ty: _ },
                 export,
                 value: _,
             } => {
@@ -640,11 +640,11 @@ impl AatbeModule {
 
     pub fn propagate_generic_body(
         body: Box<Expression>,
-        type_map: HashMap<&String, PrimitiveType>,
+        type_map: HashMap<&String, Type>,
     ) -> Box<Expression> {
         box match body {
             box Expression::Atom(atom) => Expression::Atom(match atom {
-                AtomKind::Cast(box atom, PrimitiveType::TypeRef(ty_ref)) => {
+                AtomKind::Cast(box atom, Type::TypeRef(ty_ref)) => {
                     AtomKind::Cast(box atom, type_map[&ty_ref].clone())
                 }
                 AtomKind::Parenthesized(expr) => AtomKind::Parenthesized(
@@ -660,8 +660,8 @@ impl AatbeModule {
         &mut self,
         template: &String,
         name: &String,
-        types: Vec<PrimitiveType>,
-    ) -> Option<Vec<PrimitiveType>> {
+        types: Vec<Type>,
+    ) -> Option<Vec<Type>> {
         self.get_params(name).or_else(|| {
             self.propagate_types_in_function(template, types.clone())
                 .and_then(|ty| match self.function_templates.get(template) {
@@ -689,7 +689,7 @@ impl AatbeModule {
                                 params
                                     .iter()
                                     .map(|p| match p {
-                                        PrimitiveType::NamedType {
+                                        Type::NamedType {
                                             ty: Some(box ty), ..
                                         } => ty.clone(),
                                         _ => p.clone(),
@@ -732,7 +732,7 @@ impl AatbeModule {
     /*pub fn propagate_types_in_function(
         &mut self,
         name: &String,
-        types: Vec<PrimitiveType>,
+        types: Vec<Type>,
     ) -> Option<FunctionType> {
         if types.len() == 0 {
             return None;
@@ -769,11 +769,11 @@ impl AatbeModule {
             let type_map = type_names.iter().zip(types).collect::<HashMap<_, _>>();
 
             let ret_ty = match ret_ty {
-                box PrimitiveType::TypeRef(ty) => {
+                box Type::TypeRef(ty) => {
                     if type_map.contains_key(ty) {
                         box type_map[ty].clone()
                     } else {
-                        box PrimitiveType::TypeRef(ty.clone())
+                        box Type::TypeRef(ty.clone())
                     }
                 }
                 _ => ret_ty.clone(),
@@ -781,26 +781,26 @@ impl AatbeModule {
             let params = params
                 .iter()
                 .map(|param| match param {
-                    PrimitiveType::TypeRef(ty) => {
+                    Type::TypeRef(ty) => {
                         if type_map.contains_key(ty) {
                             type_map[ty].clone()
                         } else {
-                            PrimitiveType::TypeRef(ty.clone())
+                            Type::TypeRef(ty.clone())
                         }
                     }
-                    PrimitiveType::NamedType {
+                    Type::NamedType {
                         name,
-                        ty: Some(box PrimitiveType::TypeRef(ty)),
+                        ty: Some(box Type::TypeRef(ty)),
                     } => {
                         if type_map.contains_key(ty) {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name: name.clone(),
                                 ty: Some(box type_map[ty].clone()),
                             }
                         } else {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name: name.clone(),
-                                ty: Some(box PrimitiveType::TypeRef(ty.clone())),
+                                ty: Some(box Type::TypeRef(ty.clone())),
                             }
                         }
                     }
@@ -840,7 +840,7 @@ impl AatbeModule {
         }
     }*/
 
-    pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<PrimitiveType>) {
+    pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<Type>) {
         todo!()
         /*let rec = format!(
             "{}[{}]",
@@ -865,10 +865,10 @@ impl AatbeModule {
             let fields = fields
                 .iter()
                 .map(|field| {
-                    if let PrimitiveType::NamedType { name, ty } = field {
-                        if let Some(box PrimitiveType::TypeRef(ty_name)) = ty {
+                    if let Type::NamedType { name, ty } = field {
+                        if let Some(box Type::TypeRef(ty_name)) = ty {
                             if type_map.contains_key(ty_name) {
-                                PrimitiveType::NamedType {
+                                Type::NamedType {
                                     name: name.clone(),
                                     ty: Some(box type_map[ty_name].clone()),
                                 }

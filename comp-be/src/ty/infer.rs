@@ -1,4 +1,4 @@
-use parser::ast::{AtomKind, Expression, IdentPath, PrimitiveType};
+use parser::ast::{AtomKind, Expression, IdentPath, Type};
 
 use guard::guard;
 
@@ -7,7 +7,7 @@ use crate::{
     prefix,
 };
 
-pub fn infer_type(ctx: &CompilerContext, expr: &Expression) -> Option<(PrimitiveType, bool)> {
+pub fn infer_type(ctx: &CompilerContext, expr: &Expression) -> Option<(Type, bool)> {
     match expr {
         Expression::Atom(atom) => infer_atom(ctx, &atom),
         Expression::Call {
@@ -45,31 +45,31 @@ pub fn infer_type(ctx: &CompilerContext, expr: &Expression) -> Option<(Primitive
             .flatten()
         }
         Expression::RecordInit { record, types, .. } if types.len() == 0 => {
-            Some((PrimitiveType::TypeRef(record.clone()), true))
+            Some((Type::TypeRef(record.clone()), true))
         }
         Expression::RecordInit { record, types, .. } => Some((
-            PrimitiveType::GenericTypeRef(record.clone(), types.clone()),
+            Type::GenericTypeRef(record.clone(), types.clone()),
             true,
         )),
         _ => unimplemented!("{:?}", expr),
     }
 }
 
-pub fn infer_atom(ctx: &CompilerContext, atom: &AtomKind) -> Option<(PrimitiveType, bool)> {
+pub fn infer_atom(ctx: &CompilerContext, atom: &AtomKind) -> Option<(Type, bool)> {
     match atom {
         AtomKind::Integer(_, sz) => Some((sz.clone(), true)),
-        AtomKind::Unit => Some((PrimitiveType::Unit, true)),
-        AtomKind::StringLiteral(_) => Some((PrimitiveType::Str, true)),
-        AtomKind::CharLiteral(_) => Some((PrimitiveType::Char, true)),
-        AtomKind::Bool(_) => Some((PrimitiveType::Bool, true)),
-        AtomKind::SymbolLiteral(s) => Some((PrimitiveType::Symbol(s.clone()), true)),
+        AtomKind::Unit => Some((Type::Unit, true)),
+        AtomKind::StringLiteral(_) => Some((Type::Str, true)),
+        AtomKind::CharLiteral(_) => Some((Type::Char, true)),
+        AtomKind::Bool(_) => Some((Type::Bool, true)),
+        AtomKind::SymbolLiteral(s) => Some((Type::Symbol(s.clone()), true)),
         AtomKind::Array(vals) => {
             let fst = vals.first().and_then(|v| infer_type(ctx, v));
             if !vals.iter().all(|v| infer_type(ctx, v) == fst) {
                 None
             } else if let Some((ty, constant)) = fst {
                 Some((
-                    PrimitiveType::Array {
+                    Type::Array {
                         ty: box ty,
                         len: vals.len() as u32,
                     },
