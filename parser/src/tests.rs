@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod parser_tests {
-    use crate::ast::FunctionType;
     use crate::{
-        ast::{AtomKind, BindType, Boolean, IntSize, LValue, TypeKind},
+        ast::{AtomKind, BindType, Boolean, FunctionType, IdentPath, IntSize, LValue, TypeKind},
         lexer::{token::Token, Lexer},
-        Expression, ParseError, Parser, PrimitiveType, AST,
+        Expression, ParseError, Parser, Type, AST,
     };
 
     fn tt(code: &'static str) -> Vec<Token> {
@@ -47,7 +46,7 @@ mod parser_tests {
 
     #[test]
     fn unit_function() {
-        let pt = parse_test!("exp fn test () -> ()", "Unit Function");
+        let pt = parse_test!("public fn test () -> ()", "Unit Function");
 
         assert_eq!(
             pt,
@@ -56,11 +55,11 @@ mod parser_tests {
                 attributes: vec![],
                 body: None,
                 type_names: vec![],
-                export: true,
+                public: true,
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -77,11 +76,11 @@ mod parser_tests {
                 attributes: vec![],
                 body: None,
                 type_names: vec![],
-                export: false,
+                public: false,
                 ty: FunctionType {
                     ext: true,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -103,12 +102,12 @@ fn main () -> ()
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 body: None,
-                export: false,
+                public: false,
                 type_names: vec![],
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -130,12 +129,12 @@ fn main () -> () = ()
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
-                export: false,
+                public: false,
                 body: Some(box Expression::Atom(AtomKind::Unit)),
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -157,47 +156,35 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
-                export: false,
+                public: false,
                 body: Some(box Expression::Binary(
                     box Expression::Binary(
                         box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(
-                                1,
-                                PrimitiveType::Int(IntSize::Bits32)
-                            )),
-                            String::from("+"),
+                            box Expression::Atom(AtomKind::Integer(1, Type::Int(IntSize::Bits32))),
+                            "+".to_string(),
                             box Expression::Binary(
                                 box Expression::Atom(AtomKind::Integer(
                                     2,
-                                    PrimitiveType::Int(IntSize::Bits32)
+                                    Type::Int(IntSize::Bits32)
                                 )),
-                                String::from("*"),
+                                "*".to_string(),
                                 box Expression::Atom(AtomKind::Integer(
                                     3,
-                                    PrimitiveType::Int(IntSize::Bits32)
+                                    Type::Int(IntSize::Bits32)
                                 )),
                             ),
                         ),
-                        String::from("+"),
-                        box Expression::Atom(AtomKind::Integer(
-                            4,
-                            PrimitiveType::Int(IntSize::Bits32)
-                        )),
+                        "+".to_string(),
+                        box Expression::Atom(AtomKind::Integer(4, Type::Int(IntSize::Bits32))),
                     ),
-                    String::from("||"),
+                    "||".to_string(),
                     box Expression::Binary(
                         box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(
-                                1,
-                                PrimitiveType::Int(IntSize::Bits32)
-                            )),
-                            String::from("=="),
-                            box Expression::Atom(AtomKind::Integer(
-                                2,
-                                PrimitiveType::Int(IntSize::Bits32)
-                            )),
+                            box Expression::Atom(AtomKind::Integer(1, Type::Int(IntSize::Bits32))),
+                            "==".to_string(),
+                            box Expression::Atom(AtomKind::Integer(2, Type::Int(IntSize::Bits32))),
                         ),
-                        String::from("&"),
+                        "&".to_string(),
                         box Expression::Atom(AtomKind::Unary(
                             "-".to_string(),
                             box AtomKind::Ident("foo".to_string()),
@@ -206,8 +193,8 @@ fn main () -> () = 1 + 2 * 3 + 4 || 1 == 2 & -foo
                 ),),
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -230,11 +217,11 @@ fn main () -> () = {}
                 attributes: attr(vec!["entry"]),
                 body: Some(box Expression::Block(vec![])),
                 type_names: vec![],
-                export: false,
+                public: false,
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -256,14 +243,14 @@ fn main () -> () = { () }
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
-                export: false,
+                public: false,
                 body: Some(box Expression::Block(vec![Expression::Atom(
                     AtomKind::Unit
                 )])),
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -295,11 +282,11 @@ fn main () -> () = {
                     attributes: vec![],
                     body: None,
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: true,
-                        ret_ty: box PrimitiveType::Int(IntSize::Bits32),
-                        params: vec![PrimitiveType::Str],
+                        ret_ty: box Type::Int(IntSize::Bits32),
+                        params: vec![Type::Str],
                     }
                 }),
                 AST::Expr(Expression::Function {
@@ -307,17 +294,17 @@ fn main () -> () = {
                     attributes: vec![],
                     body: None,
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
+                        ret_ty: box Type::Unit,
                         params: vec![
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name: "s".to_string(),
-                                ty: Some(box PrimitiveType::Str)
+                                ty: Some(box Type::Str)
                             },
-                            PrimitiveType::Int(IntSize::Bits32),
-                            PrimitiveType::Varargs,
+                            Type::Int(IntSize::Bits32),
+                            Type::Varargs,
                         ],
                     }
                 }),
@@ -325,36 +312,36 @@ fn main () -> () = {
                     name: "main".to_string(),
                     attributes: attr(vec!["entry"]),
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     body: Some(box Expression::Block(vec![
                         Expression::Call {
-                            name: "puts".to_string(),
+                            name: IdentPath::Local("puts".to_string()),
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::StringLiteral(
                                 "Hello World".to_string()
                             ))],
                         },
                         Expression::Call {
-                            name: "puts".to_string(),
+                            name: IdentPath::Local("puts".to_string()),
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::StringLiteral(
                                 "Hallo".to_string()
                             ))],
                         },
                         Expression::Call {
-                            name: "test".to_string(),
+                            name: IdentPath::Local("test".to_string()),
                             types: vec![],
                             args: vec![
                                 Expression::Atom(AtomKind::StringLiteral("Test".to_string())),
                                 Expression::Binary(
                                     box Expression::Atom(AtomKind::Integer(
                                         1,
-                                        PrimitiveType::Int(IntSize::Bits32)
+                                        Type::Int(IntSize::Bits32)
                                     )),
-                                    String::from("+"),
+                                    "+".to_string(),
                                     box Expression::Atom(AtomKind::Integer(
                                         2,
-                                        PrimitiveType::Int(IntSize::Bits32)
+                                        Type::Int(IntSize::Bits32)
                                     )),
                                 )
                             ]
@@ -362,8 +349,8 @@ fn main () -> () = {
                     ])),
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Unit],
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::Unit],
                     }
                 }),
             ])
@@ -391,28 +378,28 @@ fn main () -> () = {
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
-                export: false,
+                public: false,
                 body: Some(box Expression::Block(vec![
                     Expression::Decl {
-                        ty: PrimitiveType::NamedType {
+                        ty: Type::NamedType {
                             name: "var_t".to_string(),
-                            ty: Some(box PrimitiveType::Str),
+                            ty: Some(box Type::Str),
                         },
-                        value: Some(box Expression::Atom(AtomKind::StringLiteral(String::from(
-                            "Hello World"
-                        )))),
+                        value: Some(box Expression::Atom(AtomKind::StringLiteral(
+                            "Hello World".to_string()
+                        ))),
                         exterior_bind: BindType::Mutable,
                     },
                     Expression::Decl {
-                        ty: PrimitiveType::NamedType {
+                        ty: Type::NamedType {
                             name: "val_t".to_string(),
-                            ty: Some(box PrimitiveType::Str),
+                            ty: Some(box Type::Str),
                         },
                         value: None,
                         exterior_bind: BindType::Immutable,
                     },
                     Expression::Decl {
-                        ty: PrimitiveType::NamedType {
+                        ty: Type::NamedType {
                             name: "infer".to_string(),
                             ty: None,
                         },
@@ -421,15 +408,64 @@ fn main () -> () = {
                     },
                     Expression::Assign {
                         lval: LValue::Ident("var_t".to_string()),
-                        value: box Expression::Atom(AtomKind::StringLiteral(String::from(
-                            "Aloha honua"
-                        ))),
+                        value: box Expression::Atom(AtomKind::StringLiteral(
+                            "Aloha honua".to_string()
+                        )),
                     }
                 ])),
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
+                }
+            }),])
+        );
+    }
+
+    #[test]
+    fn if_else_if() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () = {
+    if true then false
+    else if false then true
+    else if !false then false
+    else false
+}
+",
+            "If Else If chain"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                type_names: vec![],
+                public: false,
+                body: Some(box Expression::Block(vec![Expression::If {
+                    cond_expr: box Expression::Atom(AtomKind::Bool(Boolean::True)),
+                    then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
+                    elseif_exprs: vec![
+                        (
+                            Expression::Atom(AtomKind::Bool(Boolean::False)),
+                            Expression::Atom(AtomKind::Bool(Boolean::True))
+                        ),
+                        (
+                            Expression::Atom(AtomKind::Unary(
+                                "!".to_string(),
+                                box AtomKind::Bool(Boolean::False)
+                            ),),
+                            Expression::Atom(AtomKind::Bool(Boolean::False))
+                        )
+                    ],
+                    else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::False))),
+                }])),
+                ty: FunctionType {
+                    ext: false,
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -460,35 +496,29 @@ fn main () -> () = {
                 name: "main".to_string(),
                 attributes: attr(vec!["entry"]),
                 type_names: vec![],
-                export: false,
+                public: false,
                 body: Some(box Expression::Block(vec![
                     Expression::If {
                         cond_expr: box Expression::Binary(
-                            box Expression::Atom(AtomKind::Integer(
-                                1,
-                                PrimitiveType::Int(IntSize::Bits32)
-                            )),
+                            box Expression::Atom(AtomKind::Integer(1, Type::Int(IntSize::Bits32))),
                             "==".to_string(),
-                            box Expression::Atom(AtomKind::Integer(
-                                2,
-                                PrimitiveType::Int(IntSize::Bits32)
-                            )),
+                            box Expression::Atom(AtomKind::Integer(2, Type::Int(IntSize::Bits32))),
                         ),
                         then_expr: box Expression::Block(vec![Expression::Call {
-                            name: "foo".to_string(),
+                            name: IdentPath::Local("foo".to_string()),
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::StringLiteral(
                                 "bar".to_string()
                             ))]
                         }]),
+                        elseif_exprs: vec![],
                         else_expr: Some(box Expression::Block(vec![Expression::Call {
-                            name: "bar".to_string(),
+                            name: IdentPath::Local("bar".to_string()),
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::StringLiteral(
                                 "foo".to_string()
                             ))]
                         }])),
-                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -500,12 +530,12 @@ fn main () -> () = {
                             )),
                         )),
                         then_expr: box Expression::Call {
-                            name: "baz".to_string(),
+                            name: IdentPath::Local("baz".to_string()),
                             types: vec![],
                             args: vec![Expression::Atom(AtomKind::Bool(Boolean::True))]
                         },
+                        elseif_exprs: vec![],
                         else_expr: None,
-                        is_expr: false,
                     },
                     Expression::If {
                         cond_expr: box Expression::Atom(AtomKind::Unary(
@@ -513,14 +543,14 @@ fn main () -> () = {
                             box AtomKind::Bool(Boolean::True)
                         )),
                         then_expr: box Expression::Atom(AtomKind::Bool(Boolean::False)),
+                        elseif_exprs: vec![],
                         else_expr: Some(box Expression::Atom(AtomKind::Bool(Boolean::True))),
-                        is_expr: false,
                     },
                 ])),
                 ty: FunctionType {
                     ext: false,
-                    ret_ty: box PrimitiveType::Unit,
-                    params: vec![PrimitiveType::Unit],
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
                 }
             }),])
         );
@@ -531,7 +561,9 @@ fn main () -> () = {
         let pt = parse_test!(
             "
 // test comment
-use \"lib.aat\"
+use lib
+use mod::lib
+use ::lib
 
 @entry
 fn main () -> ()
@@ -542,17 +574,22 @@ fn main () -> ()
         assert_eq!(
             pt,
             AST::File(vec![
-                AST::Import(String::from("lib.aat")),
+                AST::Import(IdentPath::Local("lib".to_string())),
+                AST::Import(IdentPath::Module(vec![
+                    "mod".to_string(),
+                    "lib".to_string()
+                ])),
+                AST::Import(IdentPath::Root(vec!["lib".to_string()])),
                 AST::Expr(Expression::Function {
                     name: "main".to_string(),
                     attributes: attr(vec!["entry"]),
                     body: None,
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Unit],
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::Unit],
                     }
                 }),
             ])
@@ -577,25 +614,25 @@ rec Unit()
                     "Record".to_string(),
                     None,
                     vec![
-                        PrimitiveType::NamedType {
+                        Type::NamedType {
                             name: "msg".to_string(),
-                            ty: Some(box PrimitiveType::Str),
+                            ty: Some(box Type::Str),
                         },
-                        PrimitiveType::NamedType {
+                        Type::NamedType {
                             name: "time".to_string(),
-                            ty: Some(box PrimitiveType::Int(IntSize::Bits64)),
+                            ty: Some(box Type::Int(IntSize::Bits64)),
                         }
                     ]
                 ),
                 AST::Record(
                     "Generic".to_string(),
-                    Some(vec![String::from("T")]),
-                    vec![PrimitiveType::NamedType {
+                    Some(vec!["T".to_string()]),
+                    vec![Type::NamedType {
                         name: "value".to_string(),
-                        ty: Some(box PrimitiveType::TypeRef(String::from("T"))),
+                        ty: Some(box Type::TypeRef("T".to_string())),
                     },]
                 ),
-                AST::Record("Unit".to_string(), None, vec![PrimitiveType::Unit],)
+                AST::Record("Unit".to_string(), None, vec![Type::Unit],)
             ])
         );
     }
@@ -620,29 +657,29 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                     "Record".to_string(),
                     None,
                     vec![
-                        PrimitiveType::NamedType {
+                        Type::NamedType {
                             name: "msg".to_string(),
-                            ty: Some(box PrimitiveType::Str),
+                            ty: Some(box Type::Str),
                         },
-                        PrimitiveType::NamedType {
+                        Type::NamedType {
                             name: "time".to_string(),
-                            ty: Some(box PrimitiveType::Int(IntSize::Bits32)),
+                            ty: Some(box Type::Int(IntSize::Bits32)),
                         }
                     ]
                 ),
                 AST::Record(
                     "Generic".to_string(),
-                    Some(vec![String::from("T")]),
-                    vec![PrimitiveType::NamedType {
+                    Some(vec!["T".to_string()]),
+                    vec![Type::NamedType {
                         name: "value".to_string(),
-                        ty: Some(box PrimitiveType::TypeRef(String::from("T"))),
+                        ty: Some(box Type::TypeRef("T".to_string())),
                     },]
                 ),
                 AST::Expr(Expression::Function {
                     name: "rec_test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     body: Some(box Expression::RecordInit {
                         record: "Record".to_string(),
                         types: vec![],
@@ -657,7 +694,7 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                                 name: "time".to_string(),
                                 val: box Expression::Atom(AtomKind::Integer(
                                     42,
-                                    PrimitiveType::Int(IntSize::Bits32)
+                                    Type::Int(IntSize::Bits32)
                                 ))
                             },
                             AtomKind::NamedValue {
@@ -671,18 +708,18 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                     }),
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Unit],
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::Unit],
                     }
                 }),
                 AST::Expr(Expression::Function {
                     name: "generic_test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     body: Some(box Expression::RecordInit {
                         record: "Generic".to_string(),
-                        types: vec![PrimitiveType::Str],
+                        types: vec![Type::Str],
                         values: vec![AtomKind::NamedValue {
                             name: "value".to_string(),
                             val: box Expression::Atom(AtomKind::StringLiteral("Aloha".to_string()))
@@ -690,8 +727,8 @@ fn generic_test () = Generic[str] { value: \"Aloha\" }
                     }),
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Unit],
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::Unit],
                     }
                 }),
             ])
@@ -715,39 +752,39 @@ fn generic_test[T] value: T
             AST::File(vec![
                 AST::Record(
                     "Generic".to_string(),
-                    Some(vec![String::from("T")]),
-                    vec![PrimitiveType::NamedType {
+                    Some(vec!["T".to_string()]),
+                    vec![Type::NamedType {
                         name: "value".to_string(),
-                        ty: Some(box PrimitiveType::TypeRef(String::from("T"))),
+                        ty: Some(box Type::TypeRef("T".to_string())),
                     },]
                 ),
                 AST::Expr(Expression::Function {
                     name: "generic_record_test".to_string(),
                     attributes: vec![],
-                    type_names: vec![String::from("T")],
+                    type_names: vec!["T".to_string()],
                     body: None,
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::GenericTypeRef(
-                            String::from("Generic"),
-                            vec![PrimitiveType::TypeRef(String::from("T"))]
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::GenericTypeRef(
+                            "Generic".to_string(),
+                            vec![Type::TypeRef("T".to_string())]
                         )],
                     }
                 }),
                 AST::Expr(Expression::Function {
                     name: "generic_test".to_string(),
                     attributes: vec![],
-                    type_names: vec![String::from("T")],
+                    type_names: vec!["T".to_string()],
                     body: None,
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::NamedType {
-                            name: String::from("value"),
-                            ty: Some(box PrimitiveType::TypeRef(String::from("T")))
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::NamedType {
+                            name: "value".to_string(),
+                            ty: Some(box Type::TypeRef("T".to_string()))
                         }],
                     }
                 }),
@@ -771,15 +808,15 @@ fn test () = generic_test[i32] 64
                 AST::Expr(Expression::Function {
                     name: "generic_test".to_string(),
                     attributes: vec![],
-                    type_names: vec![String::from("T")],
+                    type_names: vec!["T".to_string()],
                     body: None,
-                    export: false,
+                    public: false,
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::NamedType {
-                            name: String::from("value"),
-                            ty: Some(box PrimitiveType::TypeRef(String::from("T")))
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::NamedType {
+                            name: "value".to_string(),
+                            ty: Some(box Type::TypeRef("T".to_string()))
                         }],
                     }
                 }),
@@ -787,19 +824,19 @@ fn test () = generic_test[i32] 64
                     name: "test".to_string(),
                     attributes: vec![],
                     type_names: vec![],
-                    export: false,
+                    public: false,
                     body: Some(box Expression::Call {
-                        name: String::from("generic_test"),
-                        types: vec![PrimitiveType::Int(IntSize::Bits32)],
+                        name: IdentPath::Local("generic_test".to_string()),
+                        types: vec![Type::Int(IntSize::Bits32)],
                         args: vec![Expression::Atom(AtomKind::Integer(
                             64,
-                            PrimitiveType::Int(IntSize::Bits32)
+                            Type::Int(IntSize::Bits32)
                         ))]
                     }),
                     ty: FunctionType {
                         ext: false,
-                        ret_ty: box PrimitiveType::Unit,
-                        params: vec![PrimitiveType::Unit],
+                        ret_ty: box Type::Unit,
+                        params: vec![Type::Unit],
                     }
                 }),
             ])
@@ -824,54 +861,160 @@ type Complex = u8 | u16 | Comp @str
             pt,
             AST::File(vec![
                 AST::Typedef {
-                    name: String::from("Opaque"),
+                    name: "Opaque".to_string(),
                     type_names: None,
                     variants: None,
                 },
                 AST::Typedef {
-                    name: String::from("Generic"),
-                    type_names: Some(vec![String::from("T")]),
+                    name: "Generic".to_string(),
+                    type_names: Some(vec!["T".to_string()]),
                     variants: None,
                 },
                 AST::Typedef {
-                    name: String::from("Newtype"),
+                    name: "Newtype".to_string(),
                     type_names: None,
-                    variants: Some(vec![TypeKind::Newtype(PrimitiveType::UInt(
-                        IntSize::Bits32
-                    ))]),
+                    variants: Some(vec![TypeKind::Newtype(Type::UInt(IntSize::Bits32))]),
                 },
                 AST::Typedef {
-                    name: String::from("Option"),
-                    type_names: Some(vec![String::from("T")]),
+                    name: "Option".to_string(),
+                    type_names: Some(vec!["T".to_string()]),
                     variants: Some(vec![
-                        TypeKind::Variant(String::from("None"), None),
+                        TypeKind::Variant("None".to_string(), None),
                         TypeKind::Variant(
-                            String::from("Some"),
-                            Some(vec![PrimitiveType::TypeRef(String::from("T"))])
+                            "Some".to_string(),
+                            Some(vec![Type::TypeRef("T".to_string())])
                         )
                     ]),
                 },
                 AST::Typedef {
-                    name: String::from("Number"),
+                    name: "Number".to_string(),
                     type_names: None,
                     variants: Some(vec![
-                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits8)),
-                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits16)),
+                        TypeKind::Newtype(Type::UInt(IntSize::Bits8)),
+                        TypeKind::Newtype(Type::UInt(IntSize::Bits16)),
                     ]),
                 },
                 AST::Typedef {
-                    name: String::from("Complex"),
+                    name: "Complex".to_string(),
                     type_names: None,
                     variants: Some(vec![
-                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits8)),
-                        TypeKind::Newtype(PrimitiveType::UInt(IntSize::Bits16)),
-                        TypeKind::Variant(
-                            String::from("Comp"),
-                            Some(vec![PrimitiveType::Box(box PrimitiveType::Str)])
-                        )
+                        TypeKind::Newtype(Type::UInt(IntSize::Bits8)),
+                        TypeKind::Newtype(Type::UInt(IntSize::Bits16)),
+                        TypeKind::Variant("Comp".to_string(), Some(vec![Type::Box(box Type::Str)]))
                     ]),
                 },
             ])
+        );
+    }
+
+    #[test]
+    fn empty_module() {
+        let pt = parse_test!(
+            "
+module mod {
+
+}",
+            "Parse Empty Module"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Module("mod".to_string(), box AST::File(vec![]))])
+        );
+    }
+
+    #[test]
+    fn module() {
+        let pt = parse_test!(
+            "
+module mod {
+
+    type Opaque
+
+}",
+            "Parse Module"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Module(
+                "mod".to_string(),
+                box AST::File(vec![AST::Typedef {
+                    name: "Opaque".to_string(),
+                    type_names: None,
+                    variants: None,
+                }])
+            )])
+        );
+    }
+
+    #[test]
+    fn module_path() {
+        let pt = parse_test!(
+            "
+type Newtype = mod::test::next
+",
+            "Module Typedef tests"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Typedef {
+                name: "Newtype".to_string(),
+                type_names: None,
+                variants: Some(vec![TypeKind::Newtype(Type::Path(vec![
+                    "mod".to_string(),
+                    "test".to_string(),
+                    "next".to_string(),
+                ]))]),
+            },])
+        );
+    }
+
+    #[test]
+    fn module_call() {
+        let pt = parse_test!(
+            "
+@entry
+fn main () = {
+    func ()
+    mod::func ()
+    ::func ()
+}
+",
+            "Module call tests"
+        );
+
+        assert_eq!(
+            pt,
+            AST::File(vec![AST::Expr(Expression::Function {
+                name: "main".to_string(),
+                attributes: attr(vec!["entry"]),
+                type_names: vec![],
+                public: false,
+                body: Some(box Expression::Block(vec![
+                    Expression::Call {
+                        name: IdentPath::Local("func".to_string()),
+                        types: vec![],
+                        args: vec![Expression::Atom(AtomKind::Unit)]
+                    },
+                    Expression::Call {
+                        name: IdentPath::Module(vec!["mod".to_string(), "func".to_string()]),
+                        types: vec![],
+                        args: vec![Expression::Atom(AtomKind::Unit)]
+                    },
+                    Expression::Call {
+                        name: IdentPath::Root(vec!["func".to_string()]),
+                        types: vec![],
+                        args: vec![Expression::Atom(AtomKind::Unit)]
+                    }
+                ])),
+                ty: FunctionType {
+                    ext: false,
+                    ret_ty: box Type::Unit,
+                    params: vec![Type::Unit],
+                }
+            })])
         );
     }
 }

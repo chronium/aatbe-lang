@@ -1,16 +1,16 @@
 use crate::{
-    codegen::{builder::core, AatbeModule, ValueTypePair},
+    codegen::{builder::base, unit::CompilerContext, ValueTypePair},
     ty::{Aggregate, LLVMTyInCtx, TypeError, TypeResult},
 };
 
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 use std::{collections::HashMap, fmt};
 
 pub struct VariantType {
     pub type_name: String,
     pub variants: HashMap<String, Variant>,
-    pub discriminant_type: PrimitiveType,
+    pub discriminant_type: Type,
     pub ty: LLVMTypeRef,
 }
 
@@ -21,7 +21,7 @@ impl VariantType {
 }
 
 impl LLVMTyInCtx for VariantType {
-    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, _: &CompilerContext) -> LLVMTypeRef {
         self.ty
     }
 }
@@ -30,13 +30,13 @@ impl LLVMTyInCtx for VariantType {
 pub struct Variant {
     pub parent_name: String,
     pub name: String,
-    pub types: Option<Vec<PrimitiveType>>,
+    pub types: Option<Vec<Type>>,
     pub ty: LLVMTypeRef,
     pub discriminant: u32,
 }
 
 impl LLVMTyInCtx for Variant {
-    fn llvm_ty_in_ctx(&self, _: &AatbeModule) -> LLVMTypeRef {
+    fn llvm_ty_in_ctx(&self, _: &CompilerContext) -> LLVMTypeRef {
         self.ty
     }
 }
@@ -54,7 +54,7 @@ impl VariantType {
 impl Aggregate for Variant {
     fn gep_indexed_field(
         &self,
-        module: &AatbeModule,
+        ctx: &CompilerContext,
         index: u32,
         aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {
@@ -64,7 +64,7 @@ impl Aggregate for Variant {
                 Err(TypeError::VariantOOB(self.name.clone(), index))
             }
             Some(types) => Ok((
-                core::struct_gep(module, aggregate_ref, index + 1),
+                base::struct_gep(ctx, aggregate_ref, index + 1),
                 types[index as usize].clone(),
             )
                 .into()),
@@ -73,7 +73,7 @@ impl Aggregate for Variant {
 
     fn gep_named_field(
         &self,
-        _module: &AatbeModule,
+        _ctx: &CompilerContext,
         name: &String,
         _aggregate_ref: LLVMValueRef,
     ) -> TypeResult<ValueTypePair> {

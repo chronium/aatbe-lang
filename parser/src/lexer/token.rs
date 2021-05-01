@@ -18,7 +18,7 @@ pub enum TokenKind {
     BooleanLiteral(Boolean),
     Identifier(String),
     Keyword(Keyword),
-    Type(Type),
+    TokenType(TokenType),
     StringLiteral(String),
     CharLiteral(char),
     EOL,
@@ -60,6 +60,7 @@ pub enum Symbol {
     Dot,
     DoDot,
     GoDot,
+    Doubly,
 }
 
 impl From<Symbol> for String {
@@ -82,6 +83,7 @@ impl From<Symbol> for String {
             Symbol::And => String::from("&&"),
             Symbol::Xor => String::from("^"),
             Symbol::Modulo => String::from("%"),
+            Symbol::Doubly => String::from("::"),
             _ => panic!("Symbol to str {:?}", sym),
         }
     }
@@ -111,13 +113,14 @@ pub enum Keyword {
     Ret,
     While,
     Until,
-    Type,
+    TokenType,
     Is,
-    Exp,
+    Public,
+    Module,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum Type {
+pub enum TokenType {
     Char,
     Str,
     I8,
@@ -160,7 +163,7 @@ impl Token {
     }
     to_tok!(keyword, Keyword, Keyword);
     to_tok!(boolean, BooleanLiteral, Boolean);
-    to_tok!(r#type, Type, Type);
+    to_tok!(r#type, TokenType, TokenType);
     pub fn op(&self) -> Option<Symbol> {
         if let TokenKind::Symbol(sym) = self.kind {
             return match sym {
@@ -202,13 +205,13 @@ impl Token {
     from_tok!(int, IntLiteral, u64);
     from_tok!(float, FloatLiteral, f64);
     from_tok!(ident, Identifier, String);
-    from_tok!(ty, Type, Type);
+    from_tok!(ty, TokenType, TokenType);
     from_tok!(st, StringLiteral, String);
     from_tok!(comm, Comment, String);
     from_tok!(ch, CharLiteral, char);
 }
 
-impl FromStr for Type {
+impl FromStr for TokenType {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -249,9 +252,10 @@ impl FromStr for Keyword {
             "ret" => Ok(Self::Ret),
             "while" => Ok(Self::While),
             "until" => Ok(Self::Until),
-            "type" => Ok(Self::Type),
+            "type" => Ok(Self::TokenType),
             "is" => Ok(Self::Is),
-            "exp" => Ok(Self::Exp),
+            "public" => Ok(Self::Public),
+            "module" => Ok(Self::Module),
             _ => Err(()),
         }
     }

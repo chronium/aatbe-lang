@@ -1,8 +1,8 @@
 use crate::{
-    ast::{AtomKind, Boolean, FloatSize, IntSize, PrimitiveType},
+    ast::{AtomKind, Boolean, FloatSize, IntSize, Type},
     parser::{ParseError, ParseResult, Parser},
     token,
-    token::{Keyword, Symbol, Type},
+    token::{Keyword, Symbol, TokenType},
 };
 
 impl Parser {
@@ -21,22 +21,22 @@ impl Parser {
     }
 
     fn parse_number(&mut self) -> Option<AtomKind> {
-        fn parse_number_type(parser: &mut Parser) -> Option<PrimitiveType> {
+        fn parse_number_type(parser: &mut Parser) -> Option<Type> {
             let prev_ind = parser.index;
             let tok = parser.next();
 
             if let Some(tok) = tok {
                 match tok.ty() {
-                    Some(Type::I8) => Some(PrimitiveType::Int(IntSize::Bits8)),
-                    Some(Type::I16) => Some(PrimitiveType::Int(IntSize::Bits16)),
-                    Some(Type::I32) => Some(PrimitiveType::Int(IntSize::Bits32)),
-                    Some(Type::I64) => Some(PrimitiveType::Int(IntSize::Bits64)),
-                    Some(Type::U8) => Some(PrimitiveType::UInt(IntSize::Bits8)),
-                    Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
-                    Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
-                    Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
-                    Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
-                    Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
+                    Some(TokenType::I8) => Some(Type::Int(IntSize::Bits8)),
+                    Some(TokenType::I16) => Some(Type::Int(IntSize::Bits16)),
+                    Some(TokenType::I32) => Some(Type::Int(IntSize::Bits32)),
+                    Some(TokenType::I64) => Some(Type::Int(IntSize::Bits64)),
+                    Some(TokenType::U8) => Some(Type::UInt(IntSize::Bits8)),
+                    Some(TokenType::U16) => Some(Type::UInt(IntSize::Bits16)),
+                    Some(TokenType::U32) => Some(Type::UInt(IntSize::Bits32)),
+                    Some(TokenType::U64) => Some(Type::UInt(IntSize::Bits64)),
+                    Some(TokenType::F32) => Some(Type::Float(FloatSize::Bits32)),
+                    Some(TokenType::F64) => Some(Type::Float(FloatSize::Bits64)),
                     _ => {
                         parser.index = prev_ind;
                         None
@@ -52,11 +52,9 @@ impl Parser {
         if let Some(tok) = token {
             if let Some(val) = tok.int() {
                 return Some(match parse_number_type(self) {
-                    Some(ty @ (PrimitiveType::Int(_) | PrimitiveType::UInt(_))) => {
-                        AtomKind::Integer(val, ty)
-                    }
-                    Some(ty @ PrimitiveType::Float(_)) => AtomKind::Floating(val as f64, ty),
-                    None => AtomKind::Integer(val, PrimitiveType::Int(IntSize::Bits32)),
+                    Some(ty @ (Type::Int(_) | Type::UInt(_))) => AtomKind::Integer(val, ty),
+                    Some(ty @ Type::Float(_)) => AtomKind::Floating(val as f64, ty),
+                    None => AtomKind::Integer(val, Type::Int(IntSize::Bits32)),
                     _ => unreachable!(),
                 });
             }
@@ -66,14 +64,14 @@ impl Parser {
     }
 
     fn parse_float(&mut self) -> Option<AtomKind> {
-        fn parse_float_type(parser: &mut Parser) -> Option<PrimitiveType> {
+        fn parse_float_type(parser: &mut Parser) -> Option<Type> {
             let prev_ind = parser.index;
             let tok = parser.next();
 
             if let Some(tok) = tok {
                 match tok.ty() {
-                    Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
-                    Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
+                    Some(TokenType::F32) => Some(Type::Float(FloatSize::Bits32)),
+                    Some(TokenType::F64) => Some(Type::Float(FloatSize::Bits64)),
                     _ => {
                         parser.index = prev_ind;
                         None
@@ -91,7 +89,7 @@ impl Parser {
                 let ty = parse_float_type(self);
                 return Some(AtomKind::Floating(
                     val,
-                    ty.unwrap_or(PrimitiveType::Float(FloatSize::Bits32)),
+                    ty.unwrap_or(Type::Float(FloatSize::Bits32)),
                 ));
             }
         }

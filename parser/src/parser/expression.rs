@@ -50,7 +50,7 @@ impl Parser {
     }
 
     fn parse_funcall(&mut self) -> ParseResult<Expression> {
-        let name = ident!(required self);
+        let name = path!(required self);
 
         let types = if sym!(bool LBracket, self) {
             let types = self.parse_type_list()?;

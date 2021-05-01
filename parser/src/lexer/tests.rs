@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod lexer_tests {
     use crate::lexer::{
-        token::{Boolean, Keyword, Type},
+        token::{Boolean, Keyword, TokenType},
         Lexer, Symbol, TokenKind,
     };
     #[test]
@@ -150,7 +150,7 @@ mod lexer_tests {
     #[test]
     fn keyword_identifier() {
         let mut lexer = Lexer::new(
-            "fn extern var val if else use true false main record.test bool rec global ret while until type is exp",
+            "fn extern var val if else use true false main record.test bool rec global ret while until type is public module",
         );
         let mut tokens = lexer.lex().into_iter();
 
@@ -194,11 +194,13 @@ mod lexer_tests {
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Until));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Type));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::TokenType));
         sep!(tokens);
         assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Is));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Exp));
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Public));
+        sep!(tokens);
+        assert_eq!(tokens.next().unwrap().kw(), Some(Keyword::Module));
     }
 
     #[test]
@@ -206,26 +208,26 @@ mod lexer_tests {
         let mut lexer = Lexer::new("str i8 i16 i32 i64 u8 u16 u32 u64 f32 f64");
         let mut tokens = lexer.lex().into_iter();
 
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::Str));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::Str));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I8));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::I8));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I16));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::I16));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I32));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::I32));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::I64));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::I64));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U8));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::U8));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U16));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::U16));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U32));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::U32));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::U64));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::U64));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F32));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::F32));
         sep!(tokens);
-        assert_eq!(tokens.next().unwrap().ty(), Some(Type::F64));
+        assert_eq!(tokens.next().unwrap().ty(), Some(TokenType::F64));
     }
 }

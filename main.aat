@@ -1,9 +1,28 @@
-fn foo i: i32* -> () = {}
+use libc
+
+module std {
+    public fn println s: str = ::libc::printf "%s\n", s
+    public fn println c: char = ::libc::printf "%c\n", c
+
+    public fn println b: bool =
+        if b then println "true"
+        else println "false"
+
+    public fn println i: i8 = ::libc::printf "%hhi\n", i
+    public fn println i: i16 = ::libc::printf "%hi\n", i
+    public fn println i: i32 = ::libc::printf "%i\n", i
+    public fn println i: i64 = ::libc::printf "%li\n", i
+    public fn println u: u8 = ::libc::printf "%hhu\n", u
+    public fn println u: u16 = ::libc::printf "%hu\n", u
+    public fn println u: u32 = ::libc::printf "%u\n", u
+    public fn println u: u64 = ::libc::printf "%lu\n", u
+    public fn println f: f64 = ::libc::printf "%f\n", f
+    public fn println f: f64 = ::libc::printf "%f\n", f
+}
 
 @entry
-fn main() -> () = {
-    val i = 32
-    val fa = [i]
-
-    foo fa as [i32]
+fn main () = {
+    std::println false
+    std::println 128u16
+    std::println 'A'
 }

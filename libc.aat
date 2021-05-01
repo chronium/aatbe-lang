@@ -1,0 +1,1 @@
+public extern fn printf str, ... -> i32

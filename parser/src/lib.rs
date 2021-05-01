@@ -8,10 +8,10 @@ pub mod parser;
 mod tests;
 
 use crate::{
-    ast::{Expression, FloatSize, IntSize, PrimitiveType, TypeKind, AST},
+    ast::{Expression, FloatSize, IntSize, Type, TypeKind, AST},
     lexer::{
         token,
-        token::{Keyword, Symbol, Type},
+        token::{Keyword, Symbol, TokenType},
     },
     parser::{ParseError, ParseResult, Parser},
 };
@@ -20,19 +20,19 @@ use ast::FunctionType;
 use std::path::PathBuf;
 
 impl Parser {
-    fn parse_type(&mut self) -> ParseResult<PrimitiveType> {
+    fn parse_type(&mut self) -> ParseResult<Type> {
         let token = self.next();
         if let Some(tok) = token {
             match tok.sym() {
-                Some(Symbol::Colon) => Some(PrimitiveType::Symbol(ident!(res self)?)),
-                Some(Symbol::Unit) => Some(PrimitiveType::Unit),
-                Some(Symbol::GoDot) => Some(PrimitiveType::Varargs),
+                Some(Symbol::Colon) => Some(Type::Symbol(ident!(res self)?)),
+                Some(Symbol::Unit) => Some(Type::Unit),
+                Some(Symbol::GoDot) => Some(Type::Varargs),
                 Some(Symbol::Ampersand) => capture!(res parse_type, self)
                     .ok()
-                    .and_then(|ty| Some(PrimitiveType::Ref(box ty))),
+                    .and_then(|ty| Some(Type::Ref(box ty))),
                 Some(Symbol::At) => capture!(res parse_type, self)
                     .ok()
-                    .and_then(|ty| Some(PrimitiveType::Box(box ty))),
+                    .and_then(|ty| Some(Type::Box(box ty))),
                 Some(Symbol::LBracket) => capture!(res parse_type, self).ok().and_then(|ty| {
                     let len = if sym!(bool Comma, self) {
                         self.peek().and_then(|tok| tok.int()).map(|len| len as u32)
@@ -44,14 +44,14 @@ impl Parser {
                     }
                     sym!(RBracket, self);
                     Some(match len {
-                        None => PrimitiveType::Slice { ty: box ty },
-                        Some(len) => PrimitiveType::Array { ty: box ty, len },
+                        None => Type::Slice { ty: box ty },
+                        Some(len) => Type::Array { ty: box ty, len },
                     })
                 }),
                 _ => None,
             }
             .or_else(|| match tok.kw() {
-                Some(Keyword::Bool) => Some(PrimitiveType::Bool),
+                Some(Keyword::Bool) => Some(Type::Bool),
                 _ => None,
             })
             .or_else(|| match tok.ident() {
@@ -62,26 +62,44 @@ impl Parser {
                             .parse_type_list()
                             .expect(format!("Expected type list at {}", tyref).as_str());
                         sym!(RBracket, self);
-                        Some(PrimitiveType::GenericTypeRef(tyref, types))
+                        Some(Type::GenericTypeRef(tyref, types))
                     } else {
-                        Some(PrimitiveType::TypeRef(tyref))
+                        if matches!(self.peek_symbol(Symbol::Doubly), Some(true)) {
+                            let mut res = vec![tyref];
+                            self.next();
+                            loop {
+                                match self.peek_ident() {
+                                    None => break,
+                                    Some(ty) => {
+                                        self.next();
+                                        res.push(ty);
+                                        if matches!(self.peek_symbol(Symbol::Doubly), Some(true)) {
+                                            self.next();
+                                        }
+                                    }
+                                }
+                            }
+                            Some(Type::Path(res))
+                        } else {
+                            Some(Type::TypeRef(tyref))
+                        }
                     }
                 }
                 None => None,
             })
             .or_else(|| match tok.ty() {
-                Some(Type::Str) => Some(PrimitiveType::Str),
-                Some(Type::Char) => Some(PrimitiveType::Char),
-                Some(Type::I8) => Some(PrimitiveType::Int(IntSize::Bits8)),
-                Some(Type::I16) => Some(PrimitiveType::Int(IntSize::Bits16)),
-                Some(Type::I32) => Some(PrimitiveType::Int(IntSize::Bits32)),
-                Some(Type::I64) => Some(PrimitiveType::Int(IntSize::Bits64)),
-                Some(Type::U8) => Some(PrimitiveType::UInt(IntSize::Bits8)),
-                Some(Type::U16) => Some(PrimitiveType::UInt(IntSize::Bits16)),
-                Some(Type::U32) => Some(PrimitiveType::UInt(IntSize::Bits32)),
-                Some(Type::U64) => Some(PrimitiveType::UInt(IntSize::Bits64)),
-                Some(Type::F32) => Some(PrimitiveType::Float(FloatSize::Bits32)),
-                Some(Type::F64) => Some(PrimitiveType::Float(FloatSize::Bits64)),
+                Some(TokenType::Str) => Some(Type::Str),
+                Some(TokenType::Char) => Some(Type::Char),
+                Some(TokenType::I8) => Some(Type::Int(IntSize::Bits8)),
+                Some(TokenType::I16) => Some(Type::Int(IntSize::Bits16)),
+                Some(TokenType::I32) => Some(Type::Int(IntSize::Bits32)),
+                Some(TokenType::I64) => Some(Type::Int(IntSize::Bits64)),
+                Some(TokenType::U8) => Some(Type::UInt(IntSize::Bits8)),
+                Some(TokenType::U16) => Some(Type::UInt(IntSize::Bits16)),
+                Some(TokenType::U32) => Some(Type::UInt(IntSize::Bits32)),
+                Some(TokenType::U64) => Some(Type::UInt(IntSize::Bits64)),
+                Some(TokenType::F32) => Some(Type::Float(FloatSize::Bits32)),
+                Some(TokenType::F64) => Some(Type::Float(FloatSize::Bits64)),
                 _ => None,
             })
         } else {
@@ -90,14 +108,14 @@ impl Parser {
         .and_then(|ty| {
             let mut ty = ty;
             while sym!(bool Star, self) {
-                ty = PrimitiveType::Pointer(box ty);
+                ty = Type::Pointer(box ty);
             }
             Some(ty)
         })
         .ok_or(ParseError::ExpectedType)
     }
 
-    fn parse_named_type(&mut self) -> ParseResult<PrimitiveType> {
+    fn parse_named_type(&mut self) -> ParseResult<Type> {
         let name = ident!(required self);
         if sym!(bool Comma, self)
             | sym!(bool Arrow, self)
@@ -111,7 +129,7 @@ impl Parser {
         } else {
             None
         };
-        Ok(PrimitiveType::NamedType { name, ty })
+        Ok(Type::NamedType { name, ty })
     }
 
     fn parse_attribute(&mut self) -> Option<String> {
@@ -121,20 +139,13 @@ impl Parser {
 
     fn parse_use(&mut self) -> ParseResult<AST> {
         kw!(Use, self);
-        if let Some(path) = self.peek_str() {
-            self.next();
 
-            let pb = PathBuf::from(path);
+        let path = path!(module self);
 
-            Ok(AST::Import(
-                pb.to_str().expect("ICE parse_use pb.to_str").to_string(),
-            ))
-        } else {
-            Err(ParseError::ExpectedPath)
-        }
+        Ok(AST::Import(path))
     }
 
-    fn parse_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
+    fn parse_type_list(&mut self) -> ParseResult<Vec<Type>> {
         let mut params = vec![];
 
         loop {
@@ -151,7 +162,7 @@ impl Parser {
         Ok(params)
     }
 
-    fn parse_free_type_list(&mut self) -> ParseResult<Vec<PrimitiveType>> {
+    fn parse_free_type_list(&mut self) -> ParseResult<Vec<Type>> {
         let mut params = vec![];
 
         loop {
@@ -190,7 +201,7 @@ impl Parser {
         };
 
         let fields = if sym!(bool Unit, self) {
-            vec![PrimitiveType::Unit]
+            vec![Type::Unit]
         } else {
             sym!(required LParen, self);
             let fields = self
@@ -204,7 +215,7 @@ impl Parser {
     }
 
     fn parse_const_global(&mut self) -> ParseResult<AST> {
-        let export = kw!(bool Exp, self);
+        let export = kw!(bool Public, self);
         let cons = kw!(bool Const, self);
         let glob = kw!(bool Global, self);
 
@@ -225,7 +236,7 @@ impl Parser {
     }
 
     fn parse_typedef(&mut self) -> ParseResult<AST> {
-        kw!(Type, self);
+        kw!(TokenType, self);
         let name = ident!(res self)?;
 
         let type_names = if sym!(bool LBracket, self) {
@@ -242,7 +253,7 @@ impl Parser {
             Some(if sym!(bool Pipe, self) {
                 let mut variants = vec![];
 
-                if let PrimitiveType::TypeRef(name) = ty {
+                if let Type::TypeRef(name) = ty {
                     self.variants.push(name.clone());
                     variants.push(TypeKind::Variant(name, vars));
                 } else {
@@ -264,7 +275,7 @@ impl Parser {
                 variants
             } else {
                 if vars.is_some() {
-                    if let PrimitiveType::TypeRef(name) = ty {
+                    if let Type::TypeRef(name) = ty {
                         vec![TypeKind::Variant(name, vars)]
                     } else {
                         return Err(ParseError::ExpectedIdent);
@@ -294,7 +305,7 @@ impl Parser {
             }
         }
 
-        let export = kw!(bool Exp, self);
+        let public = kw!(bool Public, self);
         let ext = kw!(bool Extern, self);
         kw!(Fn, self);
         let name = ident!(required self);
@@ -314,7 +325,7 @@ impl Parser {
         let ret_ty = box if sym!(bool Arrow, self) {
             capture!(res parse_type, self)?
         } else {
-            PrimitiveType::Unit
+            Type::Unit
         };
 
         let mut body = None;
@@ -327,12 +338,28 @@ impl Parser {
             attributes,
             body,
             type_names,
-            export,
+            public,
             ty: FunctionType {
                 ext,
                 ret_ty,
                 params,
             },
         }))
+    }
+
+    fn parse_module(&mut self) -> ParseResult<AST> {
+        if kw!(bool Module, self) {
+            let name = ident!(required self);
+            sym!(required LCurly, self);
+            if sym!(bool RCurly, self) {
+                Ok(AST::Module(name, box AST::File(vec![])))
+            } else {
+                let res = Ok(AST::Module(name, box self.parse()?));
+                sym!(required RCurly, self);
+                res
+            }
+        } else {
+            Err(ParseError::Continue)
+        }
     }
 }

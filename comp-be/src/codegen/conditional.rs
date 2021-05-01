@@ -1,19 +1,20 @@
 use crate::{
     codegen::{
-        builder::{branch, core},
+        builder::{base, branch},
         AatbeModule, CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
     ty::LLVMTyInCtx,
 };
 
-use parser::ast::{Expression, LoopType, PrimitiveType};
+use parser::ast::{Expression, LoopType, Type};
 
 use llvm_sys_wrapper::Phi;
 
 impl AatbeModule {
     pub fn codegen_if(&mut self, if_expr: &Expression) -> Option<ValueTypePair> {
-        match if_expr {
+        todo!("{:?}", if_expr);
+        /*match if_expr {
             Expression::If {
                 cond_expr,
                 then_expr,
@@ -31,9 +32,9 @@ impl AatbeModule {
                 self.start_scope();
                 let cond = self.codegen_expr(cond_expr)?;
 
-                if *cond.prim().inner() != PrimitiveType::Bool {
+                if *cond.prim().inner() != Type::Bool {
                     self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
+                        expected_ty: Type::Bool.fmt(),
                         found_ty: cond.prim().fmt(),
                         value: cond_expr.fmt(),
                     });
@@ -68,7 +69,7 @@ impl AatbeModule {
 
                 if let Some(then_val) = then_val {
                     let ty = then_val.prim().clone();
-                    if ty != PrimitiveType::Unit {
+                    if ty != Type::Unit {
                         if else_val.is_some() {
                             let phi = Phi::new(
                                 self.llvm_builder_ref().as_ref(),
@@ -101,11 +102,12 @@ impl AatbeModule {
                 }
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
     pub fn codegen_basic_loop(&mut self, basic_loop: &Expression) -> Option<ValueTypePair> {
-        match basic_loop {
+        todo!()
+        /*match basic_loop {
             Expression::Loop {
                 loop_type,
                 cond_expr,
@@ -119,9 +121,9 @@ impl AatbeModule {
                 core::pos_at_end(self, cond_bb);
                 let cond = self.codegen_expr(cond_expr)?;
 
-                if *cond.prim().inner() != PrimitiveType::Bool {
+                if *cond.prim().inner() != Type::Bool {
                     self.add_error(CompileError::ExpectedType {
-                        expected_ty: PrimitiveType::Bool.fmt(),
+                        expected_ty: Type::Bool.fmt(),
                         found_ty: cond.prim().fmt(),
                         value: cond_expr.fmt(),
                     });
@@ -141,6 +143,6 @@ impl AatbeModule {
                 None
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 }

@@ -1,27 +1,43 @@
 use crate::{
     codegen::builder::cast,
     codegen::{
-        builder::core,
+        builder::base,
         mangle_v1::NameMangler,
-        unit::{Mutability, Slot},
-        AatbeModule, CompileError, ValueTypePair,
+        unit::{
+            cg::expr, CompilerContext, FunctionVisibility, Message, Mutability, Query,
+            QueryResponse, Slot,
+        },
+        CompileError, ValueTypePair,
     },
     fmt::AatbeFmt,
+    prefix,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::Function;
-use std::collections::HashMap;
-use std::ops::Deref;
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    ops::Deref,
+    rc::{Rc, Weak},
+};
 
-use parser::ast::{Expression, FunctionType, PrimitiveType};
+use guard::guard;
+
+use parser::ast::{Expression, FunctionType, Type};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct Func {
     ty: FunctionType,
-    name: String,
+    ident: String,
     inner: Function,
+}
+
+impl std::fmt::Debug for Func {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", AatbeFmt::fmt(self))
+    }
 }
 
 impl AatbeFmt for &Func {
@@ -33,28 +49,28 @@ impl AatbeFmt for &Func {
             } else {
                 String::default()
             },
-            self.name,
+            self.ident,
             (&self.ty).fmt()
         )
     }
 }
 
-pub type FuncTyMap = Vec<Func>;
-pub type FunctionMap = HashMap<String, FuncTyMap>;
+pub type FuncTyMap = Vec<Rc<Func>>;
+pub type FunctionMap = HashMap<String, RefCell<FuncTyMap>>;
 
-pub fn find_func<'a>(map: &'a FuncTyMap, ty: &FunctionType) -> Option<&'a Func> {
-    for func in map {
+pub fn find_func<'a>(map: RefCell<FuncTyMap>, ty: &FunctionType) -> Option<Weak<Func>> {
+    for func in map.borrow().iter() {
         if &func.ty == ty {
-            return Some(func);
+            return Some(Rc::downgrade(func));
         }
     }
     return None;
 }
 
-pub fn find_function<'a>(map: &'a FuncTyMap, args: &Vec<PrimitiveType>) -> Option<&'a Func> {
-    for func in map {
+pub fn find_function<'a>(map: RefCell<FuncTyMap>, args: &Vec<Type>) -> Option<Weak<Func>> {
+    for func in map.borrow().iter() {
         if func.accepts(args) {
-            return Some(func);
+            return Some(Rc::downgrade(func));
         }
     }
     return None;
@@ -68,15 +84,15 @@ impl Deref for Func {
 }
 
 impl Func {
-    pub fn new(ty: FunctionType, name: String, inner: Function) -> Self {
-        Self { ty, name, inner }
+    pub fn new(ty: FunctionType, ident: String, inner: Function) -> Self {
+        Self { ty, ident, inner }
     }
 
     pub fn ty(&self) -> &FunctionType {
         &self.ty
     }
 
-    pub fn ret_ty(&self) -> &PrimitiveType {
+    pub fn ret_ty(&self) -> &Type {
         &self.ty.ret_ty
     }
 
@@ -85,28 +101,28 @@ impl Func {
     }
 
     pub fn bb(&self, name: String) -> LLVMBasicBlockRef {
-        self.inner.append_basic_block(name.as_ref())
+        self.inner.append_basic_block(&name)
     }
 
-    fn accepts(&self, args: &Vec<PrimitiveType>) -> bool {
+    fn accepts(&self, args: &Vec<Type>) -> bool {
         let params = &self.ty.params;
 
-        if params.len() != args.len() && !(params.contains(&PrimitiveType::Varargs)) {
+        if params.len() != args.len() && !(params.contains(&Type::Varargs)) {
             return false;
         };
 
         for (i, param) in params.iter().enumerate() {
-            if matches!(param, PrimitiveType::Varargs) {
+            if matches!(param, Type::Varargs) {
                 continue;
             }
             let arg = &args[i];
 
             match param {
-                PrimitiveType::Varargs => continue,
-                PrimitiveType::NamedType {
+                Type::Varargs => continue,
+                Type::NamedType {
                     ty: Some(box t), ..
                 } if t != arg => return false,
-                PrimitiveType::NamedType {
+                Type::NamedType {
                     ty: Some(box t), ..
                 } if t == arg => return true,
                 t if t != arg => return false,
@@ -118,32 +134,41 @@ impl Func {
     }
 }
 
-pub fn declare_function(module: &mut AatbeModule, function: &Expression) {
+pub fn declare_function(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             ty,
-            export,
+            public,
             type_names,
             name,
             ..
         } if type_names.len() == 0 => {
-            let func = module
-                .llvm_module_ref()
-                .get_or_add_function(&function.mangle(module), ty.llvm_ty_in_ctx(module));
+            let func = ctx
+                .llvm_module
+                .get_or_add_function(&function.mangle(&ctx), ty.llvm_ty_in_ctx(&ctx));
 
+            let name = prefix!(ctx, name.clone()).join("::");
             let func = Func::new(ty.clone(), name.clone(), func);
-            if !export {
-                module.add_function(&name, func);
+            if !public {
+                ctx.dispatch(Message::DeclareFunction(
+                    name,
+                    func,
+                    FunctionVisibility::Local,
+                ));
             } else {
-                module.export_function(&name, func);
+                ctx.dispatch(Message::DeclareFunction(
+                    name,
+                    func,
+                    FunctionVisibility::Public,
+                ));
             }
         }
         _ => unimplemented!("{:?}", function),
     }
 }
 
-pub fn declare_and_compile_function(
-    module: &mut AatbeModule,
+pub fn declare_and_compile_function<'ctx>(
+    ctx: &CompilerContext,
     func: &Expression,
 ) -> Option<ValueTypePair> {
     match func {
@@ -154,53 +179,46 @@ pub fn declare_and_compile_function(
                 ext: true,
             } => None,
             _ => {
-                let builder = Builder::new_in_context(module.llvm_context_ref().as_ref());
-                module.start_scope_with_function((name.clone(), ty.clone()), builder);
-                codegen_function(module, func);
-                inject_function_in_scope(module, func);
-                let ret_val = module.codegen_expr(
-                    &body
-                        .as_ref()
-                        .expect("ICE Function with no body but not external"),
-                );
+                ctx.in_function_scope((name.clone(), ty.clone()), |ctx| {
+                    inject_function_in_scope(&ctx, func);
 
-                // TODO: Typechecks
-                if has_return_type(ty) {
-                    if let Some(val) = ret_val {
-                        match val.prim() {
-                            PrimitiveType::VariantType(variant) => {
-                                let parent_ty = module
-                                    .typectx_ref()
-                                    .get_parent_for_variant(variant)
-                                    .expect("ICE: Variant without parent");
-                                let ret_ty = *ty.ret_ty.clone();
-                                core::ret(
-                                    module,
-                                    (cast::child_to_parent(module, val, parent_ty), ret_ty).into(),
-                                )
-                            }
-                            _ => core::ret(module, val),
-                        };
+                    codegen_function(&ctx, func);
+
+                    let ret_val = expr::cg(
+                        &body
+                            .as_ref()
+                            .expect("ICE Function with no body but not external"),
+                        &ctx,
+                    );
+
+                    if !has_return_type(ty) {
+                        base::ret_void(&ctx);
                     } else {
-                        module.add_error(CompileError::ExpectedReturn {
-                            function: func.clone().fmt(),
-                            ty: ty.fmt(),
-                        })
+                        if let Some(val) = ret_val {
+                            match val.prim() {
+                                Type::VariantType(_variant) => todo!(),
+                                _ => base::ret(&ctx, val),
+                            };
+                        } else {
+                            // TODO: Error
+                            /*
+                                module.add_error(CompileError::ExpectedReturn {
+                                function: func.clone().fmt(),
+                                ty: ty.fmt(),
+                            }) */
+                            todo!()
+                        }
                     }
-                } else {
-                    core::ret_void(module);
-                }
 
-                module.exit_scope();
-
-                None
+                    None
+                })
             }
         },
         _ => unreachable!(),
     }
 }
 
-pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
+pub fn codegen_function(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             attributes,
@@ -208,24 +226,27 @@ pub fn codegen_function(module: &mut AatbeModule, function: &Expression) {
             ty,
             ..
         } => {
-            let func = module.get_func((name.clone(), ty.clone())).unwrap();
+            let func = ctx.query(Query::Function((prefix!(ctx).join("::"), ty)));
+
+            guard!(let QueryResponse::Function(Some(func)) = func else { unreachable!(); });
+            let func = func.upgrade().expect("ICE");
 
             if !attributes.is_empty() {
                 for attr in attributes {
                     match attr.to_lowercase().as_ref() {
-                        "entry" => core::pos_at_end(module, func.bb("entry".to_string())),
+                        "entry" => base::pos_at_end(ctx, func.bb("entry".to_string())),
                         _ => panic!("Cannot decorate function with {}", name),
                     };
                 }
             } else {
-                core::pos_at_end(module, func.bb(String::default()));
+                base::pos_at_end(ctx, func.bb(String::default()));
             }
         }
         _ => unreachable!(),
     }
 }
 
-pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression) {
+pub fn inject_function_in_scope(ctx: &CompilerContext, function: &Expression) {
     match function {
         Expression::Function {
             name: fname, ty, ..
@@ -241,21 +262,17 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                     for (pos, ty) in params
                         .into_iter()
                         .filter(|ty| match ty {
-                            PrimitiveType::Symbol(_) => false,
+                            Type::Symbol(_) => false,
                             _ => true,
                         })
                         .enumerate()
                     {
                         match ty {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name,
-                                ty:
-                                    Some(
-                                        box PrimitiveType::TypeRef(_)
-                                        | box PrimitiveType::Array { .. },
-                                    ),
+                                ty: Some(box Type::TypeRef(_) | box Type::Array { .. }),
                             } => {
-                                let arg = module
+                                /*let arg = module
                                     .get_func((fname.clone(), fty.clone()))
                                     .expect("Compiler borked. Functions borked")
                                     .get_param(pos as u32);
@@ -265,9 +282,9 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                     name,
                                     Slot::Variable {
                                         mutable: match ty {
-                                            PrimitiveType::Array { .. }
-                                            | PrimitiveType::NamedType {
-                                                ty: Some(box PrimitiveType::Array { .. }),
+                                            Type::Array { .. }
+                                            | Type::NamedType {
+                                                ty: Some(box Type::Array { .. }),
                                                 ..
                                             } => Mutability::Mutable,
                                             _ => Mutability::Immutable,
@@ -276,24 +293,24 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
                                         ty: ty.clone(),
                                         value: ptr,
                                     },
-                                );
+                                );*/
+                                todo!()
                             }
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name,
-                                ty: Some(box PrimitiveType::Ref(ty) | ty),
+                                ty: Some(box Type::Ref(ty) | ty),
                             } => {
-                                module.push_in_scope(
-                                    name,
-                                    Slot::FunctionArgument(
-                                        module
-                                            .get_func((fname.clone(), fty.clone()))
-                                            .expect("Compiler borked. Functions borked")
-                                            .get_param(pos as u32),
-                                        *ty.clone(),
-                                    ),
-                                );
+                                guard!(let QueryResponse::Function(Some(func)) =
+                                    ctx.query(Query::Function((prefix!(ctx).join("::"), fty)))
+                                else { unreachable!() });
+
+                                let func = func.upgrade().expect("ICE");
+                                ctx.dispatch(Message::PushInScope(
+                                    name.clone(),
+                                    Slot::FunctionArgument(func.get_param(pos as u32), *ty.clone()),
+                                ))
                             }
-                            PrimitiveType::Unit | PrimitiveType::Symbol(_) => {}
+                            Type::Unit | Type::Symbol(_) => {}
                             _ => unimplemented!("{:?}", ty),
                         }
                     }
@@ -307,7 +324,7 @@ pub fn inject_function_in_scope(module: &mut AatbeModule, function: &Expression)
 
 fn has_return_type(func: &FunctionType) -> bool {
     match func.ret_ty {
-        box PrimitiveType::Unit => false,
+        box Type::Unit => false,
         _ => true,
     }
 }

@@ -1,4 +1,4 @@
-use crate::ast::{AtomKind, Expression, FunctionType, LValue, PrimitiveType, TypeKind, AST};
+use crate::ast::{AtomKind, Expression, FunctionType, LValue, Type, TypeKind, AST};
 
 pub fn type_resolution(variants: &Vec<String>, ast: &AST) -> AST {
     match ast {
@@ -27,6 +27,7 @@ pub fn type_resolution(variants: &Vec<String>, ast: &AST) -> AST {
             types.clone(),
             fields.iter().map(|f| resolve_prim(variants, f)).collect(),
         ),
+        AST::Module(_, _) => ast.clone(),
         _ => panic!("unhandled {:?}", ast),
     }
 }
@@ -50,12 +51,12 @@ fn resolve_expr(variants: &Vec<String>, ast: &Expression) -> Expression {
             name,
             body,
             ty,
-            export,
+            public,
         } => Expression::Function {
             name: name.clone(),
             attributes: attributes.clone(),
             type_names: type_names.clone(),
-            export: *export,
+            public: *public,
             ty: resolve_function_ty(variants, ty),
             body: body.as_ref().map(|body| box resolve_expr(variants, &body)),
         },
@@ -93,17 +94,29 @@ fn resolve_expr(variants: &Vec<String>, ast: &Expression) -> Expression {
             value: box resolve_expr(variants, value),
         },
         Expression::If {
-            is_expr,
             cond_expr: box cond_expr,
+            elseif_exprs,
             else_expr,
             then_expr: box then_expr,
         } => Expression::If {
-            is_expr: *is_expr,
             cond_expr: box resolve_expr(variants, cond_expr),
+            elseif_exprs: elseif_exprs
+                .iter()
+                .map(|(cond, block)| (resolve_expr(variants, cond), resolve_expr(variants, block)))
+                .collect(),
             else_expr: else_expr
                 .as_ref()
                 .map(|box ex| box resolve_expr(variants, &ex)),
             then_expr: box resolve_expr(variants, then_expr),
+        },
+        Expression::Loop {
+            loop_type,
+            cond_expr: box cond_expr,
+            body: box body,
+        } => Expression::Loop {
+            cond_expr: box resolve_expr(variants, cond_expr),
+            body: box resolve_expr(variants, body),
+            loop_type: *loop_type,
         },
         Expression::RecordInit {
             record,
@@ -179,16 +192,16 @@ fn resolve_function_ty(variants: &Vec<String>, ty: &FunctionType) -> FunctionTyp
     }
 }
 
-fn resolve_prim(variants: &Vec<String>, ty: &PrimitiveType) -> PrimitiveType {
+fn resolve_prim(variants: &Vec<String>, ty: &Type) -> Type {
     match ty {
-        PrimitiveType::TypeRef(ty) => {
+        Type::TypeRef(ty) => {
             if variants.contains(ty) {
-                PrimitiveType::VariantType(ty.clone())
+                Type::VariantType(ty.clone())
             } else {
-                PrimitiveType::TypeRef(ty.clone())
+                Type::TypeRef(ty.clone())
             }
         }
-        PrimitiveType::NamedType { name, ty } => PrimitiveType::NamedType {
+        Type::NamedType { name, ty } => Type::NamedType {
             name: name.clone(),
             ty: ty.as_ref().map(|ty| box resolve_prim(variants, &ty)),
         },

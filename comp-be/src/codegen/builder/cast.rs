@@ -1,132 +1,113 @@
 use crate::{
-    codegen::{AatbeModule, ValueTypePair},
+    codegen::{unit::CompilerContext, ValueTypePair},
     ty::variant::VariantType,
     ty::LLVMTyInCtx,
 };
 use llvm_sys_wrapper::{LLVMTypeRef, LLVMValueRef};
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 
-pub fn zext(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn zext(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_zext(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder.build_zext(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn trunc(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn trunc(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_trunc(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder.build_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn ftrunc(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftrunc(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_fp_trunc(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_fp_trunc(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn itop(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn itop(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_int_to_ptr(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_int_to_ptr(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn ptoi(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ptoi(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_ptr_to_int(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_ptr_to_int(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn stof(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn stof(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_si_to_fp(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_si_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn utof(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn utof(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_ui_to_fp(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_ui_to_fp(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn ftos(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftos(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_fp_to_si(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_fp_to_si(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn ftou(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn ftou(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_fp_to_ui(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder
+            .build_fp_to_ui(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
-pub fn bitcast(module: &AatbeModule, val: ValueTypePair, ty: &dyn LLVMTyInCtx) -> LLVMValueRef {
-    module
-        .llvm_builder_ref()
-        .build_bitcast(*val, ty.llvm_ty_in_ctx(module))
+pub fn bitcast(ctx: &CompilerContext, val: ValueTypePair, ty: &dyn LLVMTyInCtx) -> LLVMValueRef {
+    ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx))
 }
 
-pub fn bitcast_ty(module: &AatbeModule, val: ValueTypePair, ty: &PrimitiveType) -> ValueTypePair {
+pub fn bitcast_ty(ctx: &CompilerContext, val: ValueTypePair, ty: &Type) -> ValueTypePair {
     (
-        module
-            .llvm_builder_ref()
-            .build_bitcast(*val, ty.llvm_ty_in_ctx(module)),
+        ctx.llvm_builder.build_bitcast(*val, ty.llvm_ty_in_ctx(ctx)),
         ty,
     )
         .into()
 }
 
 pub fn child_to_parent(
-    module: &AatbeModule,
+    ctx: &CompilerContext,
     val: ValueTypePair,
     parent: &VariantType,
 ) -> LLVMValueRef {
-    module.llvm_builder_ref().build_load(
-        module.llvm_builder_ref().build_bitcast(
-            *val,
-            module
-                .llvm_context_ref()
-                .PointerType(parent.llvm_ty_in_ctx(module)),
-        ),
-    )
+    ctx.llvm_builder.build_load(ctx.llvm_builder.build_bitcast(
+        *val,
+        ctx.llvm_context.PointerType(parent.llvm_ty_in_ctx(ctx)),
+    ))
 }
 
-pub fn bitcast_to(module: &AatbeModule, val: LLVMValueRef, ty: LLVMTypeRef) -> LLVMValueRef {
-    module.llvm_builder_ref().build_bitcast(val, ty)
+pub fn bitcast_to(ctx: &CompilerContext, val: LLVMValueRef, ty: LLVMTypeRef) -> LLVMValueRef {
+    ctx.llvm_builder.build_bitcast(val, ty)
 }

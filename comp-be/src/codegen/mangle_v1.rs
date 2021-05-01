@@ -1,13 +1,14 @@
-use crate::codegen::AatbeModule;
+use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, Type};
 
-use parser::ast::{AtomKind, Expression, FloatSize, FunctionType, IntSize, PrimitiveType};
+use super::unit::CompilerContext;
+use crate::prefix;
 
 pub trait NameMangler {
-    fn mangle(&self, module: &AatbeModule) -> String;
+    fn mangle(&self, ctx: &CompilerContext) -> String;
 }
 
 impl NameMangler for Expression {
-    fn mangle(&self, module: &AatbeModule) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
             Expression::Function {
                 name,
@@ -15,7 +16,7 @@ impl NameMangler for Expression {
                 body: _,
                 attributes,
                 type_names,
-                export: _,
+                public: _,
             } => match ty {
                 FunctionType {
                     ext: false,
@@ -25,13 +26,25 @@ impl NameMangler for Expression {
                     if !attributes.contains(&String::from("entry")) {
                         format!(
                             "{}{}{}",
-                            name,
+                            {
+                                let n = prefix!(ctx, name.clone());
+                                if n.len() == 1 {
+                                    n[0].clone()
+                                } else {
+                                    format!(
+                                        "_{}",
+                                        n.iter().fold(String::default(), |prev, curr| {
+                                            format!("{}{}{}", prev, curr.len(), curr)
+                                        })
+                                    )
+                                }
+                            },
                             if type_names.len() > 0 {
                                 format!("G{}", type_names.len())
                             } else {
                                 String::default()
                             },
-                            ty.mangle(module),
+                            ty.mangle(ctx),
                         )
                     } else {
                         name.clone()
@@ -49,27 +62,27 @@ impl NameMangler for Expression {
 }
 
 impl NameMangler for AtomKind {
-    fn mangle(&self, module: &AatbeModule) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
             AtomKind::StringLiteral(lit) => format!("{:?}", lit),
             AtomKind::Ident(id) => id.clone(),
             AtomKind::SymbolLiteral(sym) => format!(":{}", sym),
-            AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle(module)),
-            AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle(module)),
+            AtomKind::Floating(val, ty) => format!("{:?}{}", val, ty.mangle(ctx)),
+            AtomKind::Integer(val, ty) => format!("{:?}{}", val, ty.mangle(ctx)),
             AtomKind::Access(arr) => arr.join("."),
-            AtomKind::Parenthesized(val) => format!("{}", val.mangle(module)),
-            AtomKind::Ref(val) => format!("&{}", val.mangle(module)),
+            AtomKind::Parenthesized(val) => format!("{}", val.mangle(ctx)),
+            AtomKind::Ref(val) => format!("&{}", val.mangle(ctx)),
             _ => panic!("ICE mangle {:?}", self),
         }
     }
 }
 
 impl NameMangler for FunctionType {
-    fn mangle(&self, module: &AatbeModule) -> String {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         let params_mangled = self
             .params
             .iter()
-            .map(|p| p.mangle(module))
+            .map(|p| p.mangle(ctx))
             .filter(|m| !m.is_empty())
             .collect::<Vec<_>>()
             .join(".");
@@ -81,44 +94,44 @@ impl NameMangler for FunctionType {
     }
 }
 
-impl NameMangler for PrimitiveType {
-    fn mangle(&self, module: &AatbeModule) -> String {
+impl NameMangler for Type {
+    fn mangle(&self, ctx: &CompilerContext) -> String {
         match self {
-            PrimitiveType::TypeRef(ty) => ty.clone(),
-            PrimitiveType::Function(ty) => ty.mangle(module),
+            Type::TypeRef(ty) => ty.clone(),
+            Type::Function(ty) => ty.mangle(ctx),
             // TODO: Handle Unit
-            PrimitiveType::Unit => String::new(),
-            PrimitiveType::NamedType {
+            Type::Unit => String::new(),
+            Type::NamedType {
                 name: _,
                 ty: Some(ty),
-            } => ty.mangle(module),
-            PrimitiveType::Str => String::from("s"),
-            PrimitiveType::Int(size) => format!("i{}", size.mangle(module)),
-            PrimitiveType::UInt(size) => format!("u{}", size.mangle(module)),
-            PrimitiveType::Float(size) => format!("f{}", size.mangle(module)),
-            PrimitiveType::Bool => String::from("b"),
-            PrimitiveType::Char => String::from("c"),
-            PrimitiveType::Ref(r) => format!("R{}", r.mangle(module)),
-            PrimitiveType::Pointer(p) => format!("P{}", p.mangle(module)),
-            PrimitiveType::Array { ty, len: _ } => format!("A{}", ty.mangle(module)),
-            PrimitiveType::Slice { ty } => format!("S{}", ty.mangle(module)),
-            PrimitiveType::Symbol(name) => format!("N{}", name),
-            PrimitiveType::VariantType(name) => format!(
+            } => ty.mangle(ctx),
+            Type::Str => String::from("s"),
+            Type::Int(size) => format!("i{}", size.mangle(ctx)),
+            Type::UInt(size) => format!("u{}", size.mangle(ctx)),
+            Type::Float(size) => format!("f{}", size.mangle(ctx)),
+            Type::Bool => String::from("b"),
+            Type::Char => String::from("c"),
+            Type::Ref(r) => format!("R{}", r.mangle(ctx)),
+            Type::Pointer(p) => format!("P{}", p.mangle(ctx)),
+            Type::Array { ty, len: _ } => format!("A{}", ty.mangle(ctx)),
+            Type::Slice { ty } => format!("S{}", ty.mangle(ctx)),
+            Type::Symbol(name) => format!("N{}", name),
+            /*Type::VariantType(name) => format!(
                 "{}",
                 module
                     .typectx_ref()
                     .get_variant(name)
                     .expect(format!("Cannot find variant {}", name).as_str())
                     .parent_name
-            ),
-            PrimitiveType::Variant { parent, .. } => parent.clone(),
+            ),*/
+            Type::Variant { parent, .. } => parent.clone(),
             _ => panic!("Cannot name mangle {:?}", self),
         }
     }
 }
 
 impl NameMangler for IntSize {
-    fn mangle(&self, _module: &AatbeModule) -> String {
+    fn mangle(&self, _ctx: &CompilerContext) -> String {
         match self {
             IntSize::Bits8 => String::from("8"),
             IntSize::Bits16 => String::from("16"),
@@ -129,7 +142,7 @@ impl NameMangler for IntSize {
 }
 
 impl NameMangler for FloatSize {
-    fn mangle(&self, _module: &AatbeModule) -> String {
+    fn mangle(&self, _ctx: &CompilerContext) -> String {
         match self {
             FloatSize::Bits32 => String::from("32"),
             FloatSize::Bits64 => String::from("64"),

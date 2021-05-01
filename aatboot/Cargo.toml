@@ -12,7 +12,7 @@ comp-be = { path="../comp-be" }
 parser = { path="../parser" }
 
 clap = "^2.33.0"
-simplelog = "^0.7.4"
+flexi_logger = "0.17.1"
 log = "^0.4"
 glob = "^0.3.0"
 llvm-sys = "100.0"

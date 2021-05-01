@@ -9,13 +9,11 @@ use std::{
 
 use crate::{
     codegen::{
-        codegen_binary,
         comp_unit::CompilationUnit,
-        expr::const_expr::{const_atom, fold_constant},
         mangle_v1::NameMangler,
         unit::{
             alloc_variable, declare_and_compile_function, declare_function, init_record,
-            store_value, Slot,
+            store_value, CompilerUnit, Slot,
         },
         CompileError, Scope, ValueTypePair,
     },
@@ -29,12 +27,12 @@ use crate::{
 };
 
 use super::{
-    builder::{cast, core},
+    builder::{base, cast},
     unit::function::{find_func, FuncTyMap},
 };
 use parser::{
     ast,
-    ast::{AtomKind, Expression, FunctionType, PrimitiveType, AST},
+    ast::{AtomKind, Expression, FunctionType, Type, AST},
 };
 
 pub type InternalFunc = dyn Fn(&mut AatbeModule, &Vec<Expression>, String) -> Option<ValueTypePair>;
@@ -44,8 +42,6 @@ pub struct AatbeModule {
     llvm_context: Context,
     llvm_module: Module,
     name: String,
-    scope_stack: Vec<Scope>,
-    typectx: TypeContext,
     compile_errors: Vec<CompileError>,
     record_templates: HashMap<String, AST>,
     function_templates: HashMap<String, Expression>,
@@ -59,7 +55,7 @@ impl AatbeModule {
         LLVM::initialize();
 
         let llvm_context = Context::new();
-        let llvm_module = llvm_context.create_module(name.as_ref());
+        let llvm_module = llvm_context.create_module(&name);
 
         let mut internal_functions: HashMap<String, Rc<InternalFunc>> = HashMap::new();
         internal_functions.insert(String::from("len"), Rc::new(AatbeModule::internal_len));
@@ -69,11 +65,9 @@ impl AatbeModule {
         compilation_units.insert(name.clone(), base_cu);
 
         Self {
-            llvm_context,
             llvm_module,
+            llvm_context,
             name,
-            scope_stack: vec![],
-            typectx: TypeContext::new(),
             compile_errors: vec![],
             record_templates: HashMap::new(),
             function_templates: HashMap::new(),
@@ -85,10 +79,6 @@ impl AatbeModule {
 
     pub fn compile(&mut self) {
         let base_cu = self.compilation_units.get(&self.name).unwrap();
-        self.scope_stack.push(Scope::with_builder_and_fdir(
-            Builder::new_in_context(self.llvm_context.as_ref()),
-            base_cu.path().clone(),
-        ));
         let main_ast = self
             .compilation_units
             .get(&self.name.clone())
@@ -96,13 +86,23 @@ impl AatbeModule {
             .ast()
             .clone();
 
-        self.decl_pass(&main_ast);
-        self.codegen_pass(&main_ast);
+        let root_builder = Builder::new_in_context(self.llvm_context.as_ref());
 
-        self.exit_scope();
+        CompilerUnit::new(
+            base_cu.path().clone(),
+            &self.llvm_context,
+            &self.llvm_module,
+        )
+        .in_root_scope(|root_module| {
+            root_module.decl(&root_builder, &main_ast);
+            //root_module.generics(&root_builder, &main_ast);
+            //root_module.decl(&root_builder, &main_ast);
+            //root_module.codegen(&root_builder, &main_ast);
+            root_module.codegen(&root_builder, &main_ast);
+        });
     }
 
-    pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
+    /*pub fn parse_import(&mut self, module: &String) -> io::Result<CompilationUnit> {
         let mut path = self.fdir().with_file_name(module);
         path.set_extension("aat");
         if !path.exists() {
@@ -115,24 +115,11 @@ impl AatbeModule {
         }
 
         CompilationUnit::new(path)
-    }
+    }*/
 
-    pub fn decl_expr(&mut self, expr: &Expression) {
-        match expr {
-            Expression::Function { type_names, .. } if type_names.len() == 0 => {
-                declare_function(self, expr)
-            }
-            Expression::Function { name, .. } => {
-                if !self.function_templates.contains_key(name) {
-                    self.function_templates.insert(name.clone(), expr.clone());
-                }
-            }
-            _ => panic!("Top level {:?} unsupported", expr),
-        }
-    }
+    pub fn decl_pass(&mut self, root_module: &mut CompilerUnit) {
 
-    pub fn decl_pass(&mut self, ast: &AST) {
-        match ast {
+        /*match ast {
             AST::Constant { .. } | AST::Global { .. } => {}
             AST::Record(name, None, types) => {
                 let rec = Record::new(self, name, types);
@@ -184,13 +171,17 @@ impl AatbeModule {
             AST::Typedef {
                 type_names: None, ..
             } => self.gen_newtype_ctors(&ast),
+            AST::Module(name, ast) => {
+                self.root_module.push(name, ModuleUnit::new(ast.clone()));
+            }
             _ => panic!("cannot decl {:?}", ast),
-        }
+        }*/
     }
 
     #[allow(unused_unsafe)]
     pub fn gen_variants(&mut self, typedef: &AST) {
-        match typedef {
+        todo!()
+        /*match typedef {
             AST::Typedef {
                 name,
                 type_names: None,
@@ -200,7 +191,7 @@ impl AatbeModule {
                 let smallest = variants.iter().map(|vari| vari.smallest()).min().unwrap();
                 let size = max_size / smallest;
 
-                let smallest_ty = PrimitiveType::UInt(smallest.into());
+                let smallest_ty = Type::UInt(smallest.into());
 
                 let td_struct = self.llvm_context_ref().StructTypeNamed(name.as_ref());
                 td_struct.set_body(
@@ -316,7 +307,7 @@ impl AatbeModule {
                                             });
                                         }
                                         Some(
-                                            (variant, PrimitiveType::VariantType(name.clone()))
+                                            (variant, Type::VariantType(name.clone()))
                                                 .into(),
                                         )
                                     } else {
@@ -329,11 +320,12 @@ impl AatbeModule {
                     });
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
     pub fn gen_newtype_ctors(&mut self, typedef: &AST) {
-        match typedef {
+        todo!()
+        /*match typedef {
             AST::Typedef {
                 name,
                 type_names: None,
@@ -363,7 +355,7 @@ impl AatbeModule {
                                         val,
                                         module.llvm_builder_ref().build_struct_gep(res, 0),
                                     );
-                                    Some((res, PrimitiveType::Newtype(name.clone())).into())
+                                    Some((res, Type::Newtype(name.clone())).into())
                                 }),
                             );
                             self.typectx.push_type(
@@ -381,10 +373,10 @@ impl AatbeModule {
                 }
             }
             _ => unreachable!(),
-        }
+        }*/
     }
 
-    pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
+    /*pub fn get_interior_pointer(&self, parts: Vec<String>) -> Option<ValueTypePair> {
         match parts.as_slice() {
             [field, access @ ..] => {
                 let agg_bind = self.get_var(&field)?;
@@ -400,7 +392,7 @@ impl AatbeModule {
             }
             [] => unreachable!(),
         }
-    }
+    }*/
 
     pub fn has_ret(&self, expr: &Expression) -> bool {
         match expr {
@@ -413,7 +405,8 @@ impl AatbeModule {
     }
 
     pub fn codegen_expr(&mut self, expr: &Expression) -> Option<ValueTypePair> {
-        match expr {
+        todo!()
+        /*match expr {
             Expression::Ret(box _value) => {
                 let val = self.codegen_expr(_value)?;
 
@@ -423,12 +416,12 @@ impl AatbeModule {
                     .ret_ty()
                     .clone();
 
-                if let PrimitiveType::VariantType(ty) = val.prim() {
+                if let Type::VariantType(ty) = val.prim() {
                     let parent_ty = self
                         .typectx_ref()
                         .get_parent_for_variant(ty)
                         .expect("ICE: Variant without parent");
-                    if let PrimitiveType::TypeRef(name) = &func_ret {
+                    if let Type::TypeRef(name) = &func_ret {
                         if &parent_ty.type_name == name {
                             Some(core::ret(
                                 self,
@@ -458,7 +451,7 @@ impl AatbeModule {
                     Some(core::ret(self, val))
                 }
             }
-            Expression::RecordInit {
+            /*Expression::RecordInit {
                 record,
                 types,
                 values,
@@ -500,11 +493,11 @@ impl AatbeModule {
                 Some(
                     (
                         self.llvm_builder_ref().build_load(rec),
-                        PrimitiveType::TypeRef(record.clone()),
+                        Type::TypeRef(record.clone()),
                     )
                         .into(),
                 )
-            }
+            }*/
             Expression::Assign { lval, value } => match value {
                 box Expression::RecordInit {
                     record,
@@ -521,44 +514,7 @@ impl AatbeModule {
                 ),
                 _ => store_value(self, lval, value),
             },
-            Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: Some(ty) },
-                value: _,
-                exterior_bind: _,
-            } => {
-                alloc_variable(self, expr);
-
-                Some(
-                    (
-                        self.get_var(name).expect("Compiler crapped out.").into(),
-                        *ty.clone(),
-                    )
-                        .into(),
-                )
-            }
-            Expression::Decl {
-                ty: PrimitiveType::NamedType { name, ty: None },
-                value,
-                exterior_bind: _,
-            } => {
-                if value.is_none() {
-                    self.add_error(CompileError::ExpectedValue { name: name.clone() });
-                    return None;
-                }
-
-                alloc_variable(self, expr).and_then(|ty| {
-                    Some(
-                        (
-                            self.get_var(name).expect("Compiler crapped out.").into(),
-                            ty,
-                        )
-                            .into(),
-                    )
-                })
-            }
             Expression::Loop { .. } => self.codegen_basic_loop(expr),
-            Expression::If { .. } => self.codegen_if(expr),
-            Expression::Call { .. } => self.codegen_call(expr),
             Expression::Binary(lhs, op, rhs) => match codegen_binary(self, op, lhs, rhs) {
                 Ok(val) => Some(val),
                 Err(_) => {
@@ -569,14 +525,6 @@ impl AatbeModule {
                     });
                     None
                 }
-            },
-            Expression::Function { ty, type_names, .. } if type_names.len() == 0 => match ty {
-                FunctionType {
-                    ret_ty: _,
-                    params: _,
-                    ext: true,
-                } => None,
-                _ => declare_and_compile_function(self, expr),
             },
             Expression::Function { .. } => None,
             Expression::Block(nodes) if nodes.len() == 0 => None,
@@ -592,20 +540,20 @@ impl AatbeModule {
 
                 ret
             }
-            Expression::Atom(atom) => self.codegen_atom(atom),
-            _ => panic!(format!("ICE: codegen_expr {:?}", expr)),
-        }
+            _ => panic!("ICE: codegen_expr {:?}", expr),
+        }*/
     }
 
-    pub fn codegen_pass(&mut self, ast: &AST) -> Option<LLVMValueRef> {
-        match ast {
+    pub fn codegen_pass(&mut self, root_module: &mut CompilerUnit) -> Option<LLVMValueRef> {
+        todo!()
+        /*match ast {
             AST::Constant {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: Type::NamedType { name, ty: _ },
                 export,
                 value: _,
             }
             | AST::Global {
-                ty: PrimitiveType::NamedType { name, ty: _ },
+                ty: Type::NamedType { name, ty: _ },
                 export,
                 value: _,
             } => {
@@ -626,24 +574,21 @@ impl AatbeModule {
             AST::Import(..) => None,
             AST::Record(..) => None,
             AST::Typedef { .. } => None,
+            AST::Module(name, _) => self
+                .root_module
+                .get_mut(name)
+                .expect(format!("ICE: Module codegen but none found").as_str())
+                .codegen(),
             _ => panic!("cannot codegen {:?}", ast),
-        }
+        }*/
     }
 
-    pub fn start_scope(&mut self) {
+    /*pub fn start_scope(&mut self) {
         self.scope_stack.push(Scope::new());
     }
 
     pub fn start_scope_with_name(&mut self, name: &String) {
         self.scope_stack.push(Scope::with_name(name));
-    }
-
-    pub fn start_scope_with_function(&mut self, func: (String, FunctionType), builder: Builder) {
-        self.scope_stack.push(Scope::with_function(func, builder));
-    }
-
-    pub fn exit_scope(&mut self) {
-        self.scope_stack.pop();
     }
 
     pub fn get_in_scope(&self, name: &String) -> Option<&Slot> {
@@ -682,19 +627,7 @@ impl AatbeModule {
             .add_symbol(name, unit);
     }
 
-    pub fn add_function(&mut self, name: &String, func: Func) {
-        self.scope_stack
-            .last_mut()
-            .expect("Compiler broke. Scope stack is corrupted.")
-            .add_function(name, func);
-    }
 
-    pub fn export_function(&mut self, name: &String, func: Func) {
-        self.scope_stack
-            .first_mut()
-            .expect("Compiler broke. Scope stack is corrupted.")
-            .add_function(name, func);
-    }
 
     pub fn export_global(&mut self, name: &String, unit: Slot) {
         self.scope_stack
@@ -703,33 +636,15 @@ impl AatbeModule {
             .add_symbol(name, unit);
     }
 
-    pub fn get_func_group(&self, name: &String) -> Option<&FuncTyMap> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(func) = scope.func_by_name(name) {
-                return Some(func);
-            }
-        }
-
-        None
-    }
-
-    pub fn get_func(&self, func: (String, FunctionType)) -> Option<&Func> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(group) = scope.func_by_name(&func.0) {
-                return find_func(group, &func.1);
-            }
-        }
-
-        None
-    }
+    */
 
     pub fn propagate_generic_body(
         body: Box<Expression>,
-        type_map: HashMap<&String, PrimitiveType>,
+        type_map: HashMap<&String, Type>,
     ) -> Box<Expression> {
         box match body {
             box Expression::Atom(atom) => Expression::Atom(match atom {
-                AtomKind::Cast(box atom, PrimitiveType::TypeRef(ty_ref)) => {
+                AtomKind::Cast(box atom, Type::TypeRef(ty_ref)) => {
                     AtomKind::Cast(box atom, type_map[&ty_ref].clone())
                 }
                 AtomKind::Parenthesized(expr) => AtomKind::Parenthesized(
@@ -745,8 +660,8 @@ impl AatbeModule {
         &mut self,
         template: &String,
         name: &String,
-        types: Vec<PrimitiveType>,
-    ) -> Option<Vec<PrimitiveType>> {
+        types: Vec<Type>,
+    ) -> Option<Vec<Type>> {
         self.get_params(name).or_else(|| {
             self.propagate_types_in_function(template, types.clone())
                 .and_then(|ty| match self.function_templates.get(template) {
@@ -774,7 +689,7 @@ impl AatbeModule {
                                 params
                                     .iter()
                                     .map(|p| match p {
-                                        PrimitiveType::NamedType {
+                                        Type::NamedType {
                                             ty: Some(box ty), ..
                                         } => ty.clone(),
                                         _ => p.clone(),
@@ -791,7 +706,7 @@ impl AatbeModule {
         })
     }*/
 
-    pub fn is_extern(&self, func: (String, FunctionType)) -> bool {
+    /*pub fn is_extern(&self, func: (String, FunctionType)) -> bool {
         let val_ref = self.get_func(func);
         if let Some(func) = val_ref {
             func.is_extern()
@@ -812,12 +727,12 @@ impl AatbeModule {
             Some(Slot::FunctionArgument(_arg, _)) => val_ref,
             _ => None,
         }
-    }
+    }*/
 
-    pub fn propagate_types_in_function(
+    /*pub fn propagate_types_in_function(
         &mut self,
         name: &String,
-        types: Vec<PrimitiveType>,
+        types: Vec<Type>,
     ) -> Option<FunctionType> {
         if types.len() == 0 {
             return None;
@@ -854,11 +769,11 @@ impl AatbeModule {
             let type_map = type_names.iter().zip(types).collect::<HashMap<_, _>>();
 
             let ret_ty = match ret_ty {
-                box PrimitiveType::TypeRef(ty) => {
+                box Type::TypeRef(ty) => {
                     if type_map.contains_key(ty) {
                         box type_map[ty].clone()
                     } else {
-                        box PrimitiveType::TypeRef(ty.clone())
+                        box Type::TypeRef(ty.clone())
                     }
                 }
                 _ => ret_ty.clone(),
@@ -866,26 +781,26 @@ impl AatbeModule {
             let params = params
                 .iter()
                 .map(|param| match param {
-                    PrimitiveType::TypeRef(ty) => {
+                    Type::TypeRef(ty) => {
                         if type_map.contains_key(ty) {
                             type_map[ty].clone()
                         } else {
-                            PrimitiveType::TypeRef(ty.clone())
+                            Type::TypeRef(ty.clone())
                         }
                     }
-                    PrimitiveType::NamedType {
+                    Type::NamedType {
                         name,
-                        ty: Some(box PrimitiveType::TypeRef(ty)),
+                        ty: Some(box Type::TypeRef(ty)),
                     } => {
                         if type_map.contains_key(ty) {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name: name.clone(),
                                 ty: Some(box type_map[ty].clone()),
                             }
                         } else {
-                            PrimitiveType::NamedType {
+                            Type::NamedType {
                                 name: name.clone(),
-                                ty: Some(box PrimitiveType::TypeRef(ty.clone())),
+                                ty: Some(box Type::TypeRef(ty.clone())),
                             }
                         }
                     }
@@ -923,10 +838,11 @@ impl AatbeModule {
         } else {
             None
         }
-    }
+    }*/
 
-    pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<PrimitiveType>) {
-        let rec = format!(
+    pub fn propagate_types_in_record(&mut self, name: &String, types: Vec<Type>) {
+        todo!()
+        /*let rec = format!(
             "{}[{}]",
             name,
             types
@@ -949,10 +865,10 @@ impl AatbeModule {
             let fields = fields
                 .iter()
                 .map(|field| {
-                    if let PrimitiveType::NamedType { name, ty } = field {
-                        if let Some(box PrimitiveType::TypeRef(ty_name)) = ty {
+                    if let Type::NamedType { name, ty } = field {
+                        if let Some(box Type::TypeRef(ty_name)) = ty {
                             if type_map.contains_key(ty_name) {
-                                PrimitiveType::NamedType {
+                                Type::NamedType {
                                     name: name.clone(),
                                     ty: Some(box type_map[ty_name].clone()),
                                 }
@@ -973,10 +889,10 @@ impl AatbeModule {
                 .get_record(&rec)
                 .unwrap()
                 .set_body(self, &fields);
-        }
+        }*/
     }
 
-    pub fn fdir(&self) -> PathBuf {
+    /*pub fn fdir(&self) -> PathBuf {
         for scope in self.scope_stack.iter().rev() {
             if let Some(fdir) = scope.fdir() {
                 return fdir.clone();
@@ -985,29 +901,24 @@ impl AatbeModule {
         unreachable!();
     }
 
-    pub fn llvm_builder_ref(&self) -> &Builder {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(builder) = scope.builder() {
-                return builder;
-            }
-        }
-        unreachable!();
-    }
+    */
 
     pub fn llvm_module_ref(&self) -> &Module {
         &self.llvm_module
     }
 
     pub fn llvm_context_ref(&self) -> &Context {
-        &self.llvm_context
+        todo!() //&self.llvm_context
     }
 
     pub fn typectx_ref(&self) -> &TypeContext {
-        &self.typectx
+        todo!()
+        //&self.typectx
     }
 
     pub fn typectx_ref_mut(&mut self) -> &mut TypeContext {
-        &mut self.typectx
+        todo!()
+        //&mut self.typectx
     }
 
     pub fn add_error(&mut self, error: CompileError) {

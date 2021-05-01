@@ -1,0 +1,20 @@
+module libc {
+    public extern fn printf str, ... -> i32
+}
+
+@entry
+fn main () = {
+    var i = 1
+
+    until i > 128 {
+        if i % 3 == 0 && i % 5 == 0 then
+            libc::printf "FizzBuzz\n"
+        else if i % 3 == 0 then
+            libc::printf "Fizz\n"
+        else if i % 5 == 0 then
+            libc::printf "Buzz\n"
+        else libc::printf "%d\n", i
+
+        i = i + 1
+    }
+}

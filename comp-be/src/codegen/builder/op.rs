@@ -1,23 +1,23 @@
-use crate::codegen::{AatbeModule, ValueTypePair};
+use crate::codegen::{unit::CompilerContext, ValueTypePair};
 use llvm_sys_wrapper::LLVMValueRef;
-use parser::ast::PrimitiveType;
+use parser::ast::Type;
 
-pub fn neg(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (module.llvm_builder_ref().build_neg(*val), val.prim()).into()
+pub fn neg(ctx: &CompilerContext, val: ValueTypePair) -> ValueTypePair {
+    (ctx.llvm_builder.build_neg(*val), val.prim()).into()
 }
 
-pub fn fneg(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (module.llvm_builder_ref().build_fneg(*val), val.prim()).into()
+pub fn fneg(ctx: &CompilerContext, val: ValueTypePair) -> ValueTypePair {
+    (ctx.llvm_builder.build_fneg(*val), val.prim()).into()
 }
 
-pub fn not(module: &AatbeModule, val: ValueTypePair) -> ValueTypePair {
-    (module.llvm_builder_ref().build_not(*val), val.prim()).into()
+pub fn not(ctx: &CompilerContext, val: ValueTypePair) -> ValueTypePair {
+    (ctx.llvm_builder.build_not(*val), val.prim()).into()
 }
 
-pub fn ieq(module: &AatbeModule, lhs: LLVMValueRef, rhs: LLVMValueRef) -> ValueTypePair {
+pub fn ieq(ctx: &CompilerContext, lhs: LLVMValueRef, rhs: LLVMValueRef) -> ValueTypePair {
     (
-        module.llvm_builder_ref().build_icmp_eq(lhs, rhs),
-        PrimitiveType::Bool,
+        ctx.llvm_builder.build_icmp_eq(lhs, rhs),
+        Type::Bool,
     )
         .into()
 }

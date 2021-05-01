@@ -1,7 +1,6 @@
 use crate::{
     codegen::{
-        builder::{cast, core, op, ty},
-        expr::const_expr::const_atom,
+        builder::{base, cast, op, ty},
         unit::Slot,
         AatbeModule, CompileError, ValueTypePair,
     },
@@ -10,75 +9,76 @@ use crate::{
 };
 
 use super::builder::value;
-use parser::ast::{AtomKind, Boolean, FloatSize, PrimitiveType};
+use parser::ast::{AtomKind, Boolean, FloatSize, Type};
 
 impl AatbeModule {
     pub fn codegen_atom(&mut self, atom: &AtomKind) -> Option<ValueTypePair> {
-        match atom {
+        todo!()
+        /*match atom {
             AtomKind::Cast(box val, ty) => {
                 let val = self.codegen_atom(val)?;
                 match (val.prim(), ty) {
-                    (PrimitiveType::Char, PrimitiveType::UInt(_))
-                    | (PrimitiveType::Char, PrimitiveType::Int(_)) => {
+                    (Type::Char, Type::UInt(_))
+                    | (Type::Char, Type::Int(_)) => {
                         return Some(cast::zext(self, val, ty))
                     }
-                    (PrimitiveType::Int(from), PrimitiveType::Int(to)) if from < to => {
+                    (Type::Int(from), Type::Int(to)) if from < to => {
                         return Some(cast::zext(self, val, ty))
                     }
-                    (PrimitiveType::Int(from), PrimitiveType::Int(to)) if from > to => {
+                    (Type::Int(from), Type::Int(to)) if from > to => {
                         return Some(cast::trunc(self, val, ty))
                     }
-                    (PrimitiveType::Int(from), PrimitiveType::UInt(to)) if from < to => {
+                    (Type::Int(from), Type::UInt(to)) if from < to => {
                         return Some(cast::zext(self, val, ty))
                     }
-                    (PrimitiveType::Int(from), PrimitiveType::UInt(to)) if from > to => {
+                    (Type::Int(from), Type::UInt(to)) if from > to => {
                         return Some(cast::trunc(self, val, ty))
                     }
-                    (PrimitiveType::UInt(from), PrimitiveType::Int(to)) if from < to => {
+                    (Type::UInt(from), Type::Int(to)) if from < to => {
                         return Some(cast::zext(self, val, ty))
                     }
-                    (PrimitiveType::UInt(from), PrimitiveType::Int(to)) if from > to => {
+                    (Type::UInt(from), Type::Int(to)) if from > to => {
                         return Some(cast::trunc(self, val, ty))
                     }
-                    (PrimitiveType::Int(_), PrimitiveType::Pointer(_)) => {
+                    (Type::Int(_), Type::Pointer(_)) => {
                         return Some(cast::itop(self, val, ty))
                     }
-                    (PrimitiveType::Pointer(_), PrimitiveType::Int(_)) => {
+                    (Type::Pointer(_), Type::Int(_)) => {
                         return Some(cast::ptoi(self, val, ty))
                     }
-                    (PrimitiveType::Str, PrimitiveType::Int(_)) => {
+                    (Type::Str, Type::Int(_)) => {
                         return Some(cast::ptoi(self, val, ty))
                     }
-                    (PrimitiveType::Str, PrimitiveType::UInt(_)) => {
+                    (Type::Str, Type::UInt(_)) => {
                         return Some(cast::ptoi(self, val, ty))
                     }
-                    (PrimitiveType::UInt(_), PrimitiveType::Pointer(_)) => {
+                    (Type::UInt(_), Type::Pointer(_)) => {
                         return Some(cast::itop(self, val, ty))
                     }
-                    (PrimitiveType::Pointer(_), PrimitiveType::UInt(_)) => {
+                    (Type::Pointer(_), Type::UInt(_)) => {
                         return Some(cast::ptoi(self, val, ty))
                     }
-                    (PrimitiveType::Int(_), PrimitiveType::Str) => {
+                    (Type::Int(_), Type::Str) => {
                         return Some(cast::itop(self, val, ty))
                     }
-                    (PrimitiveType::Int(_), PrimitiveType::Float(_)) => {
+                    (Type::Int(_), Type::Float(_)) => {
                         return Some(cast::stof(self, val, ty))
                     }
-                    (PrimitiveType::UInt(_), PrimitiveType::Float(_)) => {
+                    (Type::UInt(_), Type::Float(_)) => {
                         return Some(cast::utof(self, val, ty))
                     }
                     (
-                        PrimitiveType::Float(FloatSize::Bits64),
-                        PrimitiveType::Float(FloatSize::Bits32),
+                        Type::Float(FloatSize::Bits64),
+                        Type::Float(FloatSize::Bits32),
                     ) => return Some(cast::ftrunc(self, val, ty)),
-                    (PrimitiveType::Float(_), PrimitiveType::Int(_)) => {
+                    (Type::Float(_), Type::Int(_)) => {
                         return Some(cast::ftos(self, val, ty))
                     }
-                    (PrimitiveType::Float(_), PrimitiveType::UInt(_)) => {
+                    (Type::Float(_), Type::UInt(_)) => {
                         return Some(cast::ftou(self, val, ty))
                     }
                     // FIXME: Huge hack to work for llvm test
-                    (PrimitiveType::Array { .. }, PrimitiveType::Slice { ty: box ty }) => {
+                    (Type::Array { .. }, Type::Slice { ty: box ty }) => {
                         return Some(
                             (
                                 self.llvm_builder_ref().build_inbounds_gep(
@@ -88,7 +88,7 @@ impl AatbeModule {
                                         self.llvm_context_ref().SInt32(0),
                                     ],
                                 ),
-                                PrimitiveType::Pointer(box ty.clone()),
+                                Type::Pointer(box ty.clone()),
                             )
                                 .into(),
                         )
@@ -109,15 +109,15 @@ impl AatbeModule {
 
                 let mut arr = false;
                 let ty = match ty {
-                    TypeKind::Primitive(PrimitiveType::Str) => {
-                        TypeKind::Primitive(PrimitiveType::Char)
+                    TypeKind::Primitive(Type::Str) => {
+                        TypeKind::Primitive(Type::Char)
                     }
-                    TypeKind::Primitive(PrimitiveType::Array { ty: box ty, .. }) => {
+                    TypeKind::Primitive(Type::Array { ty: box ty, .. }) => {
                         arr = true;
 
                         TypeKind::Primitive(ty)
                     }
-                    TypeKind::Primitive(PrimitiveType::Slice { ty: box ty }) => {
+                    TypeKind::Primitive(Type::Slice { ty: box ty }) => {
                         arr = true;
 
                         TypeKind::Primitive(ty)
@@ -141,7 +141,7 @@ impl AatbeModule {
             AtomKind::Deref(path) => {
                 let acc = self.codegen_atom(path)?;
                 match acc.prim() {
-                    PrimitiveType::Newtype(name) => {
+                    Type::Newtype(name) => {
                         let val = core::struct_gep(self, *acc, 0);
                         match self.typectx_ref().get_type(name) {
                             Some(TypeKind::Typedef(TypedefKind::Newtype(_, ty))) => {
@@ -150,7 +150,7 @@ impl AatbeModule {
                             _ => unimplemented!(),
                         }
                     }
-                    PrimitiveType::Box(box ty) => Some(core::load_prim(self, *acc, ty.clone())),
+                    Type::Box(box ty) => Some(core::load_prim(self, *acc, ty.clone())),
                     _ => unimplemented!(),
                 }
             }
@@ -165,31 +165,15 @@ impl AatbeModule {
                         .into(),
                 )
             }
-            AtomKind::Ident(name) => {
-                let var_ref = self.get_var(name)?;
-
-                match var_ref.var_ty() {
-                    ty @ PrimitiveType::Newtype(_) | ty @ PrimitiveType::VariantType(_) => {
-                        let val: ValueTypePair = var_ref.into();
-                        Some((*val, ty).into())
-                    }
-                    ty => Some((var_ref.load_var(self.llvm_builder_ref()), ty).into()),
-                }
-            }
             AtomKind::Ref(box AtomKind::Ident(name)) => {
                 let var_ref = self.get_var(name)?;
 
                 let var: ValueTypePair = var_ref.into();
 
-                Some((*var, PrimitiveType::Ref(box var.prim().clone())).into())
-            }
-            atom @ (AtomKind::StringLiteral(_) | AtomKind::CharLiteral(_)) => {
-                const_atom(self, atom)
+                Some((*var, Type::Ref(box var.prim().clone())).into())
             }
             atom @ AtomKind::Integer(_, _) => const_atom(self, atom),
             atom @ AtomKind::Floating(_, _) => const_atom(self, atom),
-            AtomKind::Bool(Boolean::True) => Some(value::t(self)),
-            AtomKind::Bool(Boolean::False) => Some(value::f(self)),
             AtomKind::Expr(expr) => self.codegen_expr(expr),
             AtomKind::Unit => None,
             AtomKind::Unary(op, val) if op == &String::from("-") => {
@@ -198,8 +182,8 @@ impl AatbeModule {
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
 
                 match value.prim() {
-                    PrimitiveType::Int(_) | PrimitiveType::UInt(_) => Some(op::neg(self, value)),
-                    PrimitiveType::Float(_) => Some(op::fneg(self, value)),
+                    Type::Int(_) | Type::UInt(_) => Some(op::neg(self, value)),
+                    Type::Float(_) => Some(op::fneg(self, value)),
                     _ => {
                         self.add_error(CompileError::UnaryMismatch {
                             op: op.clone(),
@@ -216,10 +200,10 @@ impl AatbeModule {
                     .codegen_atom(val)
                     .expect(format!("ICE Cannot negate {:?}", val).as_str());
 
-                if value.prim() != &PrimitiveType::Bool {
+                if value.prim() != &Type::Bool {
                     self.add_error(CompileError::UnaryMismatch {
                         op: op.clone(),
-                        expected_ty: PrimitiveType::Bool.fmt(),
+                        expected_ty: Type::Bool.fmt(),
                         found_ty: value.prim().fmt(),
                         value: val.fmt(),
                     })
@@ -228,7 +212,7 @@ impl AatbeModule {
                 Some(op::not(self, value))
             }
             AtomKind::Parenthesized(expr) => self.codegen_expr(expr),
-            AtomKind::Array(exprs) => {
+            /*AtomKind::Array(exprs) => {
                 let values = exprs
                     .iter()
                     .filter_map(|expr| self.codegen_expr(expr))
@@ -266,18 +250,18 @@ impl AatbeModule {
                             &mut values.iter().map(|val| **val).collect::<Vec<_>>(),
                             len,
                         ),
-                        PrimitiveType::Array {
+                        Type::Array {
                             ty: box fst.clone(),
                             len: len,
                         },
                     )
                         .into(),
                 )
-            }
+            }*/
             AtomKind::Is(box val, ty) => match val {
                 AtomKind::Ident(val) => {
                     let var_ref = self.get_var(val).expect("").clone();
-                    if let PrimitiveType::TypeRef(var) = var_ref.var_ty().clone() {
+                    if let Type::TypeRef(var) = var_ref.var_ty().clone() {
                         let variant_ty = self.typectx_ref().get_typedef(&var);
                         match variant_ty {
                             Ok(TypedefKind::VariantType(variant)) if variant.has_variant(ty) => {
@@ -305,7 +289,7 @@ impl AatbeModule {
                                     Slot::Variable {
                                         mutable: var_ref.get_mutability().clone(),
                                         name: val.clone(),
-                                        ty: PrimitiveType::Variant {
+                                        ty: Type::Variant {
                                             parent: var,
                                             variant: ty.clone(),
                                         },
@@ -327,6 +311,6 @@ impl AatbeModule {
                 ),
             },
             _ => panic!("ICE codegen_atom {:?}", atom),
-        }
+        }*/
     }
 }

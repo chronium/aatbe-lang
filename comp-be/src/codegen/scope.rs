@@ -1,14 +1,11 @@
-use crate::codegen::{
-    unit::{
-        function::{find_func, Func, FuncTyMap, FunctionMap},
-        Slot,
-    },
-    AatbeModule,
+use crate::codegen::unit::{
+    function::{find_func, Func, FuncTyMap, FunctionMap},
+    CompilerUnit, Slot,
 };
-use std::{collections::HashMap, path::PathBuf};
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
 use llvm_sys_wrapper::{Builder, LLVMBasicBlockRef};
-use parser::ast::FunctionType;
+use parser::ast::{Expression, FunctionType};
 
 #[derive(Debug)]
 pub struct Scope {
@@ -16,8 +13,8 @@ pub struct Scope {
     functions: FunctionMap,
     name: String,
     function: Option<(String, FunctionType)>,
-    builder: Option<Builder>,
     fdir: Option<PathBuf>,
+    function_templates: HashMap<String, Expression>,
 }
 
 impl Scope {
@@ -27,8 +24,8 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: None,
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
     pub fn with_name(name: &String) -> Self {
@@ -37,8 +34,8 @@ impl Scope {
             functions: HashMap::new(),
             name: name.clone(),
             function: None,
-            builder: None,
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
     pub fn with_builder(builder: Builder) -> Self {
@@ -47,41 +44,59 @@ impl Scope {
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(builder),
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
-    pub fn with_builder_and_fdir(builder: Builder, fdir: PathBuf) -> Self {
+    pub fn with_fdir<P>(fdir: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
         Self {
             refs: HashMap::new(),
             functions: HashMap::new(),
             name: String::default(),
             function: None,
-            builder: Some(builder),
-            fdir: Some(fdir),
+            fdir: Some(fdir.into()),
+            function_templates: HashMap::new(),
         }
     }
-    pub fn with_function(func: (String, FunctionType), builder: Builder) -> Self {
+    pub fn with_function(func: (String, FunctionType)) -> Self {
         Self {
             refs: HashMap::new(),
             functions: HashMap::new(),
             name: func.0.clone(),
             function: Some(func),
-            builder: Some(builder),
             fdir: None,
+            function_templates: HashMap::new(),
         }
     }
 
-    pub fn func_by_name(&self, name: &String) -> Option<&FuncTyMap> {
-        self.functions.get(name)
+    pub fn func_by_name(&self, name: &String) -> Option<RefCell<FuncTyMap>> {
+        self.functions.get(name).cloned()
+    }
+
+    pub fn get_template(&self, name: &String) -> Option<Expression> {
+        self.function_templates.get(name).map(|expr| expr.clone())
+    }
+
+    pub fn add_template(&mut self, name: String, func: Expression) {
+        if self.function_templates.insert(name, func).is_some() {
+            // TODO: Error
+            panic!("ERROR");
+        }
     }
 
     pub fn add_function(&mut self, name: &String, func: Func) {
         if !self.functions.contains_key(name) {
-            self.functions.insert(name.clone(), vec![]);
+            self.functions.insert(name.clone(), RefCell::new(vec![]));
         }
 
-        self.functions.get_mut(name).unwrap().push(func);
+        self.functions
+            .get_mut(name)
+            .unwrap()
+            .get_mut()
+            .push(Rc::new(func));
     }
 
     pub fn find_symbol(&self, name: &String) -> Option<&Slot> {
@@ -93,20 +108,23 @@ impl Scope {
     pub fn function(&self) -> Option<(String, FunctionType)> {
         self.function.clone()
     }
-    pub fn builder(&self) -> Option<&Builder> {
-        self.builder.as_ref()
-    }
     pub fn fdir(&self) -> Option<PathBuf> {
         self.fdir.clone()
     }
 
-    pub fn bb(&self, module: &AatbeModule, name: &String) -> Option<LLVMBasicBlockRef> {
-        let func = self.function.as_ref()?;
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn bb(&self, module: &CompilerUnit, name: &str) -> Option<LLVMBasicBlockRef> {
+        let (_, ty) = self.function.as_ref()?;
 
         Some(
-            find_func(module.get_func_group(&func.0)?, &func.1)
+            find_func(module.get_func_group(&module.get_prefix().join("::"))?, &ty)
                 .unwrap()
-                .append_basic_block(name.as_ref()),
+                .upgrade()
+                .expect("ICE")
+                .append_basic_block(name),
         )
     }
 }
